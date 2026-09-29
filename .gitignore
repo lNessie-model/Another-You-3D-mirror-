@@ -6,3 +6,5 @@ app/src/main/assets/*.jpg
 local.properties
 *.log
 tools/
+__pycache__/
+*.pyc

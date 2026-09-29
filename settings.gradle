@@ -7,3 +7,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = 'MirrorDeviceLab'
 include ':app'
+include ':launcher'
