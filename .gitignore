@@ -1,0 +1,8 @@
+.gradle/
+**/build/
+maven/
+app/src/main/assets/*.task
+app/src/main/assets/*.jpg
+local.properties
+*.log
+tools/
