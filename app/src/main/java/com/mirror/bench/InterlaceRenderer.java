@@ -1,0 +1,240 @@
+package com.mirror.bench;
+
+import android.opengl.GLES30;
+import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
+import android.os.SystemClock;
+import android.util.Log;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
+/** Generic RGB subpixel interlacing. Diagnostic constants are NOT panel calibration. */
+final class InterlaceRenderer implements GLSurfaceView.Renderer {
+    private final int views;
+    private final float scale;
+    private final boolean scene;
+    private int width,height,viewWidth,viewHeight,texture,fbo,depth,sceneProgram,interlaceProgram;
+    private int vertexBuffer,indexBuffer,indexCount;
+    private String gpu="";
+    private volatile String error="";
+    private volatile float[] expressions={0,0,0,0};
+    private boolean measuring;
+    private long firstFrame,lastFrame;
+    private final ArrayList<Double> workMs=new ArrayList<>(),intervalMs=new ArrayList<>();
+    private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
+
+    InterlaceRenderer(int views,float scale,boolean scene) {
+        if(views<1||views>16||scale<=0||scale>1) throw new IllegalArgumentException("Invalid view configuration");
+        this.views=views; this.scale=scale; this.scene=scene;
+    }
+    void setExpressions(float[] values) { expressions=values; }
+    synchronized void beginMeasurement() {
+        measuring=true; firstFrame=0; lastFrame=0; workMs.clear(); intervalMs.clear();
+    }
+
+    @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
+        try {
+            gpu=GLES30.glGetString(GLES30.GL_RENDERER)+" / "+GLES30.glGetString(GLES30.GL_VERSION);
+            sceneProgram=program(SCENE_VERTEX,SCENE_FRAGMENT);
+            interlaceProgram=program(SCREEN_VERTEX,INTERLACE_FRAGMENT);
+            makeMesh();
+        } catch(Throwable problem) { fail(problem); }
+    }
+    @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
+        this.width=width; this.height=height;
+        viewWidth=Math.max(1,Math.round(width*scale)); viewHeight=Math.max(1,Math.round(height*scale));
+        try {
+            int[] ids=new int[1];
+            if(texture!=0) GLES30.glDeleteTextures(1,new int[]{texture},0);
+            GLES30.glGenTextures(1,ids,0); texture=ids[0];
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,texture);
+            // https://developer.android.com/reference/android/opengl/GLES30#glTexStorage3D(int,int,int,int,int,int)
+            GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_RGBA8,viewWidth,viewHeight,views);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D_ARRAY,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D_ARRAY,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D_ARRAY,GLES30.GL_TEXTURE_WRAP_S,GLES30.GL_CLAMP_TO_EDGE);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D_ARRAY,GLES30.GL_TEXTURE_WRAP_T,GLES30.GL_CLAMP_TO_EDGE);
+            if(fbo==0) { GLES30.glGenFramebuffers(1,ids,0); fbo=ids[0]; }
+            if(depth!=0) GLES30.glDeleteRenderbuffers(1,new int[]{depth},0);
+            GLES30.glGenRenderbuffers(1,ids,0); depth=ids[0];
+            GLES30.glBindRenderbuffer(GLES30.GL_RENDERBUFFER,depth);
+            GLES30.glRenderbufferStorage(GLES30.GL_RENDERBUFFER,GLES30.GL_DEPTH_COMPONENT16,viewWidth,viewHeight);
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo);
+            GLES30.glFramebufferRenderbuffer(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,GLES30.GL_RENDERBUFFER,depth);
+            for(int v=0;v<views;v++) {
+                GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
+                if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)
+                    throw new IllegalStateException("Framebuffer incomplete");
+                GLES30.glViewport(0,0,viewWidth,viewHeight);
+                GLES30.glClearColor((v%3+1)/4f,((v+1)%3+1)/4f,((v+2)%3+1)/4f,1);
+                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+            }
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+            GLES30.glFinish(); checkGl();
+        } catch(Throwable problem) { fail(problem); }
+    }
+    @Override public void onDrawFrame(GL10 ignored) {
+        if(!error.isEmpty()||texture==0) return;
+        try {
+            long before=SystemClock.elapsedRealtimeNanos();
+            if(scene) drawViews();
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+            GLES30.glViewport(0,0,width,height);
+            GLES30.glDisable(GLES30.GL_DEPTH_TEST);
+            GLES30.glUseProgram(interlaceProgram);
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,texture);
+            GLES30.glUniform1i(GLES30.glGetUniformLocation(interlaceProgram,"uViews"),0);
+            GLES30.glUniform1i(GLES30.glGetUniformLocation(interlaceProgram,"uCount"),views);
+            GLES30.glUniform1f(GLES30.glGetUniformLocation(interlaceProgram,"uPitch"),9.69f);
+            GLES30.glUniform1f(GLES30.glGetUniformLocation(interlaceProgram,"uTilt"),0.28f);
+            GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,3);
+            // Completion wall time includes CPU submission + GPU execution, not a GPU-only timer.
+            GLES30.glFinish(); checkGl();
+            long after=SystemClock.elapsedRealtimeNanos();
+            synchronized(this) {
+                if(measuring) {
+                    if(firstFrame==0) firstFrame=before;
+                    if(lastFrame!=0) intervalMs.add((before-lastFrame)/1e6);
+                    lastFrame=before; workMs.add((after-before)/1e6);
+                }
+            }
+        } catch(Throwable problem) { fail(problem); }
+    }
+    private void drawViews() {
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo);
+        GLES30.glViewport(0,0,viewWidth,viewHeight);
+        GLES30.glEnable(GLES30.GL_DEPTH_TEST);
+        GLES30.glUseProgram(sceneProgram);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,vertexBuffer);
+        int[] sizes={3,3,2,3,3,3,3}; int offset=0;
+        for(int attribute=0;attribute<sizes.length;attribute++) {
+            GLES30.glEnableVertexAttribArray(attribute);
+            GLES30.glVertexAttribPointer(attribute,sizes[attribute],GLES30.GL_FLOAT,false,80,offset);
+            offset+=sizes[attribute]*4;
+        }
+        GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,indexBuffer);
+        float[] weights=expressions;
+        GLES30.glUniform4fv(GLES30.glGetUniformLocation(sceneProgram,"uWeights"),1,weights,0);
+        float angle=(SystemClock.uptimeMillis()%12000)/12000f*360;
+        Matrix.setIdentityM(model,0); Matrix.rotateM(model,0,angle,0,1,0);
+        float aspect=(float)viewWidth/viewHeight;
+        for(int v=0;v<views;v++) {
+            GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
+            GLES30.glClearColor(.035f,.045f,.06f,1);
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+            float eye=views==1?0:(v/(float)(views-1)-.5f)*.4f;
+            Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
+            float near=.1f,half=.052f,shift=-eye*near/3;
+            Matrix.frustumM(projection,0,-half*aspect+shift,half*aspect+shift,-half,half,near,10);
+            Matrix.multiplyMM(mv,0,view,0,model,0); Matrix.multiplyMM(mvp,0,projection,0,mv,0);
+            GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(sceneProgram,"uMvp"),1,false,mvp,0);
+            GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(sceneProgram,"uModel"),1,false,model,0);
+            int perBatch=indexCount/8;
+            for(int batch=0;batch<8;batch++) {
+                GLES30.glUniform3f(GLES30.glGetUniformLocation(sceneProgram,"uColor"),.65f+batch*.02f,.42f,.30f);
+                GLES30.glDrawElements(GLES30.GL_TRIANGLES,perBatch,GLES30.GL_UNSIGNED_SHORT,batch*perBatch*2);
+            }
+        }
+        for(int attribute=0;attribute<7;attribute++) GLES30.glDisableVertexAttribArray(attribute);
+        GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);
+    }
+    private void makeMesh() {
+        int segments=128,rings=80;
+        ByteBuffer vertices=ByteBuffer.allocateDirect((segments+1)*(rings+1)*80).order(ByteOrder.nativeOrder());
+        for(int r=0;r<=rings;r++) for(int s=0;s<=segments;s++) {
+            double a=Math.PI*r/rings,b=2*Math.PI*s/segments;
+            float x=(float)(Math.sin(a)*Math.cos(b)),y=(float)Math.cos(a),z=(float)(Math.sin(a)*Math.sin(b));
+            vertices.putFloat(x*.72f).putFloat(y).putFloat(z*.65f);
+            vertices.putFloat(x).putFloat(y).putFloat(z).putFloat(s/(float)segments).putFloat(r/(float)rings);
+            float front=Math.max(0,z),mouth=(float)Math.exp(-6*x*x-12*(y+.35f)*(y+.35f))*front;
+            float eye=(float)Math.exp(-35*(Math.abs(x)-.32f)*(Math.abs(x)-.32f)-30*(y-.2f)*(y-.2f))*front;
+            float brow=(float)Math.exp(-12*x*x-35*(y-.45f)*(y-.45f))*front;
+            vertices.putFloat(0).putFloat(-.18f*mouth).putFloat(.03f*mouth);
+            vertices.putFloat(0).putFloat(-.1f*eye).putFloat(0);
+            vertices.putFloat(.025f*x*mouth).putFloat(.07f*Math.abs(x)*mouth).putFloat(0);
+            vertices.putFloat(0).putFloat(.07f*brow).putFloat(0);
+        }
+        vertices.position(0);
+        indexCount=segments*rings*6;
+        ByteBuffer indices=ByteBuffer.allocateDirect(indexCount*2).order(ByteOrder.nativeOrder());
+        for(int r=0;r<rings;r++) for(int s=0;s<segments;s++) {
+            int a=r*(segments+1)+s,b=a+segments+1;
+            for(int index:new int[]{a,b,a+1,a+1,b,b+1}) indices.putShort((short)index);
+        }
+        indices.position(0);
+        int[] ids=new int[2]; GLES30.glGenBuffers(2,ids,0); vertexBuffer=ids[0]; indexBuffer=ids[1];
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,vertexBuffer);
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,vertices.capacity(),vertices,GLES30.GL_STATIC_DRAW);
+        GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,indexBuffer);
+        GLES30.glBufferData(GLES30.GL_ELEMENT_ARRAY_BUFFER,indices.capacity(),indices,GLES30.GL_STATIC_DRAW);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0); GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
+    }
+    synchronized JSONObject summary() throws Exception {
+        measuring=false;
+        double seconds=lastFrame>firstFrame?(lastFrame-firstFrame)/1e9:0;
+        return new JSONObject().put("mode",scene?"scene+interlace":"interlace_only")
+                .put("gpu",gpu).put("error",error).put("views",views)
+                .put("output_width",width).put("output_height",height)
+                .put("view_width",viewWidth).put("view_height",viewHeight)
+                .put("view_color_buffer_mib",viewWidth*(double)viewHeight*views*4/1048576)
+                .put("triangles_per_view",scene?indexCount/3:0).put("draw_calls_per_view",scene?8:0)
+                .put("morph_targets",scene?4:0).put("frames",workMs.size())
+                .put("fps",seconds>0?(workMs.size()-1)/seconds:0)
+                .put("frame_work_p50_ms",BenchActivity.percentile(workMs,.5))
+                .put("frame_work_p95_ms",BenchActivity.percentile(workMs,.95))
+                .put("frame_interval_p95_ms",BenchActivity.percentile(intervalMs,.95))
+                .put("frame_work_samples_ms",new JSONArray(workMs)).put("frame_interval_samples_ms",new JSONArray(intervalMs))
+                .put("calibration","diagnostic constants; not a verified optical panel calibration")
+                .put("timing","glFinish completion wall time; includes CPU submission and GPU execution; excludes EGL swap");
+    }
+    private void fail(Throwable problem) { error=problem.toString(); Log.e("MirrorBench","GL failure",problem); }
+    private static void checkGl() { int e=GLES30.glGetError(); if(e!=0) throw new IllegalStateException("GL error "+e); }
+    private static int program(String vertex,String fragment) {
+        int p=GLES30.glCreateProgram();
+        for(int type:new int[]{GLES30.GL_VERTEX_SHADER,GLES30.GL_FRAGMENT_SHADER}) {
+            int shader=GLES30.glCreateShader(type);
+            GLES30.glShaderSource(shader,type==GLES30.GL_VERTEX_SHADER?vertex:fragment); GLES30.glCompileShader(shader);
+            int[] ok=new int[1]; GLES30.glGetShaderiv(shader,GLES30.GL_COMPILE_STATUS,ok,0);
+            if(ok[0]==0) throw new IllegalStateException(GLES30.glGetShaderInfoLog(shader));
+            GLES30.glAttachShader(p,shader); GLES30.glDeleteShader(shader);
+        }
+        GLES30.glLinkProgram(p); int[] ok=new int[1]; GLES30.glGetProgramiv(p,GLES30.GL_LINK_STATUS,ok,0);
+        if(ok[0]==0) throw new IllegalStateException(GLES30.glGetProgramInfoLog(p));
+        return p;
+    }
+    private static final String SCREEN_VERTEX="""
+        #version 300 es
+        out vec2 vUv;
+        void main(){vec2 p=gl_VertexID==0?vec2(-1,-1):(gl_VertexID==1?vec2(3,-1):vec2(-1,3));vUv=p*.5+.5;gl_Position=vec4(p,0,1);}
+        """;
+    private static final String INTERLACE_FRAGMENT="""
+        #version 300 es
+        precision highp float;
+        precision highp sampler2DArray;
+        in vec2 vUv;
+        uniform sampler2DArray uViews; uniform int uCount; uniform float uPitch,uTilt;
+        out vec4 color;
+        float viewAt(float c){return floor(fract((gl_FragCoord.x*3.0+gl_FragCoord.y*uTilt+c)/uPitch)*float(uCount));}
+        void main(){color=vec4(texture(uViews,vec3(vUv,viewAt(0.0))).r,texture(uViews,vec3(vUv,viewAt(1.0))).g,texture(uViews,vec3(vUv,viewAt(2.0))).b,1);}
+        """;
+    private static final String SCENE_VERTEX="""
+        #version 300 es
+        layout(location=0) in vec3 aPosition; layout(location=1) in vec3 aNormal; layout(location=2) in vec2 aUv;
+        layout(location=3) in vec3 aJaw; layout(location=4) in vec3 aBlink; layout(location=5) in vec3 aSmile; layout(location=6) in vec3 aBrow;
+        uniform mat4 uMvp,uModel; uniform vec4 uWeights; out vec3 vNormal; out vec2 vUv;
+        void main(){vec3 p=aPosition+aJaw*uWeights.x+aBlink*uWeights.y+aSmile*uWeights.z+aBrow*uWeights.w;gl_Position=uMvp*vec4(p,1);vNormal=mat3(uModel)*aNormal;vUv=aUv;}
+        """;
+    private static final String SCENE_FRAGMENT="""
+        #version 300 es
+        precision mediump float;
+        in vec3 vNormal; in vec2 vUv; uniform vec3 uColor; out vec4 color;
+        void main(){vec3 n=normalize(vNormal);float light=.2+.5*max(dot(n,normalize(vec3(1,1,2))),0.0)+.25*max(dot(n,normalize(vec3(-1,.3,1))),0.0);float pattern=.92+.08*sin(vUv.x*60.0)*sin(vUv.y*60.0);color=vec4(uColor*light*pattern,1);}
+        """;
+}
