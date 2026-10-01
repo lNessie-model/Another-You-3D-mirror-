@@ -51,6 +51,29 @@ $benchPython='C:\Users\lNessie\.cache\codex-runtimes\codex-primary-runtime\depen
 
 ## 指标口径
 
+### 2026-10-01 真实 USB 摄像头测试
+
+`CameraBenchActivity` 通过系统 Camera2 外置相机 HAL 读取 USB MJPEG 摄像头。HAL 负责 MJPEG 解码，应用读取 YUV_420_888，按实际 row/pixel stride 打包 NV21，再使用此 Android 11 系统的原生 RenderScript YUV→RGBA 转换。RenderScript 已被新 Android 版本弃用，这条路径用于当前设备的性能验证。
+
+MediaPipe 在同一工作线程创建和调用 GPU 委托，使用同步 VIDEO 模式处理最新的已解码帧。相机采集与 GL 渲染分别使用独立线程。ImageReader 使用 acquireLatestImage，并只保留一个可替换的待处理帧；推理慢于摄像头时主动丢弃旧帧。采集 FPS、推理 FPS 与画面 FPS 分开记录。开启 478 个关键点、52 个表情系数和变换矩阵，记录检测到人脸的帧比例。
+
+```powershell
+& $benchPython -X utf8 'E:\tripo\device-lab\scripts\run_camera_matrix.py' --group components
+& $benchPython -X utf8 'E:\tripo\device-lab\scripts\run_camera_matrix.py' --group joint
+& $benchPython -X utf8 'E:\tripo\device-lab\scripts\run_camera_matrix.py' --group hd
+& $benchPython -X utf8 'E:\tripo\device-lab\scripts\run_camera_matrix.py' --group steady
+```
+
+结果保存到 `E:\tripo\output\camera-benchmark\20261001`。每个结果记录实际已安装 APK 的 SHA-256。CPU 以整机四核合计 100% 归一化，分别采样测试程序、外置相机 provider、cameraserver、SurfaceFlinger，并记录系统总体 CPU、GPU busy、PSS、MemAvailable 和温度。调用线程 CPU 时间不包含推理/转换的其他工作线程，不能作为对应模块的总 CPU 占用。不同组合的资源差值用于估计模块开销，不能直接相加预测联合负载。
+
+渲染阶段计时每 30 帧增加一次 glFinish，分别记录多视图渲染与交织的完成等待时间。这包含提交、GPU 工作和共享 GPU 的等待，属于分段完成耗时，不是独占 GPU 耗时；额外同步也可能影响少量帧。最终帧率仍按实际连续 GL 帧回调测得。模型仍是每视图 20,480 三角形的简化网格，尚未替换成最终角色。
+
+运行结束关闭相机并停止测试进程，没有后台推理或摄像头服务；原厂相机应用保持精简后的停用状态。测试程序新增 CAMERA 权限，不需要网络权限、刷机或更换驱动。
+
+- [Android ImageReader 最新帧与资源释放](https://developer.android.com/reference/android/media/ImageReader#acquireLatestImage())
+- [Android CameraCaptureSession 重复采集](https://developer.android.com/reference/android/hardware/camera2/CameraCaptureSession#setRepeatingRequest(android.hardware.camera2.CaptureRequest,%20android.hardware.camera2.CameraCaptureSession.CaptureCallback,%20android.os.Handler))
+- [Android 11 可用的 YUV 转换接口](https://developer.android.com/reference/android/renderscript/ScriptIntrinsicYuvToRGB)
+
 - 推理 FPS：有效调用次数除以设备测量时间；p95 是单次同步推理耗时的第 95 百分位。
 - 渲染 FPS：GL 帧回调间隔，包含实际提交与交换节奏。工作耗时使用 glFinish 等待完成，包含 CPU 提交和 GPU 执行，未把它标为纯 GPU 时间。
 - 进程 CPU：4 核合计归一化，100% 表示所有核满负荷。
