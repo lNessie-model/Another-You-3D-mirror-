@@ -39,6 +39,7 @@ public final class CameraRecordActivity extends Activity {
             File raw=new File(dir,name+".nv21"),times=new File(dir,name+"-timestamps.csv");
             if(raw.exists()||times.exists()) throw new IllegalStateException("Recording already exists: "+name);
             byte[] pixels=new byte[width*height*3/2];
+            YuvPacking.Workspace packing=new YuvPacking.Workspace();
             camera=new CameraFrameSource(this,width,height,fps);
             for(int i=0;i<10&&!stopped;i++) camera.take().image.close();
             camera.beginMeasurement();
@@ -55,7 +56,7 @@ public final class CameraRecordActivity extends Activity {
                         Image.Plane[] p=image.getPlanes();
                         YuvPacking.toNv21(width,height,p[0].getBuffer(),p[0].getRowStride(),p[0].getPixelStride(),
                                 p[1].getBuffer(),p[1].getRowStride(),p[1].getPixelStride(),
-                                p[2].getBuffer(),p[2].getRowStride(),p[2].getPixelStride(),pixels);
+                                p[2].getBuffer(),p[2].getRowStride(),p[2].getPixelStride(),pixels,packing);
                     } finally { frame.image.close(); }
                     output.write(pixels);
                     timestamps.write(frames+","+stamp+","+frame.receivedNs+"\n");
