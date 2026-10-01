@@ -23,4 +23,8 @@ New-Item -ItemType Directory -Force (Split-Path $probeDestination -Parent) | Out
 & $clang --target=aarch64-linux-android30 -O2 -Wall -Wextra -fPIE -pie `
     -I (Join-Path $projectRoot 'native\vendor\rknn') (Join-Path $projectRoot 'native\rknn_probe.c') -o $probeDestination -ldl
 if($LASTEXITCODE) { throw 'RKNN probe compilation failed' }
+& $clang --target=aarch64-linux-android30 -O2 -Wall -Wextra -fPIC -shared -DMIRROR_RKNN_JNI `
+    -I (Join-Path $projectRoot 'native\vendor\rknn') (Join-Path $projectRoot 'native\rknn_probe.c') `
+    -o (Join-Path $destination 'libmirror_npu.so') -ldl
+if($LASTEXITCODE) { throw 'RKNN JNI compilation failed' }
 Write-Output 'Native binaries built without modifying target system libraries.'
