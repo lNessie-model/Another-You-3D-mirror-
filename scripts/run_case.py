@@ -15,6 +15,13 @@ parser.add_argument('--analysis-fps',type=int,default=0)
 parser.add_argument('--render-fps',type=int,default=0)
 parser.add_argument('--ui-load',action='store_true')
 parser.add_argument('--npu-pipeline',action='store_true')
+parser.add_argument('--orientation',choices=['portrait','landscape'],default='portrait')
+parser.add_argument('--view-width',type=int)
+parser.add_argument('--view-height',type=int)
+parser.add_argument('--discard-depth',action='store_true')
+parser.add_argument('--verify-discard-depth',action='store_true')
+parser.add_argument('--shared-phase',action='store_true')
+parser.add_argument('--verify-shared-phase',action='store_true')
 parser.add_argument('--running-mode',default='VIDEO',choices=['VIDEO','IMAGE'])
 parser.add_argument('--render',default='none',choices=['none','interlace','scene'])
 parser.add_argument('--views',type=int,default=4)
@@ -60,6 +67,11 @@ if args.width_scale is not None and not (math.isfinite(args.width_scale) and 0<a
     parser.error('Invalid horizontal view scale')
 if args.pitch is not None and not (math.isfinite(args.pitch) and args.pitch>0 and math.isfinite(args.tan)):
     parser.error('Pitch must be positive and pitch/tan finite')
+if args.view_width is not None or args.view_height is not None:
+    if args.input not in ('camera','replay') or args.view_width is None or args.view_height is None or not (1<=args.view_width<=4096 and 1<=args.view_height<=4096):
+        parser.error('Explicit view dimensions require both positive camera/replay sizes <=4096')
+if args.orientation=='landscape' and args.input not in ('camera','replay'): parser.error('Landscape requires camera/replay activity')
+if (args.discard_depth or args.verify_discard_depth) and args.input not in ('camera','replay'): parser.error('Depth discard requires camera/replay activity')
 OUT=args.output_dir
 OUT.mkdir(parents=True,exist_ok=True)
 if not re.fullmatch('[a-zA-Z0-9_-]+',args.name): raise ValueError('Invalid run name')
@@ -98,6 +110,10 @@ if args.ui_load:
 if args.npu_pipeline:
     if args.delegate!='RKNN' or args.input not in ('camera','replay'): parser.error('NPU pipeline requires RKNN camera/replay backend')
     panel_extras+=' --ez npu_pipeline true'
+if args.input in ('camera','replay'):
+    panel_extras+=f' --es orientation {args.orientation} --ez discard_depth {str(args.discard_depth).lower()} --ez verify_discard_depth {str(args.verify_discard_depth).lower()}'
+    panel_extras+=f' --ez shared_phase {str(args.shared_phase).lower()} --ez verify_shared_phase {str(args.verify_shared_phase).lower()}'
+    if args.view_width is not None: panel_extras+=f' --ei view_width {args.view_width} --ei view_height {args.view_height}'
 adb('shell',f'am start -n com.mirror.bench/.{activity} --es run_id {args.name} '
     f'--es delegate {args.delegate} --ei seconds {args.seconds} --ei analysis_fps {args.analysis_fps} '
     f'--es running_mode {args.running_mode} '

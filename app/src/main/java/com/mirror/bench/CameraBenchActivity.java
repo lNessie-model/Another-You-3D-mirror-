@@ -37,6 +37,8 @@ public final class CameraBenchActivity extends Activity {
     private UiLoadView uiLoad;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if("landscape".equals(getIntent().getStringExtra("orientation")))
+            setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         TextView label=new TextView(this); label.setText("USB camera performance measurement"); setContentView(label);
         runId=getIntent().getStringExtra("run_id");
@@ -57,12 +59,17 @@ public final class CameraBenchActivity extends Activity {
             renderer.setPreblend(getIntent().getBooleanExtra("preblend",false),getIntent().getBooleanExtra("verify_preblend",false));
             renderer.setExplicitLod(getIntent().getBooleanExtra("explicit_lod",false));
             renderer.setVerifyCombined(getIntent().getBooleanExtra("verify_combined",false));
+            renderer.setDiscardDepth(getIntent().getBooleanExtra("discard_depth",false),getIntent().getBooleanExtra("verify_discard_depth",false));
+            renderer.setSharedPhase(getIntent().getBooleanExtra("shared_phase",false),getIntent().getBooleanExtra("verify_shared_phase",false));
+            if(getIntent().hasExtra("view_width")||getIntent().hasExtra("view_height"))
+                renderer.setViewSize(getIntent().getIntExtra("view_width",0),getIntent().getIntExtra("view_height",0));
             if(getIntent().hasExtra("width_scale")) renderer.setWidthScale(getIntent().getFloatExtra("width_scale",.5f));
             renderer.setLookup(getIntent().getBooleanExtra("lookup",false),getIntent().getBooleanExtra("verify_lookup",false));
             if(getIntent().hasExtra("pitch")) renderer.setPanelParameters(getIntent().getFloatExtra("pitch",10),
                     getIntent().getFloatExtra("tan",.2777777f),getIntent().getStringExtra("pitch_units"));
             surface=new GLSurfaceView(this); surface.setEGLContextClientVersion(3);
-            surface.setEGLConfigChooser(8,8,8,8,16,0); surface.setRenderer(renderer);
+            // Only offscreen 3D FBOs use depth; the window receives a full-screen interlace triangle.
+            surface.setEGLConfigChooser(8,8,8,8,getIntent().getBooleanExtra("discard_depth",false)?0:16,0); surface.setRenderer(renderer);
             if(getIntent().getBooleanExtra("ui_load",false)) {
                 android.widget.FrameLayout root=new android.widget.FrameLayout(this);
                 root.addView(surface,new android.widget.FrameLayout.LayoutParams(-1,-1));

@@ -20,10 +20,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private final float scale;
     private final boolean scene;
     private int width,height,viewWidth,viewHeight,texture,fbo,depth,sceneProgram,interlaceProgram;
+    private int requestedViewWidth,requestedViewHeight;
     private int vertexBuffer,indexBuffer,indexCount;
     private String gpu="";
     private String extensions="";
-    private int maxArrayLayers,maxMultiviewViews;
+    private int maxArrayLayers,maxMultiviewViews,windowDepthBits;
     private volatile String error="";
     private volatile float[] expressions={0,0,0,0};
     private boolean measuring;
@@ -55,6 +56,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private float widthScale;
     private boolean verifyCombined;
     private JSONObject combinedVerification;
+    private boolean discardDepth,verifyDiscardDepth;
+    private JSONObject discardDepthVerification;
+    private boolean sharedPhase,verifySharedPhase;
+    private int sharedPhaseProgram;
+    private JSONObject sharedPhaseVerification;
+    private static final int[] DEPTH_ATTACHMENT={GLES30.GL_DEPTH_ATTACHMENT};
     private int lookupTexture,lookupProgram,lookupGenerator;
     private int lookupMismatch=-1;
     private float pitch=9.69f,tilt=.28f;
@@ -80,6 +87,13 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     void setPreblend(boolean enabled,boolean verify) { preblend=enabled; verifyPreblend=verify; }
     void setExplicitLod(boolean enabled) { explicitLod=enabled; }
     void setVerifyCombined(boolean enabled) { verifyCombined=enabled; }
+    void setDiscardDepth(boolean enabled,boolean verify) { discardDepth=enabled; verifyDiscardDepth=verify; }
+    void setSharedPhase(boolean enabled,boolean verify) { sharedPhase=enabled; verifySharedPhase=verify; }
+    void setViewSize(int suppliedWidth,int suppliedHeight) {
+        if(suppliedWidth<1||suppliedHeight<1||suppliedWidth>4096||suppliedHeight>4096)
+            throw new IllegalArgumentException("Invalid explicit view dimensions");
+        requestedViewWidth=suppliedWidth; requestedViewHeight=suppliedHeight;
+    }
     void setWidthScale(float value) {
         if(!Float.isFinite(value)||value<=0||value>1) throw new IllegalArgumentException("Invalid horizontal view scale");
         widthScale=value;
@@ -112,6 +126,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             gpu=GLES30.glGetString(GLES30.GL_RENDERER)+" / "+GLES30.glGetString(GLES30.GL_VERSION);
             extensions=GLES30.glGetString(GLES30.GL_EXTENSIONS);
             int[] limit=new int[1];
+            GLES30.glGetIntegerv(GLES30.GL_DEPTH_BITS,limit,0); windowDepthBits=limit[0];
             GLES30.glGetIntegerv(GLES30.GL_MAX_ARRAY_TEXTURE_LAYERS,limit,0); maxArrayLayers=limit[0];
             if(extensions.contains("GL_OVR_multiview")) {
                 GLES30.glGetIntegerv(0x9631,limit,0); maxMultiviewViews=limit[0];
@@ -124,6 +139,15 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             }
             sceneProgram=program(SCENE_VERTEX,SCENE_FRAGMENT);
             interlaceProgram=program(SCREEN_VERTEX,INTERLACE_FRAGMENT);
+            if(sharedPhase||verifySharedPhase) {
+                if(views!=20||Math.abs(pitch-10)>1e-6f)
+                    throw new IllegalArgumentException("Shared RGB phase requires 20 views and pitch=10 RGB subpixels");
+                // Adjacent RGB subpixels advance exactly two views at this pitch/count.
+                sharedPhaseProgram=program(SCREEN_VERTEX,INTERLACE_FRAGMENT.replace(
+                        "void main(){color=vec4(texture(uViews,vec3(vUv,viewAt(0.0))).r,texture(uViews,vec3(vUv,viewAt(1.0))).g,texture(uViews,vec3(vUv,viewAt(2.0))).b,1);}",
+                        "void main(){float r=viewAt(0.0),g=r<18.0?r+2.0:r-18.0,b=r<16.0?r+4.0:r-16.0;"
+                        +"color=vec4(textureLod(uViews,vec3(vUv,r),0.0).r,textureLod(uViews,vec3(vUv,g),0.0).g,textureLod(uViews,vec3(vUv,b),0.0).b,1);}"));
+            }
             if(explicitLod) {
                 String shader=INTERLACE_FRAGMENT;
                 for(String channel:new String[]{"0.0","1.0","2.0"}) shader=shader.replace(
@@ -146,7 +170,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
         this.width=width; this.height=height;
-        viewWidth=Math.max(1,Math.round(width*widthScale)); viewHeight=Math.max(1,Math.round(height*scale));
+        viewWidth=requestedViewWidth>0?requestedViewWidth:Math.max(1,Math.round(width*widthScale));
+        viewHeight=requestedViewHeight>0?requestedViewHeight:Math.max(1,Math.round(height*scale));
         try {
             int[] ids=new int[1];
             if(texture!=0) GLES30.glDeleteTextures(1,new int[]{texture},0);
@@ -181,6 +206,13 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             if(verifyMultiview&&scene) verifyMultiviewPixels();
             if(verifyPreblend&&scene) verifyPreblendPixels();
             if(verifyCombined&&scene) verifyCombinedPixels();
+            if(verifyDiscardDepth&&scene) {
+                boolean saved=discardDepth;
+                try { discardDepthVerification=compareScenePixels("Store versus discard completed depth attachments",value->discardDepth=value); }
+                finally { discardDepth=saved; }
+                validateScenePixels(discardDepthVerification);
+            }
+            if(sharedPhase||verifySharedPhase) verifySharedPhasePixels();
             if(lookup||verifyLookup) {
                 makeLookup();
                 if(verifyLookup) verifyLookupPixels();
@@ -237,7 +269,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     private void drawInterlace(boolean cached) {
         if(atlas&&cached) throw new IllegalArgumentException("Atlas and lookup are independent experiments");
-        int program=atlas?atlasProgram:(cached?lookupProgram:(explicitLod?explicitLodProgram:interlaceProgram));
+        if(sharedPhase&&(atlas||cached)) throw new IllegalArgumentException("Shared phase uses arithmetic array interlacing");
+        int program=atlas?atlasProgram:(cached?lookupProgram:(sharedPhase?sharedPhaseProgram:(explicitLod?explicitLodProgram:interlaceProgram)));
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
         GLES30.glViewport(0,0,width,height); GLES30.glDisable(GLES30.GL_DEPTH_TEST);
         GLES30.glDisable(GLES30.GL_CULL_FACE);
@@ -290,6 +323,26 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         lookupMismatch=0;
         for(int i=0;i<reference.capacity();i++) if(reference.get(i)!=candidate.get(i)) lookupMismatch++;
         if(lookupMismatch!=0) throw new IllegalStateException("Lookup pixel mismatch: "+lookupMismatch);
+        checkGl();
+    }
+    private void verifySharedPhasePixels() throws Exception {
+        // Every view has a unique value in every channel: detect even a one-view index error at any output pixel.
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo); GLES30.glDisable(GLES30.GL_SCISSOR_TEST);
+        for(int v=0;v<views;v++) {
+            GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
+            GLES30.glClearColor((v+1f)/(views+1),(views-v)/(views+1f),(v+1f)/(views+1)*.7f,1);
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT);
+        }
+        ByteBuffer reference=ByteBuffer.allocateDirect(width*height*4),candidate=ByteBuffer.allocateDirect(width*height*4);
+        boolean saved=sharedPhase; long mismatches=0;
+        try {
+            sharedPhase=false; drawInterlace(false); GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,reference);
+            sharedPhase=true; drawInterlace(false); GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,candidate);
+            for(int i=0;i<reference.capacity();i++) if(reference.get(i)!=candidate.get(i)) mismatches++;
+        } finally { sharedPhase=saved; }
+        sharedPhaseVerification=new JSONObject().put("rgba_byte_mismatches",mismatches).put("pixels",width*(long)height)
+                .put("scope","Every output pixel/channel versus original formula with 20 distinct view colors; exact current pitch/tan");
+        if(mismatches!=0) throw new IllegalStateException("Shared phase differs from original calibration formula: "+mismatches);
         checkGl();
     }
     private void drawViews() {
@@ -356,7 +409,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 GLES30.glUniform3f(GLES30.glGetUniformLocation(activeProgram,"uColor"),.65f+batch*.02f,.42f,.30f);
                 GLES30.glDrawElements(GLES30.GL_TRIANGLES,perBatch,GLES30.GL_UNSIGNED_SHORT,batch*perBatch*2);
             }
+            // Depth is used within this view batch only. It is cleared before reuse; color remains available for interlacing.
+            if(discardDepth&&!drawAtlas) GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
         }
+        if(discardDepth&&drawAtlas) GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
         for(int attribute=0;attribute<7;attribute++) GLES30.glDisableVertexAttribArray(attribute);
         GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);
@@ -489,14 +545,18 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     private void verifyCombinedPixels() throws Exception {
         if(atlas||lookup) throw new IllegalArgumentException("Combined check covers array storage with arithmetic interlace");
-        boolean savedCull=cull,savedMultiview=multiview,savedPreblend=preblend,savedLod=explicitLod;
+        boolean savedCull=cull,savedMultiview=multiview,savedPreblend=preblend,savedLod=explicitLod,savedDiscard=discardDepth,savedPhase=sharedPhase;
         try {
             combinedVerification=compareScenePixels("Original scene versus selected combined optimizations",enabled->{
                 cull=enabled&&savedCull; multiview=enabled&&savedMultiview;
                 preblend=enabled&&savedPreblend; explicitLod=enabled&&savedLod;
+                discardDepth=enabled&&savedDiscard;
+                sharedPhase=enabled&&savedPhase;
             });
         } finally {
             cull=savedCull; multiview=savedMultiview; preblend=savedPreblend; explicitLod=savedLod;
+            discardDepth=savedDiscard;
+            sharedPhase=savedPhase;
         }
         validateScenePixels(combinedVerification);
     }
@@ -556,6 +616,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("preblend_updates",preblendUpdates).put("preblend_verification",preblendVerification)
                 .put("interlace_explicit_lod_zero",explicitLod)
                 .put("combined_verification",combinedVerification)
+                .put("depth_store_discarded",discardDepth).put("depth_discard_verification",discardDepthVerification)
+                .put("window_depth_bits",windowDepthBits)
+                .put("shared_rgb_phase_index",sharedPhase).put("shared_phase_verification",sharedPhaseVerification)
                 .put("submitted_scene_draw_calls_per_frame",scene?views*8/(multiview?4:1):0)
                 .put("output_width",width).put("output_height",height)
                 .put("view_width",viewWidth).put("view_height",viewHeight)
