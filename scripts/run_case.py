@@ -5,7 +5,7 @@ import shlex
 import math
 import time
 from pathlib import Path
-from device_profile import adb, sample, summarize, OUT as DEFAULT_OUT
+from device_profile import adb, parse_sample, SAMPLE_COMMAND, summarize, OUT as DEFAULT_OUT
 
 parser=argparse.ArgumentParser()
 parser.add_argument('name')
@@ -48,9 +48,8 @@ OUT.mkdir(parents=True,exist_ok=True)
 if not re.fullmatch('[a-zA-Z0-9_-]+',args.name): raise ValueError('Invalid run name')
 
 process_names=['com.mirror.bench','android.hardware.camera.provider@2.4-external-service','cameraserver','surfaceflinger']
-def processes():
-    command='; '.join(f'for p in $(pidof {name}); do echo PROC {name}; cat /proc/$p/stat; done' for name in process_names)
-    text=adb('shell',command,check=False)
+PROCESS_COMMAND='; '.join(f'for p in $(pidof {name}); do echo PROC {name}; cat /proc/$p/stat; done' for name in process_names)
+def parse_processes(text):
     rows={}
     for name,stat in re.findall(r'PROC ([^\n]+)\n([^\n]+)',text):
         tail=stat.rsplit(')',1)[1].split()
@@ -86,27 +85,41 @@ last_memory_sample=0
 surface_layer=''
 presentation_stamps=set()
 while time.monotonic()<deadline:
-    point=sample()
-    npu_text=adb('shell','cat /sys/kernel/debug/rknpu/load',check=False)
+    memory_due=time.monotonic()-last_memory_sample>=5
+    commands=[SAMPLE_COMMAND,
+              "printf '\\n__MIRROR_PROC__\\n'",PROCESS_COMMAND,
+              "printf '\\n__MIRROR_NPU__\\n'",'cat /sys/kernel/debug/rknpu/load']
+    if memory_due:
+        commands += ["printf '\\n__MIRROR_MEM__\\n'",'dumpsys meminfo com.mirror.bench',
+                     "printf '\\n__MIRROR_PROVMEM__\\n'",
+                     'for p in $(pidof android.hardware.camera.provider@2.4-external-service); do dumpsys meminfo $p; done']
+    if args.render!='none':
+        commands += ["printf '\\n__MIRROR_SURFACE__\\n'",
+                     'dumpsys SurfaceFlinger --latency '+shlex.quote(surface_layer) if surface_layer else 'dumpsys SurfaceFlinger --list']
+    commands += ["printf '\\n__MIRROR_RESULT__\\n'",f'run-as com.mirror.bench cat files/{args.name}.json']
+    raw=adb('shell','; '.join(commands),check=False)
+    sections=re.split(r'\n__MIRROR_(\w+)__\n',raw)
+    parts=dict(zip(sections[1::2],sections[2::2]))
+    point=parse_sample(sections[0])
+    point['processes']=parse_processes(parts.get('PROC',''))
+    npu_text=parts.get('NPU','')
     npu_match=re.search(r'(\d+)%',npu_text)
     if npu_match: point['npu_busy_percent']=int(npu_match[1])
-    point['processes']=processes()
-    if time.monotonic()-last_memory_sample>=5:
-        memory=adb('shell','dumpsys meminfo com.mirror.bench',check=False)
+    if memory_due:
+        memory=parts.get('MEM','')
         match=re.search(r'TOTAL PSS:\s+(\d+)',memory)
         if match: point['app_pss_kib']=int(match.group(1))
-        provider=point['processes'].get('android.hardware.camera.provider@2.4-external-service')
-        provider_memory=adb('shell','dumpsys meminfo '+str(provider['pid']),check=False) if provider else ''
+        provider_memory=parts.get('PROVMEM','')
         match=re.search(r'TOTAL PSS:\s+(\d+)',provider_memory)
         if match: point['camera_provider_pss_kib']=int(match.group(1))
         last_memory_sample=time.monotonic()
     series.append(point)
     if args.render!='none':
         if not surface_layer:
-            layers=adb('shell','dumpsys SurfaceFlinger --list',check=False).splitlines()
+            layers=parts.get('SURFACE','').splitlines()
             surface_layer=next((x for x in layers if x.startswith('SurfaceView') and 'com.mirror.bench' in x),'')
-        if surface_layer:
-            trace=adb('shell','dumpsys SurfaceFlinger --latency '+shlex.quote(surface_layer),check=False)
+        else:
+            trace=parts.get('SURFACE','')
             values=[]
             for line in trace.splitlines()[1:]:
                 columns=line.split()
@@ -115,7 +128,7 @@ while time.monotonic()<deadline:
                     if 0<actual<2**63-1: values.append(actual)
             presentation_stamps.update(values)
             point['presented_timestamps_ns']=values
-    text=adb('shell',f'run-as com.mirror.bench cat files/{args.name}.json',check=False)
+    text=parts.get('RESULT','')
     try:
         result=json.loads(text)
         break
@@ -163,6 +176,16 @@ if mono_start and mono_end:
         presentation=dict(layer=surface_layer,presented_fps=(len(stamps)-1)*1e9/(stamps[-1]-stamps[0]),
                           samples=len(stamps),scope='SurfaceFlinger actual presentation timestamps within benchmark',
                           covered_duration_s=(stamps[-1]-stamps[0])/1e9)
+        previous_end=0; history_gaps=[]
+        for point in series:
+            window=point.get('presented_timestamps_ns',[])
+            if not window: continue
+            if previous_end and min(window)>previous_end+34_000_000 and mono_start<=min(window)<=mono_end:
+                history_gaps.append((min(window)-previous_end)/1e9)
+            previous_end=max(previous_end,max(window))
+        presentation['history_gap_windows']=len(history_gaps)
+        presentation['history_gap_seconds']=sum(history_gaps)
+        presentation['rate_is_lower_bound']=bool(history_gaps)
 elif args.render!='none':
     layers=adb('shell','dumpsys SurfaceFlinger --list',check=False).splitlines()
     layers=[x for x in layers if 'SurfaceView' in x and 'com.mirror.bench' in x]

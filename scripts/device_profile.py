@@ -30,11 +30,15 @@ def adb(*args, check=True):
         raise RuntimeError(result.stdout + result.stderr)
     return result.stdout.strip()
 
-def sample():
-    text = adb('shell', 'cat /proc/stat; cat /proc/meminfo; '
+SAMPLE_COMMAND=('cat /proc/stat; cat /proc/meminfo; '
                'cat /sys/class/thermal/thermal_zone0/temp; '
                'cat /sys/class/devfreq/fde60000.gpu/load; '
                'cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq')
+
+def sample():
+    return parse_sample(adb('shell',SAMPLE_COMMAND))
+
+def parse_sample(text):
     cpu = [int(x) for x in re.search(r'^cpu\s+(.+)$', text, re.M).group(1).split()]
     mem = {key: int(value) for key, value in re.findall(r'^(\w+):\s+(\d+) kB', text, re.M)}
     ending = text.splitlines()[-3:]
