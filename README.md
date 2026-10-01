@@ -279,3 +279,65 @@ adb shell run-as com.mirror.bench cat files/npu-pipeline-check.json
 ```
 
 APK 为 `NpuHeadroom.apk`，SHA-256 `4c54b1b69e29ac47cdb66cbc16341e49cfdd67ec498641ad82ba89adfbde7334`；对应源码 `NpuHeadroomSource.zip`。前一阶段 `NpuOffload.apk` 保留，可用 `adb install -r` 回退；测试应用未清数据。测试后 ADB、桌面、设置、原厂 fingerprint、0.7.2 驱动、vendor runtime 和录制文件哈希均正常，应用已停止，NPU busy 归零。
+
+### 精确输出尺寸与更高的单视点图像预算（2026-10-02）
+
+目标按宽×高解释为交织输出 1920×1200、每视点 720×400；保留至少 16 视点和实际显示 30 FPS 的要求。最终测试采用 20 视点，RGBA8 颜色缓冲约 21.97 MiB。每视点从 240×720 的 172,800 像素增加至 288,000 像素，增加 66.7%。每视点仍绘制 20,480 个三角形、8 个材质批次和 4 个诊断形变，所有 20 个独立投影均参与每帧输出。
+
+新增 `--view-width/--view-height` 显式指定每视点尺寸。设备原生方向为 1200×1920，厂商固件没有按 Activity 的横屏请求旋转屏幕。使用 `run_quality_case.py` 临时锁定系统旋转至 1 后，实际 GL 表面和截屏均为 1920×1200；没有修改 wm size、density 或物理分辨率。包装脚本在操作前写旋转日志，退出时停止测试应用，并恢复原来的 user_rotation 和 accelerometer_rotation。直接调用 `run_case.py --orientation landscape` 不足以保证此固件实际输出横屏尺寸，必须以结果和截屏为准。
+
+新增 `--discard-depth`：交织窗口不分配未使用的深度缓冲，离屏视点的深度只在当前视点/四视点批次内部使用，批次结束后丢弃其存储；颜色保留供交织采样，深度在下一次绘制前清空。实测窗口深度从 24 位降至 0 位。同 APK、20 视点、720×400、完整 NPU 面捕请求 10 FPS、USB 与 UI、不限制渲染的 60 秒比较为 33.003→33.279 实际显示 FPS，增益约 0.84%。这项改动是小幅减少带宽消耗，不能单独解释全部达标结果。
+
+`--shared-phase` 是 pitch=10 RGB 子像素、20 视点条件下共享 RGB 相位计算的实验。逐像素校验没有差异，但横屏短测为 32.983 FPS，低于未启用时的 33.279 FPS，因此最终配置关闭。较早的竖屏 400×720 实验约 29.94 FPS，不能算作本次指定 1920×1200 / 720×400 的达标证据。
+
+稳定参考配置将面捕请求设为 17 FPS，NPU 和上一帧 CPU 后处理重叠，GL 提交预算 31 FPS，真实 USB 与动态原生 UI 同时运行五分钟：
+
+| 指标 | 实测 |
+|---|---:|
+| 实际屏幕呈现 | 30.751 FPS |
+| 每分钟实际屏幕呈现 | 30.745 / 30.762 / 30.770 / 30.762 / 30.712 FPS |
+| 面捕调用 / 完整人脸覆盖 | 16.636 FPS / 99.84% |
+| USB 摄像头采集 / 失败 | 24.433 FPS / 0 |
+| 系统 CPU / GPU / NPU 平均占用 | 66.25% / 88.81% / 30.42% |
+| 完整推理到表情输出的平均延迟 | 71.30 ms |
+| NPU 关键点调用 / CPU 表情姿态后处理 | 30.95 / 30.83 ms |
+| 最低 MemAvailable / PSS 峰值 | 919.25 / 458.60 MiB |
+| thermal_zone0 最高温度 | 78.75°C |
+| 原生 UI 实际重绘 | 8.518 FPS |
+
+分段调用时间含共享设备上的等待，不能当作独占硬件时间；CPU 四核合计归一化为 100%。PSS 包含约 375 MiB 可回收的 NV21 参考录像映射页。摄像头确实采集、解码、打包和转换；完整面捕使用另外转换的本地动态人脸录像，不包含 MP4 解码。所有成本都包含在联合资源采样中。
+
+五种姿态/表情、所有视点的原路径与组合优化完整交织图比较为 0 RGB 字节差异、0 alpha 差异；单独丢弃深度的检查也为 0 差异。最新 APK 的串行/流水线回归检查 24 帧、22 次完整输出，全部 478 点、52 表情和 16 个姿态值完全一致，黑屏和恢复通过。模型数值精度沿用前述独立 TFLite/RKNN 资产检查。此处的渲染质量提高指单视点图像预算提高和优化没有改变诊断图像，尚未证明正式角色的视觉质量或屏幕光学对齐。
+
+```powershell
+& $benchPython -X utf8 scripts/run_quality_case.py quality-native17-depth-5min `
+  --orientation landscape --view-width 720 --view-height 400 `
+  --delegate RKNN --input camera --face-input replay --analysis-fps 17 --npu-pipeline `
+  --seconds 300 --render-fps 31 --ui-load --render scene --views 20 `
+  --pipeline --cull --preblend --multiview --explicit-lod --discard-depth `
+  --verify-discard-depth --verify-combined --pitch 10 --tan .2777777 `
+  --pitch-units subpixels --conversion-backend rga --native-packing --screenshot `
+  --output-dir E:/tripo/output/render-quality-optimization/20261002
+& $benchPython -X utf8 scripts/check_npu_device_health.py `
+  --output E:/tripo/output/render-quality-optimization/20261002/post-test-health.json
+& $benchPython -X utf8 scripts/validate_render_quality.py `
+  --root E:/tripo/output/render-quality-optimization/20261002
+```
+
+此配置为诊断网格与原生文字/96 柱形图 UI 的性能验证；正式角色、复杂页面和实际外壳内的长时散热需要在接入后重新测量。NPU 用于支持的神经网络，GL 渲染、交织及 UI 绘制不能通过提高 NPU 占用率直接迁移。更多有效 AI 任务需逐模型验证这套 RKNN 编译器与驱动支持的算子；不运行无用任务来提高占用数字。
+
+在同一最新 APK、精确尺寸、USB、UI 与渲染预算下，进一步提高面捕请求至 20 FPS：120 秒测试的面捕调用 19.098 FPS、NPU 35.61%、实际显示 30.740 FPS；随后不降温直接执行 300 秒测试，完整结果如下。短测 NPU 值不能当作五分钟平均值。
+
+| 同尺寸面捕档位 | 完整人脸输出 FPS | 实际显示 FPS | CPU | GPU busy | NPU busy | 最高温度 |
+|---|---:|---:|---:|---:|---:|---:|
+| 17 FPS 请求，300 秒 | 16.610 | 30.751 | 66.25% | 88.81% | 30.42% | 78.750°C |
+| 20 FPS 请求，300 秒 | 19.142 | 30.613 | 72.79% | 90.04% | 33.88% | 80.555°C |
+
+高频档的各分钟实际显示为 30.754 / 30.770 / 30.737 / 30.378 / 30.436 FPS，完整人脸覆盖 99.86%，USB 24.498 FPS、0 采集失败；最低 MemAvailable 916.50 MiB、PSS 峰值 463.38 MiB、原生 UI 重绘 8.517 FPS。完整推理到输出的平均延迟 75.23 ms，NPU 关键点调用平均 30.62 ms，CPU 表情与姿态后处理平均 34.06 ms。吞吐率提高也伴随 CPU 负载和单帧延迟增加。两组起始温度不同，温度差不能单独归因于频率调整。
+
+20 FPS 请求是当前尺寸下通过五分钟联合验证的高频档；若需要为复杂 UI 和新功能留更多余量，使用 17 FPS 请求。将上面的命令改为运行名 `quality-native20-depth-5min` 和 `--analysis-fps 20` 即可复现高频档。审计命令加 `--name quality-native20-depth-5min` 选择此记录，默认审计 17 FPS 档。两个档位各自的 37 项检查、原始时间戳、旋转日志与零差异图像证明均保留；此前另一尺寸下 20 FPS 长测掉帧的失败记录仍保留在 `npu-headroom/20261002`，不与本次尺寸混淆。
+
+`E:/tripo/output/render-quality-optimization/20261002` 保存 `RenderQuality.apk`、`RenderQualitySource.zip`、`render-quality-validation.json`、`render-quality-performance.csv` 和 `npu-frequency-comparison.csv`。APK SHA-256 为 `f8bbb2e02add5ccebf11606a0269839f1db7aa8eda9ae0a35d5c6b2950e79ce5`，与测量和设备安装版本一致。源码归档附当前模型及原生库，构建仍需 Java 17、Android SDK 和 Gradle 依赖；个人录像不包含在源码归档中。可用前述 `NpuHeadroom.apk` 或 `NpuOffload.apk` 执行 `adb install -r` 回退，保留应用数据。测试结束后应用已停止、NPU 归零；ADB、HOME、设置、原厂 fingerprint、驱动、vendor runtime 与录像哈希均通过检查，原屏幕旋转设置恢复为 0。
+
+- [Android GLES30 深度附件失效接口](https://developer.android.com/reference/android/opengl/GLES30#glInvalidateFramebuffer(int,%20int,%20int[],%20int))
+- [Android Activity 方向请求](https://developer.android.com/reference/android/app/Activity#setRequestedOrientation(int))
