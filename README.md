@@ -137,7 +137,7 @@ adb shell am start -n com.mirror.bench/.PackingCheckActivity
 adb shell run-as com.mirror.bench cat files/packing-check.json
 ```
 
-NPU 独立验证使用 RKNN 1.3.0 官方 MobileNet 模型，3000 次推理平均约 5.64 ms，实际 RKNPU 峰值 87%。这是分类模型性能。本机 MediaPipe 1.0.0 的枚举虽含 NPU，其 Java acceleration 转换只处理 CPU/GPU；请求 NPU 的实际日志显示 XNNPACK CPU 执行，NPU 采样为 0%，不能据此声称面捕已使用 NPU。完整面捕的 NPU 路径需要 RKNN 模型转换和完整的裁剪、跟踪、478 点及 52 表情后处理接入。原生依赖来源、哈希、构建方法见 `native/DEPENDENCIES.md`。
+NPU 独立验证使用 RKNN 1.3.0 官方 MobileNet 模型，3000 次推理平均约 5.64 ms，实际 RKNPU 峰值 87%。这是分类模型性能。本机 MediaPipe 1.0.0 的枚举虽含 NPU，其 Java acceleration 转换只处理 CPU/GPU；请求 NPU 的实际日志显示 XNNPACK CPU 执行，NPU 采样为 0%，不能据此声称面捕已使用 NPU。2026-10-02 新增的 `RKNN` 后端直接调用 NPU，并保留 478 点、52 表情和姿态，详见后文。原生依赖来源、哈希、构建方法见 `native/DEPENDENCIES.md`。
 
 Java 17、Gradle 8.5、AGP 8.2.2、compileSdk 35、build-tools 35.0.1；目标 Android 11，minSdk 24，MediaPipe `tasks-vision:1.0.0`，仅 arm64 原生库。模型和依赖来源及 SHA-256 在 `asset-manifest.json`，`prepare_assets.py` 可下载同版本资产。电脑上已有其余依赖缓存，本次构建已完成；首次在另一台机器上构建需要 Android SDK 与网络。
 
@@ -175,10 +175,54 @@ Java 17、Gradle 8.5、AGP 8.2.2、compileSdk 35、build-tools 35.0.1；目标 A
 
 官方接口依据：[OVR_multiview](https://registry.khronos.org/OpenGL/extensions/OVR/OVR_multiview.txt)、[OVR_multiview2](https://registry.khronos.org/OpenGL/extensions/OVR/OVR_multiview2.txt)、[GPU 图像拷贝](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_copy_image.txt)。
 
-`scripts/convert_face_models.py` 使用与设备运行时匹配的 RKNN Toolkit2 1.3.0 编译原始任务模型，记录源文件 SHA-256。478 点模型已成功编译为 RK3566 FLOAT16，但输入规范、输出精度、跟踪、52 表情和完整 Android 面捕接入尚未验证。上述联合测试的 NPU 负载仍为 0%，不能称为 NPU 面捕。
+2026-10-01 阶段，`scripts/convert_face_models.py` 仅完成与运行时匹配的 RKNN Toolkit2 1.3.0 编译，记录源文件 SHA-256，尚未验证 Android 面捕接入；因此该日上述联合测试的 NPU 负载为 0%。2026-10-02 的实际 NPU 面捕结果见下一节。
 
 - [Google Face Landmarker Android](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/android)
 - [MediaPipe Android 平台要求](https://ai.google.dev/edge/mediapipe/solutions/setup_android)
 - [Android GLSurfaceView](https://developer.android.com/reference/android/opengl/GLSurfaceView)
 - [Android GLES30](https://developer.android.com/reference/android/opengl/GLES30)
 - [Android ADB](https://developer.android.com/tools/adb)
+
+### 实际 NPU 面捕与 UI 余量（2026-10-02）
+
+`--delegate RKNN` 直接通过持久 JNI 上下文运行原任务包中的人脸检测与 478 点图像网络。RKNN Toolkit2 / runtime 均为 1.3，保留原厂 0.7.2 驱动；只新增应用内库与模型，不刷机，不更换系统库，不调整时钟。模型、运行时和输入归一化的校验值在 `npu-asset-manifest.json`。
+
+52 表情模型在匹配的编译器上报常量折叠形状错误，因此保留官方 CPU FaceBlendshapesGraph；姿态继续用 FaceGeometryFromLandmarksGraph，视频平滑采用原 OneEuro 参数（min cutoff .05、beta 80、derivative cutoff 1）。丢失人脸后重建后处理图以重置滤波状态。这里的 NPU 后端可输出 478 点、52 表情和 16 个姿态矩阵值，渲染器仍使用 4 个诊断形变，正式角色尚未接入。
+
+Tasks AAR 的动态 proto 工厂没有注册 NormalizedLandmarkList；后处理图使用原生 Matrix→Tensor→Landmarks 转换，其 Matrix 输入不做图像归一化。部分 calculator 的 Java options 类也未打包，按官方 proto 写入选项字段，由本机原生图解析。存在度取 `Identity_1` logit，经 sigmoid 后用 .5 阈值；`Identity_2` 辅助输出不作为人脸存在度。
+
+精度对照使用相同解码图像的独立 IMAGE 模式：36 个时间采样产生 30 组不同的参考关键点数据，均有完整输出。478 点 XY 平均 RMSE 为源图约 0.171 像素，最大单帧 RMSE 0.431 像素；52 表情平均绝对误差 0.00147，最大单系数误差 0.0467。这是本地录像上的一致性检查，不是摄像头标定后的真实位置精度。另取 3 组真实裁剪输入逐字节传给原 TFLite 和板上 RKNN，关键点输出 RMSE 为 256×256 裁剪坐标中的 0.022–0.027 像素。无人脸、跟踪时画面变黑和重新捕获三个回归均通过。
+
+资源对照使用同一个 APK、真实 USB 采集/原生 MJPEG 解码/原生打包/RGA，以及额外的录制动态人脸读取和转换；面捕限制 10 FPS。每视点 240×720、20 视点、最终 1200×1920、每视点 20,480 三角形，pitch=10 按子像素解释、tan=.2777777。为保留 UI 余量，`--render-fps 31` 在 GL 提交前以单调时钟节流；实际呈现速率以完整 SurfaceFlinger 时间戳计算。
+
+| 同帧率条件 | 时长 | 实际呈现 FPS | CPU | GPU busy | NPU busy | 最低 MemAvailable |
+|---|---:|---:|---:|---:|---:|---:|
+| 原 GPU 面捕 | 180 秒 | 30.784 | 55.83% | 87.94% | 0% | 945.93 MiB |
+| NPU 图像网络 + CPU 后处理 | 180 秒 | 30.772 | 51.79% | 76.10% | 16.37% | 988.73 MiB |
+| NPU + 动态原生 UI | 300 秒 | 30.736 | 55.14% | 78.86% | 18.04% | 973.59 MiB |
+
+同预算迁移 NPU 释放约 11.85 个百分点的 GPU busy，CPU 降约 4.04 个百分点。UI 夹具包含原生半透明面板、文字和 96 根动态柱形，请求每 100 ms 重绘；完整 UI/RenderThread/GPU 成本已计入系统数据。它不能代表未来复杂 WebView 页面。NPU 用于 AI 模型，GL 多视点渲染和交织仍在 GPU 上，UI 的布局与绘制继续使用 CPU/GPU。
+
+UI 联合运行 300.04 秒，各分钟实际呈现为 30.812 / 30.737 / 30.804 / 30.745 / 30.612 FPS；面捕 9.865 FPS、完整输出率 99.73%，USB 采集 24.446 FPS、0 次采集失败。UI 实际重绘 8.528 FPS，PSS 峰值 458.31 MiB，thermal_zone0 峰值 81.111°C。随后不限帧率的 60 秒容量测试为 36.86 FPS、GPU 93.28%、CPU 63.64%；因此后续 UI 功能宜使用有节流的配置。温度是在连续顺序测试中测得，不能用这些组次推断 NPU 本身的温升；正式外壳内的长时散热还未测试。
+
+`validate_npu_results.py` 的 49 项检查全部通过，包括全部分钟达到 30 FPS、完整呈现历史无缺口、相同 APK、相同图像预算、NPU 硬件计数、全套面捕输出、原模型数值和无人脸恢复。测试后 ADB=device、adb_enabled=1，设置和 HOME 均 Status: ok，原厂 fingerprint、驱动、vendor runtime 哈希保持不变；测试进程已停止、NPU busy 归零，录制 NV21 校验值保持不变。健康记录在 `post-test-health.json`。
+
+```powershell
+& $benchPython -X utf8 scripts/prepare_npu_assets.py `
+  --detector E:/tripo/output/npu-face-optimization/20261002/npu-models/face_detector.rknn `
+  --landmarks E:/tripo/output/npu-face-optimization/20261002/npu-models/face_landmarks_detector.rknn
+& E:/tripo/device-lab/scripts/build_native.ps1
+# 使用原有 Java/Gradle 构建步骤 assembleDebug，并 adb install -r。
+& $benchPython -X utf8 scripts/run_npu_comparison.py --output E:/tripo/output/npu-face-optimization/20261002
+& $benchPython -X utf8 scripts/validate_npu_results.py --root E:/tripo/output/npu-face-optimization/20261002
+```
+
+`--ui-load` 为额外原生 UI 负载；`--render-fps 0` 保留不限帧率测试。实际相机直接驱动面捕用 `--face-input camera`，录像参考联合负载用 `--face-input replay`。APK 为 `E:/tripo/output/npu-face-optimization/20261002/NpuOffload.apk`，SHA-256 `44855aa84d0794a711c0e6792c77d3e969f13ab67b85dcc5a5356ebcca05b889`。原 2026-10-01 GPU APK 保留在原输出目录，可用 `adb install -r` 回退，用户数据和录制文件保留。NPU 版本也保留 `GPU` 后端；不要用旧 `NPU` 枚举冒充本后端。
+
+原始结果、呈现时间戳、采样曲线、精度数据在新输出目录；`npu-performance-comparison.csv` 和 `npu-validation.json` 是审计入口。375 MiB NV21 测试录像的驻留映射页计入 PSS，不能当作正式应用的必要内存。未来模型能否运行 NPU 取决于这套旧编译器支持的算子，需要逐模型转换和验证。
+
+- [Rockchip RKNN 1.3 C API](https://github.com/airockchip/rknpu2/tree/v1.3.0)
+- [Google 人脸检测图](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/tasks/cc/vision/face_detector/face_detector_graph.cc)
+- [Google 关键点、存在度与平滑图](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/tasks/cc/vision/face_landmarker/face_landmarks_detector_graph.cc)
+- [Google CPU 裁剪坐标](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/calculators/tensor/image_to_tensor_converter_opencv.cc)
+- [Google Matrix 转换不执行图像归一化](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/calculators/tensor/tensor_converter_calculator.proto)
