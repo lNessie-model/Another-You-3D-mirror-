@@ -141,6 +141,42 @@ NPU 独立验证使用 RKNN 1.3.0 官方 MobileNet 模型，3000 次推理平均
 
 Java 17、Gradle 8.5、AGP 8.2.2、compileSdk 35、build-tools 35.0.1；目标 Android 11，minSdk 24，MediaPipe `tasks-vision:1.0.0`，仅 arm64 原生库。模型和依赖来源及 SHA-256 在 `asset-manifest.json`，`prepare_assets.py` 可下载同版本资产。电脑上已有其余依赖缓存，本次构建已完成；首次在另一台机器上构建需要 Android SDK 与网络。
 
+### 16 视点以上 / 30 FPS 的图像预算与联合测试
+
+2026-10-01 的结果保存在 `E:/tripo/output/multiview-optimization/20261001`。最终屏幕输出始终为 1200×1920，场景仍为每视点 20,480 个三角形、8 个材质批次、4 个诊断形变；面捕输出 478 点和 52 个表情系数。采用减少每视点图像分辨率的取舍，不能把这组结果说成原 600×960 每视点画质下达到 30 FPS，也不能据此保证尚未接入的正式角色达到同样帧率。
+
+原 16 视点 / 600×960 / GPU 完整面捕约 18.01 呈现 FPS。背面剔除约 21.86 FPS；共享形变加显式基础纹理层级约 23.80 FPS。16 视点 / 300×960 短测约 35.12 FPS（呈现统计覆盖 32.44 秒）；20 视点 / 300×960 约 27.11 FPS；24 视点 / 240×960 约 23.19 FPS。20 视点 / 240×720 连续 5 分钟约 35.41 FPS，每分钟均超过 35.34 FPS，面捕约 9.87 FPS、完整人脸覆盖 99.73%。这些数值的 pitch 均按完整像素解释，具体条件及 APK 哈希见各原始 JSON。
+
+- `--cull` 剔除封闭模型的背面，生成网格朝外三角形使用 CW 绕序。
+- `--preblend` 在表情更新时通过 GLES transform feedback 计算一次形变，所有视点共享 32 字节顶点记录；不改变网格、形变权重或光照。
+- `--multiview` 使用本机支持的 OVR_multiview2，每批 4 个独立投影。20 视点为 5 批，模型仍在所有视点绘制；不是重复两张图来充当多个视点。显式检查最大批量 4 和最大数组层数 256。
+- `--explicit-lod` 在只有一个层级的纹理上明确采样基础层级，避免隐式层级计算。
+- `--scale` 为纵向比例，未单独指定横向比例时也用于横向；`--width-scale` 单独控制横向。240×720 对应 `.2` / `.375`，最终交织输出不缩小。
+- `--verify-combined` 在计时前对比原串行路径与所选优化的完整交织图像，覆盖 5 个角度和中性/最大表情。计时等待 GL 验证结束，避免将初始化遗漏计入成绩。20 视点候选对比为 0 字节差异。
+
+```powershell
+& $benchPython -X utf8 E:/tripo/device-lab/scripts/run_case.py v20-live-example `
+  --delegate GPU --input camera --face-input replay --render scene `
+  --views 20 --scale .375 --width-scale .2 --analysis-fps 10 --seconds 300 `
+  --pipeline --cull --preblend --multiview --explicit-lod --verify-combined `
+  --conversion-backend rga --native-packing --pitch 10 --tan .2777777 --pitch-units pixels `
+  --output-dir E:/tripo/output/multiview-optimization/20261001
+```
+
+`--input camera --face-input replay` 实际运行 USB 采集、相机 HAL 的 MJPEG 解码、原生 YUV 打包和 RGA 转换，同时用已录制的动态人脸执行完整面捕。为免需要用户持续站在镜头前，额外转换一份 NV21 人脸参考；其开销在 `reference_conversion` 单列且包含在联合负载中。它不包含 MP4 解码。真实摄像头直接驱动面捕时使用 `--face-input camera`，需要人脸在镜头中。45 秒联合抽查为 35.29 呈现 FPS、9.59 面捕 FPS、24.44 摄像头采集 FPS，完整人脸覆盖 99.77%。
+
+带真实 USB 的最终 5 分钟验证将 pitch 按 RGB 子像素解释，其余保持同一 20 视点 / 240×720 配置：平均实际呈现 34.15 FPS，各分钟为 34.27 / 34.19 / 34.14 / 34.07 / 34.09 FPS。面捕 9.74 FPS、完整覆盖 99.69%，相机采集 24.50 FPS、0 次采集失败；相机打包加转换平均 3.68 ms，额外录像读取加转换 2.60 ms，同步面捕调用 81.02 ms（含共享 GPU 等待，不是独占 GPU 时间）。系统 CPU 60.36%、GPU busy 96.10%、NPU 0%，最低 MemAvailable 940.34 MiB、PSS 峰值 494.88 MiB、最高 thermal_zone0 温度 77.5°C，回调帧间隔 p95 为 38.72 ms。优化组合相对同一图像预算的原方案五姿态比较为 0 字节差异。两种 pitch 单位均有超过 30 FPS 的联合记录，光学对齐仍待实屏标定。
+
+最终 `Multiview30Fps.apk` SHA-256：`7ca5b6071e7f94bcc91faa61f09605f09c1ee178b6a8041e1faa7043b75e04ba`。测试后确认 ADB 开启、设置启动成功、HOME 为 `com.mirror.launcher/.HomeActivity`，录像 SHA-256 保持一致，测试进程已停止；设备固件指纹保持原值。
+
+`scripts/validate_multiview_results.py` 审核两组 5 分钟记录：原始实际呈现时间戳必须覆盖完整窗口、无历史漏采，各分钟必须达到 30 FPS，并检查完整面捕和真实摄像头采集；输出 `goal-validation.json` 与 `performance-comparison.csv`。PSS 含 374.85 MiB 的可回收测试录像映射页，正式产品不必保留这份映射。相机采集、面捕、显示是三个不同帧率，不能混为一个数字。
+
+`--atlas` 直接图集实验未通过边缘像素验证；`--atlas-copy` 精确 GPU 拷贝通过像素对比，但约 16.68 FPS，更慢。这两条实验路径保留用于复现，推荐配置不启用。所有操作在应用内完成，未刷机、改频率或替换系统驱动。
+
+官方接口依据：[OVR_multiview](https://registry.khronos.org/OpenGL/extensions/OVR/OVR_multiview.txt)、[OVR_multiview2](https://registry.khronos.org/OpenGL/extensions/OVR/OVR_multiview2.txt)、[GPU 图像拷贝](https://registry.khronos.org/OpenGL/extensions/EXT/EXT_copy_image.txt)。
+
+`scripts/convert_face_models.py` 使用与设备运行时匹配的 RKNN Toolkit2 1.3.0 编译原始任务模型，记录源文件 SHA-256。478 点模型已成功编译为 RK3566 FLOAT16，但输入规范、输出精度、跟踪、52 表情和完整 Android 面捕接入尚未验证。上述联合测试的 NPU 负载仍为 0%，不能称为 NPU 面捕。
+
 - [Google Face Landmarker Android](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/android)
 - [MediaPipe Android 平台要求](https://ai.google.dev/edge/mediapipe/solutions/setup_android)
 - [Android GLSurfaceView](https://developer.android.com/reference/android/opengl/GLSurfaceView)
