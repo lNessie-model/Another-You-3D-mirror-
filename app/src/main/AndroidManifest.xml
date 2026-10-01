@@ -9,6 +9,7 @@
         <activity android:name=".PackingCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".NpuSmokeActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".NpuQualityActivity" android:exported="true" android:screenOrientation="portrait" />
+        <activity android:name=".NpuPipelineCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CameraRecordActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".VideoCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CameraBenchActivity" android:exported="true" android:screenOrientation="portrait" />

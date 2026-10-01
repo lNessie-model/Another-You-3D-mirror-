@@ -16,16 +16,20 @@ final class NpuFacePipeline implements AutoCloseable {
     }
     private RknnModel detector,mesh;
     private FacePostGraph post;
+    private java.util.concurrent.ExecutorService postWorker;
+    private java.util.concurrent.Future<?> pendingPost;
+    private boolean pipelined;
+    private record Raw(float[] xyz,int width,int height,long timestamp,float presence,boolean reset,long startedNs) {}
     private File modelDirectory;
     private final boolean smoothing;
     private boolean resetPost;
     private final ByteBuffer detectorInput=RknnModel.buffer(128*128*3),meshInput=RknnModel.buffer(256*256*3);
     private float[] roi;
     private int detections,meshCalls,postCalls;
-    private double cropNs,detectorNs,meshNs,postNs;
+    private double cropNs,detectorNs,meshNs,postNs,completionNs;
     private File dumpDirectory;
     void dumpTo(File directory) { dumpDirectory=directory; }
-    void beginMeasurement() { detections=0; meshCalls=0; postCalls=0; cropNs=0; detectorNs=0; meshNs=0; postNs=0; }
+    void beginMeasurement() { drain(); detections=0; meshCalls=0; postCalls=0; cropNs=0; detectorNs=0; meshNs=0; postNs=0; completionNs=0; }
     private void dump(String model,ByteBuffer input,float[][] output,JSONObject info) {
         if(dumpDirectory==null) return;
         try {
@@ -54,6 +58,36 @@ final class NpuFacePipeline implements AutoCloseable {
         } catch(Throwable error) { close(); throw error; }
     }
     Detection detect(Bitmap image,long timestamp,boolean tracking) {
+        drain();
+        Raw raw=detectRaw(image,timestamp,tracking);
+        return raw==null?null:process(raw);
+    }
+    /** One CPU job at most; publish its result immediately, without waiting for the next NPU frame. */
+    void submit(Bitmap image,long timestamp,boolean tracking,java.util.function.Consumer<Detection> callback) {
+        if(callback==null) throw new IllegalArgumentException("A pipeline result callback is required");
+        Raw raw=detectRaw(image,timestamp,tracking); // Overlap with the PREVIOUS frame's CPU postprocessing.
+        drain(); // Backpressure: never enqueue another CPU job while one is outstanding.
+        pipelined=true;
+        if(raw==null) { callback.accept(null); return; }
+        if(postWorker==null) postWorker=java.util.concurrent.Executors.newSingleThreadExecutor(
+                work->new Thread(work,"FaceCpuPost"));
+        pendingPost=postWorker.submit(()->callback.accept(process(raw)));
+    }
+    /** Await final callback and establish visibility before reading metrics or closing native graphs. */
+    void drain() {
+        if(pendingPost==null) return;
+        boolean interrupted=false;
+        try {
+            for(;;) {
+                try { pendingPost.get(); break; }
+                catch(InterruptedException error) { interrupted=true; }
+            }
+        } catch(java.util.concurrent.ExecutionException error) {
+            throw new IllegalStateException("CPU face pipeline failed",error.getCause());
+        } finally { pendingPost=null; if(interrupted) Thread.currentThread().interrupt(); }
+    }
+    private Raw detectRaw(Bitmap image,long timestamp,boolean tracking) {
+        long started=SystemClock.elapsedRealtimeNanos();
         int w=image.getWidth(),h=image.getHeight();
         if(!tracking) roi=null;
         if(roi==null) {
@@ -91,11 +125,16 @@ final class NpuFacePipeline implements AutoCloseable {
             if(!Float.isFinite(xyz[i])||!Float.isFinite(xyz[i+1])||!Float.isFinite(xyz[i+2])) throw new IllegalStateException("Non-finite landmarks");
         }
         roi=nextRoi(xyz,w,h);
-        before=SystemClock.elapsedRealtimeNanos();
-        if(resetPost) { post.close(); post=createPost(); resetPost=false; }
-        float[][] extras=post.process(xyz,w,h,timestamp);
+        boolean reset=resetPost; resetPost=false;
+        return new Raw(xyz,w,h,timestamp,presence,reset,started);
+    }
+    private Detection process(Raw raw) {
+        long before=SystemClock.elapsedRealtimeNanos();
+        if(raw.reset) { post.close(); post=createPost(); }
+        float[][] extras=post.process(raw.xyz,raw.width,raw.height,raw.timestamp);
         postNs+=SystemClock.elapsedRealtimeNanos()-before; postCalls++;
-        return new Detection(extras[2],extras[0],extras[1],presence);
+        completionNs+=SystemClock.elapsedRealtimeNanos()-raw.startedNs;
+        return new Detection(extras[2],extras[0],extras[1],raw.presence);
     }
     private FacePostGraph createPost() { return new FacePostGraph(new File(modelDirectory,"face_blendshapes.tflite").getPath(),new File(modelDirectory,"geometry_pipeline_metadata_landmarks.binarypb").getPath(),smoothing); }
     private static float[] decodeDetector(float[][] output,int w,int h,float side) {
@@ -139,14 +178,22 @@ final class NpuFacePipeline implements AutoCloseable {
         return new float[]{(minX+maxX)*.5f,(minY+maxY)*.5f,Math.max(maxX-minX,maxY-minY)*1.5f,rotation};
     }
     JSONObject summary() throws Exception {
+        drain();
         return new JSONObject().put("backend","RKNN 1.3 direct NPU detector + 478 landmarks; MediaPipe CPU 52 blendshapes + canonical pose")
+                .put("scheduling",pipelined?"NPU image network overlaps previous CPU post; one outstanding CPU job, immediate ordered callbacks":"Synchronous NPU then CPU post")
+                .put("max_pending_cpu_jobs",pipelined?1:0)
                 .put("detector",detector.info).put("mesh",mesh.info).put("detector_calls",detections).put("mesh_calls",meshCalls).put("post_calls",postCalls)
                 .put("temporal_smoothing",smoothing?"MediaPipe OneEuro: min_cutoff .05, beta 80, derivative cutoff 1; reset after lost face":"Disabled for independent IMAGE comparison")
                 .put("crop_total_ms",cropNs/1e6).put("detector_mean_ms",detections==0?0:detectorNs/detections/1e6)
-                .put("mesh_mean_ms",meshCalls==0?0:meshNs/meshCalls/1e6).put("post_mean_ms",postCalls==0?0:postNs/postCalls/1e6);
+                .put("mesh_mean_ms",meshCalls==0?0:meshNs/meshCalls/1e6).put("post_mean_ms",postCalls==0?0:postNs/postCalls/1e6)
+                .put("completed_face_latency_mean_ms",postCalls==0?0:completionNs/postCalls/1e6);
     }
     @Override public void close() {
-        try { if(post!=null) post.close(); }
-        finally { post=null; try { if(mesh!=null) mesh.close(); } finally { mesh=null; if(detector!=null) detector.close(); detector=null; } }
+        try { drain(); }
+        finally {
+            if(postWorker!=null) { postWorker.shutdown(); postWorker=null; }
+            try { if(post!=null) post.close(); }
+            finally { post=null; try { if(mesh!=null) mesh.close(); } finally { mesh=null; if(detector!=null) detector.close(); detector=null; } }
+        }
     }
 }

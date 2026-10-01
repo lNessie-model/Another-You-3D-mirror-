@@ -87,6 +87,8 @@ public final class CameraBenchActivity extends Activity {
         int rotation=getIntent().getIntExtra("rotation",0);
         boolean rga="rga".equals(getIntent().getStringExtra("conversion_backend"));
         boolean nativePacking=getIntent().getBooleanExtra("native_packing",false);
+        boolean npuPipeline=getIntent().getBooleanExtra("npu_pipeline",false);
+        java.util.concurrent.atomic.AtomicInteger asyncFaces=new java.util.concurrent.atomic.AtomicInteger();
         FrameInput camera=null; YuvConverter converter=null; FaceLandmarker task=null; MPImage image=null;
         NpuFacePipeline npu=null; Bitmap inferenceBitmap=null;
         FrameInput referenceFrames=null; YuvConverter referenceConverter=null;
@@ -94,6 +96,7 @@ public final class CameraBenchActivity extends Activity {
         ArrayList<Double> referenceConversion=new ArrayList<>();
         try {
             if(seconds<1||seconds>600||targetFps<0) throw new IllegalArgumentException("Invalid measurement duration/rate");
+            if(npuPipeline&&!"RKNN".equals(delegate)) throw new IllegalArgumentException("NPU pipeline requires RKNN backend");
             if(referenceFace&&(replay||!inference))
                 throw new IllegalArgumentException("Recorded face reference requires live camera plus inference");
             if(convert) {
@@ -146,10 +149,12 @@ public final class CameraBenchActivity extends Activity {
                 if(referenceFrames!=null) convertReference(referenceFrames,referenceConverter);
                 if(inference) {
                     timestamp=Math.max(timestamp+1,SystemClock.uptimeMillis());
-                    if(npu!=null) npu.detect(inferenceBitmap,timestamp,true);
+                    if(npuPipeline) npu.submit(inferenceBitmap,timestamp,true,ignored->{});
+                    else if(npu!=null) npu.detect(inferenceBitmap,timestamp,true);
                     else task.detectForVideo(image,processing,timestamp);
                 }
             }
+            if(npu!=null) npu.drain();
             if(renderer!=null) {
                 SystemClock.sleep(1500);
                 java.util.concurrent.CountDownLatch ready=new java.util.concurrent.CountDownLatch(1);
@@ -190,7 +195,14 @@ public final class CameraBenchActivity extends Activity {
                     long before=SystemClock.elapsedRealtimeNanos(),cpu=android.os.Debug.threadCpuTimeNanos();
                     FaceLandmarkerResult detection=null;
                     NpuFacePipeline.Detection npuDetection=null;
-                    if(npu!=null) npuDetection=npu.detect(inferenceBitmap,timestamp,true);
+                    if(npuPipeline) {
+                        npu.submit(inferenceBitmap,timestamp,true,value->{
+                            if(value!=null) {
+                                asyncFaces.incrementAndGet();
+                                if(renderer!=null) renderer.setExpressions(value.renderWeights());
+                            }
+                        });
+                    } else if(npu!=null) npuDetection=npu.detect(inferenceBitmap,timestamp,true);
                     else detection=task.detectForVideo(image,processing,timestamp);
                     inferenceMs.add((SystemClock.elapsedRealtimeNanos()-before)/1e6);
                     inferenceCallerCpu+=android.os.Debug.threadCpuTimeNanos()-cpu;
@@ -215,7 +227,7 @@ public final class CameraBenchActivity extends Activity {
                 }
                 long now=SystemClock.elapsedRealtimeNanos();
                 if(now>=nextProgress) {
-                    save(runId+"-progress",new JSONObject().put("consumed",consumed).put("face_frames",faces)
+                    save(runId+"-progress",new JSONObject().put("consumed",consumed).put("face_frames",npuPipeline?asyncFaces.get():faces)
                             .put("elapsed_s",(now-start)/1e9).put("delegate",delegate));
                     nextProgress=now+3_000_000_000L;
                 }
@@ -223,6 +235,10 @@ public final class CameraBenchActivity extends Activity {
                     long rest=1_000_000_000L/targetFps-(SystemClock.elapsedRealtimeNanos()-iteration);
                     if(rest>0) SystemClock.sleep((rest+999999)/1_000_000);
                 }
+            }
+            if(npuPipeline) {
+                npu.drain(); faces=asyncFaces.get();
+                if(faces>0) { landmarks=478; blendshapes=52; }
             }
             double elapsed=(SystemClock.elapsedRealtimeNanos()-start)/1e9;
             result.put("elapsed_s",elapsed).put("measurement_start_epoch_ms",startEpoch)
@@ -234,6 +250,8 @@ public final class CameraBenchActivity extends Activity {
                     .put("effective_fps",inferenceMs.size()/elapsed).put("landmarks",landmarks).put("blendshapes",blendshapes)
                     .put(replay?"replay":"camera",camera.summary(elapsed)).put("conversion",stats(conversion))
                     .put("inference",stats(inferenceMs)).put("pending_frame_age",stats(queueAge))
+                    .put("npu_pipeline_enabled",npuPipeline)
+                    .put("inference_timing_scope",npuPipeline?"NPU producer call, including backpressure; full face latency in npu_pipeline.completed_face_latency_mean_ms":"Synchronous image network and complete postprocessing")
                     .put("process_cpu_percent_4cores",(android.os.Process.getElapsedCpuTime()-cpuStart)/(elapsed*40))
                     .put("worker_cpu_percent_4cores",(android.os.Debug.threadCpuTimeNanos()-workerCpuStart)/(elapsed*4e7))
                     .put("conversion_caller_cpu_percent_4cores",conversionCpu/(elapsed*4e7))

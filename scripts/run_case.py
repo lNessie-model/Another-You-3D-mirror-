@@ -14,6 +14,7 @@ parser.add_argument('--seconds',type=int,default=30)
 parser.add_argument('--analysis-fps',type=int,default=0)
 parser.add_argument('--render-fps',type=int,default=0)
 parser.add_argument('--ui-load',action='store_true')
+parser.add_argument('--npu-pipeline',action='store_true')
 parser.add_argument('--running-mode',default='VIDEO',choices=['VIDEO','IMAGE'])
 parser.add_argument('--render',default='none',choices=['none','interlace','scene'])
 parser.add_argument('--views',type=int,default=4)
@@ -94,6 +95,9 @@ elif args.render_fps: parser.error('Frame pacing currently requires camera/repla
 if args.ui_load:
     if args.input not in ('camera','replay') or args.render=='none': parser.error('UI load requires camera/replay plus rendering')
     panel_extras+=' --ez ui_load true'
+if args.npu_pipeline:
+    if args.delegate!='RKNN' or args.input not in ('camera','replay'): parser.error('NPU pipeline requires RKNN camera/replay backend')
+    panel_extras+=' --ez npu_pipeline true'
 adb('shell',f'am start -n com.mirror.bench/.{activity} --es run_id {args.name} '
     f'--es delegate {args.delegate} --ei seconds {args.seconds} --ei analysis_fps {args.analysis_fps} '
     f'--es running_mode {args.running_mode} '
