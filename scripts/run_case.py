@@ -33,6 +33,7 @@ parser.add_argument('--verify-multiview',action='store_true')
 parser.add_argument('--preblend',action='store_true')
 parser.add_argument('--verify-preblend',action='store_true')
 parser.add_argument('--explicit-lod',action='store_true')
+parser.add_argument('--verify-combined',action='store_true')
 parser.add_argument('--lookup',action='store_true')
 parser.add_argument('--verify-lookup',action='store_true')
 parser.add_argument('--pitch',type=float)
@@ -46,7 +47,7 @@ parser.add_argument('--convert',action='store_true')
 parser.add_argument('--conversion-backend',choices=['rs','rga'],default='rs')
 parser.add_argument('--native-packing',action='store_true')
 parser.add_argument('--profile-stages',action='store_true')
-parser.add_argument('--face-input',choices=['camera','portrait'],default='camera')
+parser.add_argument('--face-input',choices=['camera','portrait','replay'],default='camera')
 parser.add_argument('--output-dir',type=Path,default=DEFAULT_OUT)
 args=parser.parse_args()
 if not (1<=args.seconds<=600 and 1<=args.views<=32 and math.isfinite(args.scale) and 0<args.scale<=1
@@ -97,6 +98,7 @@ adb('shell',f'am start -n com.mirror.bench/.{activity} --es run_id {args.name} '
     f'--ez multiview {str(args.multiview).lower()} --ez verify_multiview {str(args.verify_multiview).lower()} '
     f'--ez preblend {str(args.preblend).lower()} --ez verify_preblend {str(args.verify_preblend).lower()} '
     f'--ez explicit_lod {str(args.explicit_lod).lower()} '
+    f'--ez verify_combined {str(args.verify_combined).lower()} '
     f'--ez lookup {str(args.lookup).lower()} --ez verify_lookup {str(args.verify_lookup).lower()}'+camera_extras+panel_extras)
 series=[]
 deadline=time.monotonic()+args.seconds+120
@@ -238,6 +240,7 @@ if args.delegate=='NPU':
 compact=json.loads(json.dumps(result))
 compact.pop('inference_samples_ms',None)
 compact.pop('conversion_samples_ms',None)
+compact.pop('reference_conversion_samples_ms',None)
 if 'render' in compact:
     compact['render'].pop('frame_work_samples_ms',None)
     compact['render'].pop('frame_interval_samples_ms',None)
