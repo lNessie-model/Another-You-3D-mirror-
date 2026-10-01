@@ -3,6 +3,9 @@
 maven/
 app/src/main/assets/*.task
 app/src/main/assets/*.jpg
+app/src/main/assets/*.rknn
+app/src/main/assets/*.tflite
+app/src/main/assets/*.binarypb
 local.properties
 *.log
 tools/

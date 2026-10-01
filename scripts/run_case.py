@@ -9,9 +9,11 @@ from device_profile import adb, parse_sample, SAMPLE_COMMAND, summarize, OUT as 
 
 parser=argparse.ArgumentParser()
 parser.add_argument('name')
-parser.add_argument('--delegate',default='CPU',choices=['CPU','GPU','NPU','NONE'])
+parser.add_argument('--delegate',default='CPU',choices=['CPU','GPU','NPU','RKNN','NONE'])
 parser.add_argument('--seconds',type=int,default=30)
 parser.add_argument('--analysis-fps',type=int,default=0)
+parser.add_argument('--render-fps',type=int,default=0)
+parser.add_argument('--ui-load',action='store_true')
 parser.add_argument('--running-mode',default='VIDEO',choices=['VIDEO','IMAGE'])
 parser.add_argument('--render',default='none',choices=['none','interlace','scene'])
 parser.add_argument('--views',type=int,default=4)
@@ -51,7 +53,7 @@ parser.add_argument('--face-input',choices=['camera','portrait','replay'],defaul
 parser.add_argument('--output-dir',type=Path,default=DEFAULT_OUT)
 args=parser.parse_args()
 if not (1<=args.seconds<=600 and 1<=args.views<=32 and math.isfinite(args.scale) and 0<args.scale<=1
-        and args.analysis_fps>=0 and math.isfinite(args.replay_fps) and 0<args.replay_fps<=60):
+        and args.analysis_fps>=0 and 0<=args.render_fps<=60 and math.isfinite(args.replay_fps) and 0<args.replay_fps<=60):
     parser.error('Invalid duration, views, scale or frame rate')
 if args.width_scale is not None and not (math.isfinite(args.width_scale) and 0<args.width_scale<=1):
     parser.error('Invalid horizontal view scale')
@@ -87,6 +89,11 @@ camera_extras=(f' --ei camera_width {args.camera_width} --ei camera_height {args
                f' --es conversion_backend {args.conversion_backend} --ez native_packing {str(args.native_packing).lower()}') if args.input in ('camera','replay') else ''
 panel_extras=f' --ef pitch {args.pitch} --ef tan {args.tan} --es pitch_units {args.pitch_units}' if args.pitch is not None else ''
 if args.width_scale is not None: panel_extras+=f' --ef width_scale {args.width_scale}'
+if args.input in ('camera','replay'): panel_extras+=f' --ei render_fps {args.render_fps}'
+elif args.render_fps: parser.error('Frame pacing currently requires camera/replay activity')
+if args.ui_load:
+    if args.input not in ('camera','replay') or args.render=='none': parser.error('UI load requires camera/replay plus rendering')
+    panel_extras+=' --ez ui_load true'
 adb('shell',f'am start -n com.mirror.bench/.{activity} --es run_id {args.name} '
     f'--es delegate {args.delegate} --ei seconds {args.seconds} --ei analysis_fps {args.analysis_fps} '
     f'--es running_mode {args.running_mode} '
@@ -226,7 +233,7 @@ elif args.render!='none':
             break
     presentation['layers']=layers
 payload=dict(arguments=arguments,apk_sha256=apk_sha256,result=result,system=metrics,samples=series,presentation=presentation)
-if args.delegate=='NPU':
+if args.delegate in ('NPU','RKNN'):
     runtime_log=adb('logcat','-d','-s','tflite','MirrorBench','AndroidRuntime')
     pids={x['processes']['com.mirror.bench']['pid'] for x in series if 'com.mirror.bench' in x['processes']}
     runtime_log='\n'.join(line for line in runtime_log.splitlines() if
@@ -235,7 +242,8 @@ if args.delegate=='NPU':
     payload['accelerator_verification']={'requested':'NPU','busy_samples':len(npu),
         'hardware_activity_observed':bool(npu and max(npu)>0),
         'cpu_delegate_observed':'TfLiteXNNPackDelegate' in runtime_log,
-        'note':'Selecting the enum does not prove hardware dispatch; inspect runtime log and NPU counter.'}
+        'note':('Direct RKNN image-model execution; XNNPACK is expected for CPU blendshapes/pose postprocessing.'
+                if args.delegate=='RKNN' else 'Selecting the enum does not prove hardware dispatch; inspect runtime log and NPU counter.')}
 (OUT/f'{args.name}.json').write_text(json.dumps(payload,indent=2),encoding='utf-8')
 compact=json.loads(json.dumps(result))
 compact.pop('inference_samples_ms',None)

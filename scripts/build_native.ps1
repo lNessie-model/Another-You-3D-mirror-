@@ -27,6 +27,10 @@ if($LASTEXITCODE) { throw 'RKNN probe compilation failed' }
     -I (Join-Path $projectRoot 'native\vendor\rknn') (Join-Path $projectRoot 'native\rknn_probe.c') `
     -o (Join-Path $destination 'libmirror_npu.so') -ldl
 if($LASTEXITCODE) { throw 'RKNN JNI compilation failed' }
+& $clang --target=aarch64-linux-android30 -O2 -Wall -Wextra -fPIC -shared `
+    -I (Join-Path $projectRoot 'native\vendor\rknn') (Join-Path $projectRoot 'native\rknn_face.c') `
+    -o (Join-Path $destination 'libmirror_rknn_face.so') -ldl -lm -ljnigraphics
+if($LASTEXITCODE) { throw 'Face RKNN JNI compilation failed' }
 & $clang --target=aarch64-linux-android24 -O2 -Wall -Wextra -fPIC -shared `
     (Join-Path $projectRoot 'native\multiview_gl.c') -lEGL -lGLESv2 `
     -o (Join-Path $destination 'libmirror_gl.so')

@@ -1,0 +1,138 @@
+#include <jni.h>
+#include <android/bitmap.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
+#include <dlfcn.h>
+#include "rknn_api.h"
+
+/* App-local runtime, persistent contexts. No driver or clock changes. */
+typedef struct {
+    void *library;
+    rknn_context context;
+    rknn_input_output_num counts;
+    rknn_tensor_attr input, outputs[8];
+    int (*query)(rknn_context,rknn_query_cmd,void*,uint32_t);
+    int (*set)(rknn_context,uint32_t,rknn_input*);
+    int (*run)(rknn_context,rknn_run_extend*);
+    int (*get)(rknn_context,uint32_t,rknn_output*,rknn_output_extend*);
+    int (*release)(rknn_context,uint32_t,rknn_output*);
+    int (*destroy)(rknn_context);
+} Model;
+static void fail(JNIEnv *e,const char *message) {
+    jclass type=(*e)->FindClass(e,"java/lang/IllegalStateException");
+    if(type) (*e)->ThrowNew(e,type,message);
+}
+static void cleanup(Model *m) {
+    if(!m) return;
+    if(m->context&&m->destroy) m->destroy(m->context);
+    if(m->library) dlclose(m->library);
+    free(m);
+}
+JNIEXPORT jlong JNICALL Java_com_mirror_bench_RknnModel_openNative(JNIEnv *e,jclass c,jstring path) {
+    (void)c;
+    const char *p=(*e)->GetStringUTFChars(e,path,NULL); if(!p) return 0;
+    FILE *f=fopen(p,"rb"); (*e)->ReleaseStringUTFChars(e,path,p);
+    if(!f) { fail(e,"Cannot open RKNN model"); return 0; }
+    fseek(f,0,SEEK_END); long n=ftell(f); rewind(f);
+    if(n<=0||n>64*1024*1024) { fclose(f); fail(e,"Invalid RKNN model size"); return 0; }
+    void *data=malloc(n); if(!data) { fclose(f); fail(e,"Model allocation failed"); return 0; }
+    if(fread(data,1,n,f)!=(size_t)n) { free(data); fclose(f); fail(e,"Incomplete RKNN model"); return 0; }
+    fclose(f);
+    Model *m=calloc(1,sizeof(*m)); if(!m) { free(data); fail(e,"Context allocation failed"); return 0; }
+    m->library=dlopen("librknnrt.so",RTLD_NOW|RTLD_LOCAL);
+    int (*init)(rknn_context*,void*,uint32_t,uint32_t,rknn_init_extend*)=NULL;
+    if(m->library) {
+        init=dlsym(m->library,"rknn_init"); m->query=dlsym(m->library,"rknn_query");
+        m->set=dlsym(m->library,"rknn_inputs_set"); m->run=dlsym(m->library,"rknn_run");
+        m->get=dlsym(m->library,"rknn_outputs_get"); m->release=dlsym(m->library,"rknn_outputs_release");
+        m->destroy=dlsym(m->library,"rknn_destroy");
+    }
+    int status=-1;
+    if(init&&m->query&&m->set&&m->run&&m->get&&m->release&&m->destroy)
+        status=init(&m->context,data,(uint32_t)n,0,NULL);
+    free(data);
+    if(!status) status=m->query(m->context,RKNN_QUERY_IN_OUT_NUM,&m->counts,sizeof(m->counts));
+    if(status||m->counts.n_input!=1||m->counts.n_output<1||m->counts.n_output>8) {
+        cleanup(m); fail(e,"RKNN initialization or tensor count failed"); return 0;
+    }
+    status=m->query(m->context,RKNN_QUERY_INPUT_ATTR,&m->input,sizeof(m->input));
+    for(uint32_t i=0;i<m->counts.n_output&&!status;i++) {
+        m->outputs[i].index=i;
+        status=m->query(m->context,RKNN_QUERY_OUTPUT_ATTR,&m->outputs[i],sizeof(m->outputs[i]));
+        if(!m->outputs[i].n_elems||m->outputs[i].n_elems>2000000) status=-1;
+    }
+    if(status||!m->input.n_elems||m->input.n_elems>2000000) {
+        cleanup(m); fail(e,"Invalid RKNN tensor attributes"); return 0;
+    }
+    return (jlong)(intptr_t)m;
+}
+JNIEXPORT jstring JNICALL Java_com_mirror_bench_RknnModel_infoNative(JNIEnv *e,jclass c,jlong h) {
+    (void)c; Model *m=(Model*)(intptr_t)h; if(!m) { fail(e,"Closed model"); return NULL; }
+    rknn_sdk_version v={0}; int status=m->query(m->context,RKNN_QUERY_SDK_VERSION,&v,sizeof(v));
+    if(status) { fail(e,"RKNN version query failed"); return NULL; }
+    char json[4096]; int pos=snprintf(json,sizeof(json),"{\"runtime\":\"%s\",\"driver\":\"%s\",\"input_elements\":%u,\"outputs\":[",v.api_version,v.drv_version,m->input.n_elems);
+    for(uint32_t i=0;i<m->counts.n_output;i++) {
+        pos+=snprintf(json+pos,sizeof(json)-pos,"%s{\"index\":%u,\"name\":\"%s\",\"elements\":%u}",i?",":"",i,m->outputs[i].name,m->outputs[i].n_elems);
+    }
+    snprintf(json+pos,sizeof(json)-pos,"]}");
+    return (*e)->NewStringUTF(e,json);
+}
+JNIEXPORT jobjectArray JNICALL Java_com_mirror_bench_RknnModel_runNative(JNIEnv *e,jclass c,jlong h,jobject pixels) {
+    (void)c; Model *m=(Model*)(intptr_t)h;
+    if(!m) { fail(e,"Closed model"); return NULL; }
+    void *data=(*e)->GetDirectBufferAddress(e,pixels); jlong capacity=(*e)->GetDirectBufferCapacity(e,pixels);
+    if(!data||capacity!=(jlong)m->input.n_elems*4) { fail(e,"Float32 input buffer shape mismatch"); return NULL; }
+    rknn_input input={0}; input.buf=data; input.size=(uint32_t)capacity; input.type=RKNN_TENSOR_FLOAT32; input.fmt=RKNN_TENSOR_NHWC;
+    rknn_output outputs[8]={0};
+    for(uint32_t i=0;i<m->counts.n_output;i++) { outputs[i].index=i; outputs[i].want_float=1; }
+    int status=m->set(m->context,1,&input); if(!status) status=m->run(m->context,NULL);
+    if(!status) status=m->get(m->context,m->counts.n_output,outputs,NULL);
+    if(status) { char error[100]; snprintf(error,sizeof(error),"RKNN inference returned %d",status); fail(e,error); return NULL; }
+    jclass arrayType=(*e)->FindClass(e,"[F");
+    jobjectArray result=arrayType?(*e)->NewObjectArray(e,m->counts.n_output,arrayType,NULL):NULL;
+    for(uint32_t i=0;result&&i<m->counts.n_output&&!(*e)->ExceptionCheck(e);i++) {
+        if(!outputs[i].buf||outputs[i].size<m->outputs[i].n_elems*4) { fail(e,"Incomplete RKNN output"); break; }
+        jfloatArray row=(*e)->NewFloatArray(e,m->outputs[i].n_elems);
+        if(!row) break;
+        (*e)->SetFloatArrayRegion(e,row,0,m->outputs[i].n_elems,(float*)outputs[i].buf);
+        (*e)->SetObjectArrayElement(e,result,i,row); (*e)->DeleteLocalRef(e,row);
+    }
+    status=m->release(m->context,m->counts.n_output,outputs);
+    if(status&&!(*e)->ExceptionCheck(e)) fail(e,"RKNN output release failed");
+    return (*e)->ExceptionCheck(e)?NULL:result;
+}
+JNIEXPORT void JNICALL Java_com_mirror_bench_RknnModel_closeNative(JNIEnv *e,jclass c,jlong h) {
+    (void)e;(void)c; cleanup((Model*)(intptr_t)h);
+}
+
+/* MediaPipe OpenCV CPU crop convention: ROI corners map to (0,0),(size,size). */
+JNIEXPORT void JNICALL Java_com_mirror_bench_RknnModel_cropNative(JNIEnv *e,jclass c,jobject bitmap,jobject target,
+        jint size,jfloat cx,jfloat cy,jfloat side,jfloat rotation,jfloat mean,jfloat std) {
+    (void)c; AndroidBitmapInfo info; void *pixels=NULL;
+    float *out=(*e)->GetDirectBufferAddress(e,target);
+    if(!out||size<1||size>1024||(*e)->GetDirectBufferCapacity(e,target)!=(jlong)size*size*3*4
+            ||!isfinite(cx)||!isfinite(cy)||!isfinite(side)||side<=0||!isfinite(rotation)||!isfinite(mean)||!isfinite(std)||std<=0
+            ||AndroidBitmap_getInfo(e,bitmap,&info)||info.format!=ANDROID_BITMAP_FORMAT_RGBA_8888) {
+        fail(e,"Invalid crop input"); return;
+    }
+    if(AndroidBitmap_lockPixels(e,bitmap,&pixels)) { fail(e,"Cannot lock crop bitmap"); return; }
+    float cs=cosf(rotation),sn=sinf(rotation);
+    for(int y=0;y<size;y++) for(int x=0;x<size;x++) {
+        float u=(x/(float)size-.5f)*side,v=(y/(float)size-.5f)*side;
+        float px=cx+cs*u-sn*v,py=cy+sn*u+cs*v;
+        int ix=(int)floorf(px),iy=(int)floorf(py); float dx=px-ix,dy=py-iy;
+        float rgb[3]={0};
+        for(int j=0;j<2;j++) for(int k=0;k<2;k++) {
+            int sx=ix+k,sy=iy+j;
+            if(sx<0||sy<0||sx>=(int)info.width||sy>=(int)info.height) continue;
+            uint8_t *p=(uint8_t*)pixels+sy*info.stride+sx*4;
+            float w=(k?dx:1-dx)*(j?dy:1-dy);
+            for(int ch=0;ch<3;ch++) rgb[ch]+=p[ch]*w;
+        }
+        for(int ch=0;ch<3;ch++) *out++=(roundf(rgb[ch])-mean)/std;
+    }
+    AndroidBitmap_unlockPixels(e,bitmap);
+}

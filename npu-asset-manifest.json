@@ -1,0 +1,26 @@
+{
+  "target": "rk3566",
+  "compiler": "rknn-toolkit2 1.3.0_11912b58",
+  "runtime": "rknnrt 1.3.0 (9b36d4d74@2022-05-04T20:16:47)",
+  "driver": "0.7.2; factory driver retained",
+  "quantization": "Unquantized RKNN FP16; float32 NHWC input",
+  "face_detector": {
+    "tflite_sha256": "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f",
+    "rknn_sha256": "ae6adedcb63bc8100acde16db9d1044297687e569fcd6ac4a0c4e6c0c82d58a2",
+    "input": [1,128,128,3],
+    "normalization": {"mean":127.5,"std":127.5}
+  },
+  "face_landmarks_detector": {
+    "tflite_sha256": "c7d54204ce0448474c7f3fa9af494787c0965cbdd6f20fc72867e43046bd43d5",
+    "rknn_sha256": "c7005608b4c2398d48f023d4acc03089dbffe5a81686a4adfa210c0be73f6495",
+    "input": [1,256,256,3],
+    "normalization": {"mean":0,"std":255},
+    "presence_tensor": "Identity_1 logit; sigmoid then threshold 0.5",
+    "unused_tensor": "Identity_2 auxiliary output; not face presence"
+  },
+  "postprocessing": "MediaPipe CPU FaceBlendshapesGraph and FaceGeometryFromLandmarksGraph; OneEuro video smoothing",
+  "face_blendshapes_tflite_sha256": "4f36dded049db18d76048567439b2a7f58f1daabc00d78bfe8f3ad396a2d2082",
+  "geometry_metadata_sha256": "bdbcda96dfcb7da883da124aaa2c55dee49770d934f0fcc71747f8c21bdc75b4",
+  "runtime_sha256": "01fd2e532f4f071e22281a36d83849bf467faf564cf447affb46fe2466d295de",
+  "source": "Existing pinned face_landmarker.task; RKNN compilation is done on the host, not on the board"
+}

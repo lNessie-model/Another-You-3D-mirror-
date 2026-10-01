@@ -58,6 +58,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private int lookupTexture,lookupProgram,lookupGenerator;
     private int lookupMismatch=-1;
     private float pitch=9.69f,tilt=.28f;
+    private int targetFps;
+    private long renderDeadline;
     private String calibration="diagnostic constants; not a verified optical panel calibration";
     private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
 
@@ -68,6 +70,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     void setExpressions(float[] values) { expressions=values; }
     void setProfileStages(boolean enabled) { profileStages=enabled; }
+    void setTargetFps(int value) { if(value<0||value>60) throw new IllegalArgumentException("Invalid render target FPS"); targetFps=value; }
     void setPipeline(boolean enabled) { pipeline=enabled; }
     void setLookup(boolean enabled,boolean verify) { lookup=enabled; verifyLookup=verify; }
     void setCull(boolean enabled,boolean verify) { cull=enabled; verifyCull=verify; }
@@ -95,6 +98,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         measuring=true; firstFrame=0; lastFrame=0; workMs.clear(); intervalMs.clear();
         sceneStageMs.clear(); interlaceStageMs.clear();
         preblendUpdates=0;
+        renderDeadline=0;
     }
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
@@ -187,6 +191,15 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     @Override public void onDrawFrame(GL10 ignored) {
         if(!error.isEmpty()||texture==0) return;
         try {
+            if(targetFps>0) {
+                long now=SystemClock.elapsedRealtimeNanos(),period=1_000_000_000L/targetFps;
+                if(renderDeadline==0||now-renderDeadline>period) renderDeadline=now;
+                while(now<renderDeadline) {
+                    java.util.concurrent.locks.LockSupport.parkNanos(renderDeadline-now);
+                    now=SystemClock.elapsedRealtimeNanos();
+                }
+                renderDeadline+=period;
+            }
             long before=SystemClock.elapsedRealtimeNanos();
             if(pipeline&&fences[fenceSlot]!=0) {
                 int wait=GLES30.glClientWaitSync(fences[fenceSlot],GLES30.GL_SYNC_FLUSH_COMMANDS_BIT,1_000_000_000L);
@@ -555,6 +568,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("lookup_color_buffer_mib",lookup||verifyLookup?width*(double)height*4/1048576:0)
                 .put("lookup_verification_byte_mismatches",lookupMismatch)
                 .put("fps",seconds>0?(workMs.size()-1)/seconds:0)
+                .put("render_target_fps",targetFps)
                 .put("frame_work_p50_ms",BenchActivity.percentile(workMs,.5))
                 .put("frame_work_p95_ms",BenchActivity.percentile(workMs,.95))
                 .put("frame_interval_p95_ms",BenchActivity.percentile(intervalMs,.95))

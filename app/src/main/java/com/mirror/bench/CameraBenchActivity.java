@@ -34,6 +34,7 @@ public final class CameraBenchActivity extends Activity {
     private String runId;
     private GLSurfaceView surface;
     private InterlaceRenderer renderer;
+    private UiLoadView uiLoad;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -47,6 +48,7 @@ public final class CameraBenchActivity extends Activity {
                     |View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
             renderer=new InterlaceRenderer(getIntent().getIntExtra("views",4),getIntent().getFloatExtra("scale",.5f),"scene".equals(mode));
             renderer.setProfileStages(true);
+            renderer.setTargetFps(getIntent().getIntExtra("render_fps",0));
             renderer.setPipeline(getIntent().getBooleanExtra("pipeline",false));
             renderer.setCull(getIntent().getBooleanExtra("cull",false),getIntent().getBooleanExtra("verify_cull",false));
             renderer.setAtlas(getIntent().getBooleanExtra("atlas",false),getIntent().getBooleanExtra("verify_atlas",false));
@@ -60,7 +62,13 @@ public final class CameraBenchActivity extends Activity {
             if(getIntent().hasExtra("pitch")) renderer.setPanelParameters(getIntent().getFloatExtra("pitch",10),
                     getIntent().getFloatExtra("tan",.2777777f),getIntent().getStringExtra("pitch_units"));
             surface=new GLSurfaceView(this); surface.setEGLContextClientVersion(3);
-            surface.setEGLConfigChooser(8,8,8,8,16,0); surface.setRenderer(renderer); setContentView(surface);
+            surface.setEGLConfigChooser(8,8,8,8,16,0); surface.setRenderer(renderer);
+            if(getIntent().getBooleanExtra("ui_load",false)) {
+                android.widget.FrameLayout root=new android.widget.FrameLayout(this);
+                root.addView(surface,new android.widget.FrameLayout.LayoutParams(-1,-1));
+                uiLoad=new UiLoadView(this);
+                root.addView(uiLoad,new android.widget.FrameLayout.LayoutParams(-1,320)); setContentView(root);
+            } else setContentView(surface);
         }
         new Thread(this::measure,"CameraFaceBench").start();
     }
@@ -80,6 +88,7 @@ public final class CameraBenchActivity extends Activity {
         boolean rga="rga".equals(getIntent().getStringExtra("conversion_backend"));
         boolean nativePacking=getIntent().getBooleanExtra("native_packing",false);
         FrameInput camera=null; YuvConverter converter=null; FaceLandmarker task=null; MPImage image=null;
+        NpuFacePipeline npu=null; Bitmap inferenceBitmap=null;
         FrameInput referenceFrames=null; YuvConverter referenceConverter=null;
         ArrayList<Double> conversion=new ArrayList<>(),inferenceMs=new ArrayList<>(),queueAge=new ArrayList<>();
         ArrayList<Double> referenceConversion=new ArrayList<>();
@@ -108,15 +117,21 @@ public final class CameraBenchActivity extends Activity {
                             getIntent().getFloatExtra("replay_fps",24.369907f),getIntent().getBooleanExtra("preload",false));
                     input=referenceConverter.bitmap;
                 }
+                inferenceBitmap=input;
                 image=new BitmapImageBuilder(input).build();
             }
             if(inference) {
                 long init=SystemClock.elapsedRealtimeNanos();
+                if("RKNN".equals(delegate)) {
+                    if(rotation!=0) throw new IllegalArgumentException("RKNN benchmark currently requires rotation=0");
+                    npu=new NpuFacePipeline(this);
+                } else {
                 BaseOptions base=BaseOptions.builder().setModelAssetPath("face_landmarker.task")
                         .setDelegate(Delegate.valueOf(delegate)).build();
                 task=FaceLandmarker.createFromOptions(this,FaceLandmarker.FaceLandmarkerOptions.builder()
                         .setBaseOptions(base).setRunningMode(RunningMode.VIDEO).setNumFaces(1)
                         .setOutputFaceBlendshapes(true).setOutputFacialTransformationMatrixes(true).build());
+                }
                 result.put("initialization_ms",(SystemClock.elapsedRealtimeNanos()-init)/1e6);
             }
             ImageProcessingOptions processing=ImageProcessingOptions.builder().setRotationDegrees(rotation).build();
@@ -131,7 +146,8 @@ public final class CameraBenchActivity extends Activity {
                 if(referenceFrames!=null) convertReference(referenceFrames,referenceConverter);
                 if(inference) {
                     timestamp=Math.max(timestamp+1,SystemClock.uptimeMillis());
-                    task.detectForVideo(image,processing,timestamp);
+                    if(npu!=null) npu.detect(inferenceBitmap,timestamp,true);
+                    else task.detectForVideo(image,processing,timestamp);
                 }
             }
             if(renderer!=null) {
@@ -143,6 +159,8 @@ public final class CameraBenchActivity extends Activity {
             }
             camera.beginMeasurement();
             if(referenceFrames!=null) referenceFrames.beginMeasurement();
+            if(npu!=null) npu.beginMeasurement();
+            if(uiLoad!=null) uiLoad.beginMeasurement();
             long start=SystemClock.elapsedRealtimeNanos(),startEpoch=System.currentTimeMillis();
             long startMonotonic=System.nanoTime();
             long cpuStart=android.os.Process.getElapsedCpuTime(),workerCpuStart=android.os.Debug.threadCpuTimeNanos();
@@ -170,10 +188,16 @@ public final class CameraBenchActivity extends Activity {
                 if(inference) {
                     timestamp=Math.max(timestamp+1,SystemClock.uptimeMillis());
                     long before=SystemClock.elapsedRealtimeNanos(),cpu=android.os.Debug.threadCpuTimeNanos();
-                    FaceLandmarkerResult detection=task.detectForVideo(image,processing,timestamp);
+                    FaceLandmarkerResult detection=null;
+                    NpuFacePipeline.Detection npuDetection=null;
+                    if(npu!=null) npuDetection=npu.detect(inferenceBitmap,timestamp,true);
+                    else detection=task.detectForVideo(image,processing,timestamp);
                     inferenceMs.add((SystemClock.elapsedRealtimeNanos()-before)/1e6);
                     inferenceCallerCpu+=android.os.Debug.threadCpuTimeNanos()-cpu;
-                    if(!detection.faceLandmarks().isEmpty()) {
+                    if(npuDetection!=null) {
+                        faces++; landmarks=npuDetection.landmarks().length/3; blendshapes=npuDetection.blendshapes().length;
+                        if(renderer!=null) renderer.setExpressions(npuDetection.renderWeights());
+                    } else if(detection!=null&&!detection.faceLandmarks().isEmpty()) {
                         faces++; landmarks=detection.faceLandmarks().get(0).size();
                         if(detection.faceBlendshapes().isPresent()) {
                             blendshapes=detection.faceBlendshapes().get().get(0).size();
@@ -220,6 +244,8 @@ public final class CameraBenchActivity extends Activity {
             if(referenceFrames!=null) result.put("face_reference",referenceFrames.summary(elapsed))
                     .put("reference_conversion",stats(referenceConversion))
                     .put("reference_conversion_samples_ms",new JSONArray(referenceConversion));
+            if(npu!=null) result.put("npu_pipeline",npu.summary());
+            if(uiLoad!=null) result.put("ui_load",uiLoad.summary());
             if(renderer!=null) {
                 JSONObject render=renderer.summary(); result.put("render",render);
                 if(!render.getString("error").isEmpty()||render.getInt("frames")==0)
@@ -233,6 +259,7 @@ public final class CameraBenchActivity extends Activity {
         } finally {
             if(camera!=null) camera.close();
             if(task!=null) task.close();
+            if(npu!=null) npu.close();
             if(image!=null) image.close();
             if(converter!=null) converter.close();
             if(referenceFrames!=null) referenceFrames.close();
