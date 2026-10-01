@@ -226,3 +226,56 @@ UI 联合运行 300.04 秒，各分钟实际呈现为 30.812 / 30.737 / 30.804 /
 - [Google 关键点、存在度与平滑图](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/tasks/cc/vision/face_landmarker/face_landmarks_detector_graph.cc)
 - [Google CPU 裁剪坐标](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/calculators/tensor/image_to_tensor_converter_opencv.cc)
 - [Google Matrix 转换不执行图像归一化](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/calculators/tensor/tensor_converter_calculator.proto)
+
+### 提高有效 NPU 利用率（2026-10-02）
+
+新增 `--npu-pipeline`，仅用于 `RKNN` 的 camera/replay 测试。NPU 对当前帧裁剪和推理时，单个 CPU worker 完成上一帧的原始 MediaPipe 表情、平滑和姿态图。提交下一个 CPU 任务前等待上一项结束，最多一项待完成任务；CPU 结果完成后立即通过有序回调更新渲染权重，不等待下一帧 NPU。没有扩大图像网络、降低关键点数量或省略表情计算。默认串行路径保留。
+
+输入 Bitmap 只在 NPU 调用期间读取；CPU worker 持有独立关键点数组。丢失人脸后的滤波重置标记随对应帧传递，避免主线程和 worker 共享可变重置状态。计数前、测量结束和关闭原生资源前均等待回调完成，worker 异常会传回测量线程。`inference.mean_ms` 在流水线模式表示生产者耗时，不能当作完整面捕延迟；完整输入推理到表情输出的平均延迟在 `npu_pipeline.completed_face_latency_mean_ms`，不含此前相机排队和 YUV 转换。
+
+`NpuPipelineCheckActivity` 用同样顺序的 24 帧对照串行和流水线的视频平滑结果，其中包含两次黑屏及随后恢复。检查全部 478 点、52 表情、16 个姿态值、回调数量/顺序和丢脸恢复。对应模型、阈值和归一化仍使用前一节已验证的资产。
+
+```powershell
+& $benchPython -X utf8 scripts/run_npu_headroom.py --output E:/tripo/output/npu-headroom/20261002
+# 单独运行留更多 CPU 余量的 15 FPS 配置；五分钟达标的最高已测档为 --analysis-fps 17。
+& $benchPython -X utf8 scripts/run_case.py npu-balanced `
+  --delegate RKNN --input camera --face-input replay --analysis-fps 15 --npu-pipeline `
+  --render-fps 31 --ui-load --render scene --views 20 --scale .375 --width-scale .2 `
+  --pipeline --cull --preblend --multiview --explicit-lod --pitch 10 --tan .2777777 `
+  --pitch-units subpixels --conversion-backend rga --native-packing --seconds 180 `
+  --output-dir E:/tripo/output/npu-headroom/20261002
+```
+
+这是原板上测试程序的可选择调度模式；正式角色、复杂 UI 和光学标定仍未接入。NPU 占用提高来自处理更多有效人脸帧，CPU 的每帧表情和姿态成本也会随之增加。未来增加其他 AI 模型应按模型转换并验证，不应把 NPU 占用率本身当成优化目标；多视点 GL 渲染和 UI 绘制继续使用 CPU/GPU。
+
+线程接口依据：[Android 单 worker Executor](https://developer.android.com/reference/java/util/concurrent/Executors#newSingleThreadExecutor())、[Future 完成与内存可见性](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/Future.html)。
+
+同一 APK、20 视点 / 每视点 240×720 / 输出 1200×1920、真实 USB 采集解码转换、独立录制动态人脸参考、动态原生 UI、31 FPS 渲染预算下，最终对照如下：
+
+| 面捕配置 | 时长 | 实际面捕 FPS | 实际呈现 FPS | CPU | GPU busy | NPU busy | 达到显示目标 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| 10 FPS 串行参考 | 60 秒 | 9.878 | 30.761 | 56.08% | 76.97% | 18.18% | 是 |
+| 20 FPS 串行请求 | 60 秒 | 13.893 | 30.812 | 64.06% | 77.81% | 25.91% | 是，短测 |
+| 15 FPS 流水线 | 180 秒 | 14.724 | 30.770 | 65.70% | 78.49% | 25.95% | 是，三分钟 |
+| 17 FPS 流水线 | 300 秒 | 16.437 | 30.455 | 72.09% | 82.40% | 29.72% | 是，五分钟 |
+| 20 FPS 流水线 | 300 秒 | 18.194 | 29.766 | 77.42% | 85.51% | 34.15% | 否，后段掉帧 |
+| 不限制面捕的容量短测 | 60 秒 | 19.454 | 30.636 | 77.56% | 77.55% | 41.41% | 是，仅一分钟 |
+
+17 FPS 档各分钟实际显示为 30.745 / 30.662 / 30.395 / 30.387 / 30.103 FPS，完整面捕结果 16.410 FPS、覆盖率 99.84%，最低 MemAvailable 975.54 MiB、PSS 峰值 461.40 MiB、最高温度 81.666°C。相对同 UI 的 10 FPS 参考，有效面捕吞吐率约提高 66%，NPU busy 增加约 11.55 个百分点。CPU 每帧后处理平均 37.18 ms，完整推理到输出平均 80.70 ms；吞吐率提高不表示单帧耗时下降。375 MiB 的 NV21 参考映射驻留页计入 PSS。
+
+20 FPS 流水线各分钟实际呈现为 30.278 / 30.311 / 29.845 / 29.719 / 28.678 FPS，因此排除在达标配置之外。NPU 达到 41.41% 的一分钟容量值也不能用作长时间 UI 联合负载的结论。测试为顺序进行且起始温度不同；温度与时钟采样存在变化，未禁用原厂调频或热保护，不能只凭这些组次给温度变化作因果归因。五分钟验证不覆盖正式外壳内的长时散热。给后续复杂 UI 留更多余量时可采用 15 FPS 档，正式 UI 和角色接入后应重测。
+
+流水线回归的 24 帧、22 次完整人脸输出与串行结果在 478 点、52 表情、16 个姿态值上最大差异均为 0，两次无人脸和恢复通过。原 CPU IMAGE 模型的 36 个参考时间采样复核也通过：XY 平均 RMSE 0.171 源像素、最大单帧 0.431；52 表情平均绝对差 0.00147。参考内容和前一阶段相同，不能作为新数据集上的泛化精度。
+
+`validate_npu_headroom.py` 的 74 项数据完整性、数值与所选档位目标检查通过。审计将 17 FPS 档选为五分钟达标配置，20 FPS 长测保留为 `meets_display_target=false` 和 `display_target_rejections`，未删除失败记录。原始采样、完整实际呈现时间戳、`headroom-comparison.csv`、`headroom-validation.json`、`npu-pipeline-check.json` 和 `quality/` 均在 `E:/tripo/output/npu-headroom/20261002`。
+
+```powershell
+# 在安装此次 APK 后执行回归，随后导出 files/npu-pipeline-check.json 到报告目录。
+adb shell am start -n com.mirror.bench/.NpuPipelineCheckActivity
+adb shell run-as com.mirror.bench cat files/npu-pipeline-check.json
+& $benchPython -X utf8 scripts/run_npu_quality.py --output E:/tripo/output/npu-headroom/20261002/quality
+& $benchPython -X utf8 scripts/validate_npu_headroom.py --root E:/tripo/output/npu-headroom/20261002
+& $benchPython -X utf8 scripts/check_npu_device_health.py --output E:/tripo/output/npu-headroom/20261002/post-test-health.json
+```
+
+APK 为 `NpuHeadroom.apk`，SHA-256 `4c54b1b69e29ac47cdb66cbc16341e49cfdd67ec498641ad82ba89adfbde7334`；对应源码 `NpuHeadroomSource.zip`。前一阶段 `NpuOffload.apk` 保留，可用 `adb install -r` 回退；测试应用未清数据。测试后 ADB、桌面、设置、原厂 fingerprint、0.7.2 驱动、vendor runtime 和录制文件哈希均正常，应用已停止，NPU busy 归零。
