@@ -108,10 +108,14 @@ public class BenchActivity extends Activity {
             }
             if(renderer!=null) {
                 SystemClock.sleep(2000);
-                surface.queueEvent(renderer::beginMeasurement);
+                java.util.concurrent.CountDownLatch ready=new java.util.concurrent.CountDownLatch(1);
+                surface.queueEvent(()->{ renderer.beginMeasurement(); ready.countDown(); });
+                if(!ready.await(30,java.util.concurrent.TimeUnit.SECONDS))
+                    throw new IllegalStateException("Renderer initialization/validation did not finish");
             }
             long start = SystemClock.elapsedRealtimeNanos();
             long startEpoch=System.currentTimeMillis();
+            long startMonotonic=System.nanoTime();
             long cpuStart = android.os.Process.getElapsedCpuTime();
             long finish = start + duration * 1_000_000_000L;
             int faces = 0, landmarks = 0, blendshapes = 0;
@@ -147,6 +151,7 @@ public class BenchActivity extends Activity {
             double elapsed = (SystemClock.elapsedRealtimeNanos() - start) / 1e9;
             summary.put("elapsed_s", elapsed).put("frames", timings.size()).put("face_frames", faces)
                     .put("measurement_start_epoch_ms",startEpoch).put("measurement_end_epoch_ms",System.currentTimeMillis())
+                    .put("measurement_start_monotonic_ns",startMonotonic).put("measurement_end_monotonic_ns",System.nanoTime())
                     .put("effective_fps", timings.size() / elapsed).put("landmarks", landmarks)
                     .put("blendshapes", blendshapes).put("p50_ms", percentile(timings, .5))
                     .put("p95_ms", percentile(timings, .95)).put("mean_ms", timings.stream().mapToDouble(x -> x).average().orElse(0))

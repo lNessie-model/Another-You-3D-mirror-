@@ -121,7 +121,13 @@ public final class CameraBenchActivity extends Activity {
                     task.detectForVideo(image,processing,timestamp);
                 }
             }
-            if(renderer!=null) { SystemClock.sleep(1500); surface.queueEvent(renderer::beginMeasurement); }
+            if(renderer!=null) {
+                SystemClock.sleep(1500);
+                java.util.concurrent.CountDownLatch ready=new java.util.concurrent.CountDownLatch(1);
+                surface.queueEvent(()->{ renderer.beginMeasurement(); ready.countDown(); });
+                if(!ready.await(30,java.util.concurrent.TimeUnit.SECONDS))
+                    throw new IllegalStateException("Renderer initialization/validation did not finish");
+            }
             camera.beginMeasurement();
             long start=SystemClock.elapsedRealtimeNanos(),startEpoch=System.currentTimeMillis();
             long startMonotonic=System.nanoTime();
