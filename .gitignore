@@ -8,3 +8,4 @@ local.properties
 tools/
 __pycache__/
 *.pyc
+app/src/main/jniLibs/

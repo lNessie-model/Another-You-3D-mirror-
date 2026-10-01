@@ -19,11 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** One consumer-owned frame and one replaceable pending frame, never an unbounded queue. */
-final class CameraFrameSource implements AutoCloseable {
-    static final class Frame {
-        final Image image; final long receivedNs;
-        Frame(Image image) { this.image=image; receivedNs=SystemClock.elapsedRealtimeNanos(); }
-    }
+final class CameraFrameSource implements FrameInput {
     private final HandlerThread thread=new HandlerThread("CameraAcquire");
     private final AtomicReference<Frame> pending=new AtomicReference<>();
     private final AtomicLong captures=new AtomicLong(),received=new AtomicLong(),replaced=new AtomicLong(),failures=new AtomicLong();
@@ -96,7 +92,7 @@ final class CameraFrameSource implements AutoCloseable {
         if(!error.isEmpty()) { close(); throw new IllegalStateException(error); }
     }
     private void fail(String reason) { error=reason; ready.countDown(); }
-    Frame take() throws Exception {
+    @Override public Frame take() throws Exception {
         long deadline=SystemClock.elapsedRealtime()+3000;
         while(!closed&&SystemClock.elapsedRealtime()<deadline) {
             if(!error.isEmpty()) throw new IllegalStateException(error);
@@ -105,10 +101,10 @@ final class CameraFrameSource implements AutoCloseable {
         }
         throw new IllegalStateException("No camera frame for 3 seconds");
     }
-    void beginMeasurement() {
+    @Override public void beginMeasurement() {
         startCaptures=captures.get(); startReceived=received.get(); startReplaced=replaced.get(); startFailures=failures.get();
     }
-    JSONObject summary(double seconds) throws Exception {
+    @Override public JSONObject summary(double seconds) throws Exception {
         return new JSONObject().put("camera_id",id).put("fps_range",fpsRange.toString())
                 .put("capture_results",captures.get()-startCaptures).put("received_images",received.get()-startReceived)
                 .put("capture_fps",(captures.get()-startCaptures)/seconds).put("received_fps",(received.get()-startReceived)/seconds)
