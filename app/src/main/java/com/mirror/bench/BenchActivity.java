@@ -57,6 +57,7 @@ public class BenchActivity extends Activity {
             renderer.setMultiview(getIntent().getBooleanExtra("multiview",false),getIntent().getBooleanExtra("verify_multiview",false));
             renderer.setPreblend(getIntent().getBooleanExtra("preblend",false),getIntent().getBooleanExtra("verify_preblend",false));
             renderer.setExplicitLod(getIntent().getBooleanExtra("explicit_lod",false));
+            renderer.setVerifyCombined(getIntent().getBooleanExtra("verify_combined",false));
             if(getIntent().hasExtra("width_scale")) renderer.setWidthScale(getIntent().getFloatExtra("width_scale",.5f));
             renderer.setLookup(getIntent().getBooleanExtra("lookup",false),getIntent().getBooleanExtra("verify_lookup",false));
             if(getIntent().hasExtra("pitch")) renderer.setPanelParameters(getIntent().getFloatExtra("pitch",10),

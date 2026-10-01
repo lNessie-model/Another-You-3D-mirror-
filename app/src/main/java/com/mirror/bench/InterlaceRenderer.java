@@ -53,6 +53,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private boolean explicitLod;
     private int explicitLodProgram;
     private float widthScale;
+    private boolean verifyCombined;
+    private JSONObject combinedVerification;
     private int lookupTexture,lookupProgram,lookupGenerator;
     private int lookupMismatch=-1;
     private float pitch=9.69f,tilt=.28f;
@@ -60,7 +62,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
 
     InterlaceRenderer(int views,float scale,boolean scene) {
-        if(views<1||views>32||scale<=0||scale>1) throw new IllegalArgumentException("Invalid view configuration");
+        if(views<1||views>32||!Float.isFinite(scale)||scale<=0||scale>1)
+            throw new IllegalArgumentException("Invalid view configuration");
         this.views=views; this.scale=scale; this.widthScale=scale; this.scene=scene;
     }
     void setExpressions(float[] values) { expressions=values; }
@@ -73,6 +76,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     void setMultiview(boolean enabled,boolean verify) { multiview=enabled; verifyMultiview=verify; }
     void setPreblend(boolean enabled,boolean verify) { preblend=enabled; verifyPreblend=verify; }
     void setExplicitLod(boolean enabled) { explicitLod=enabled; }
+    void setVerifyCombined(boolean enabled) { verifyCombined=enabled; }
     void setWidthScale(float value) {
         if(!Float.isFinite(value)||value<=0||value>1) throw new IllegalArgumentException("Invalid horizontal view scale");
         widthScale=value;
@@ -90,6 +94,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     synchronized void beginMeasurement() {
         measuring=true; firstFrame=0; lastFrame=0; workMs.clear(); intervalMs.clear();
         sceneStageMs.clear(); interlaceStageMs.clear();
+        preblendUpdates=0;
     }
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
@@ -171,6 +176,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             if(verifyAtlas&&scene) verifyAtlasPixels();
             if(verifyMultiview&&scene) verifyMultiviewPixels();
             if(verifyPreblend&&scene) verifyPreblendPixels();
+            if(verifyCombined&&scene) verifyCombinedPixels();
             if(lookup||verifyLookup) {
                 makeLookup();
                 if(verifyLookup) verifyLookupPixels();
@@ -397,32 +403,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         lastBlendedWeights=weights; preblendUpdates++;
     }
     private void verifyPreblendPixels() throws Exception {
-        boolean saved=preblend; float[] savedExpressions=expressions;
-        ByteBuffer expected=ByteBuffer.allocateDirect(width*height*4);
-        ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
-        long differences=0,squared=0; int max=0,alpha=0;
-        float[] angles={0,31,90,180,277};
-        for(int fixture=0;fixture<angles.length;fixture++) {
-            fixedAngle=angles[fixture];
-            expressions=fixture%2==0?new float[]{0,0,0,0}:new float[]{1,1,1,1};
-            preblend=false; drawViews(); drawInterlace(false);
-            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
-            preblend=true; drawViews(); drawInterlace(false);
-            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);
-            for(int i=0;i<expected.capacity();i++) {
-                int delta=Math.abs((expected.get(i)&255)-(actual.get(i)&255));
-                if(i%4==3) { if(delta>0) alpha++; }
-                else { if(delta>0) differences++; squared+=(long)delta*delta; max=Math.max(max,delta); }
-            }
-        }
-        preblend=saved; expressions=savedExpressions; fixedAngle=Float.NaN;
-        preblendVerification=new JSONObject().put("fixtures",angles.length).put("views",views)
-                .put("rgb_byte_mismatches",differences).put("max_rgb_error",max).put("alpha_mismatches",alpha)
-                .put("rmse",Math.sqrt(squared/(double)(width*height*3L*angles.length)))
-                .put("scope","Per-view morph versus shared transform-feedback morph; five angles and neutral/maximum morph weights");
-        if(max>1||alpha!=0||preblendVerification.getDouble("rmse")>.1)
-            throw new IllegalStateException("Shared morph changed output: "+preblendVerification);
-        checkGl();
+        boolean saved=preblend;
+        try { preblendVerification=compareScenePixels("Per-view morph versus shared transform-feedback morph",value->preblend=value); }
+        finally { preblend=saved; }
+        validateScenePixels(preblendVerification);
     }
     private void makeMultiviewDepth() {
         if(multiviewDepth!=0) GLES30.glDeleteTextures(1,new int[]{multiviewDepth},0);
@@ -438,91 +422,70 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0); checkGl();
     }
     private void verifyMultiviewPixels() throws Exception {
-        boolean saved=multiview; float[] savedExpressions=expressions;
-        ByteBuffer expected=ByteBuffer.allocateDirect(width*height*4);
-        ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
-        long differences=0,squared=0; int max=0,alpha=0;
-        float[] angles={0,31,90,180,277};
-        for(int fixture=0;fixture<angles.length;fixture++) {
-            fixedAngle=angles[fixture];
-            expressions=fixture%2==0?new float[]{0,0,0,0}:new float[]{1,1,1,1};
-            multiview=false; drawViews(); drawInterlace(false);
-            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
-            multiview=true; drawViews(); drawInterlace(false);
-            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);
-            for(int i=0;i<expected.capacity();i++) {
-                int delta=Math.abs((expected.get(i)&255)-(actual.get(i)&255));
-                if(i%4==3) { if(delta>0) alpha++; }
-                else { if(delta>0) differences++; squared+=(long)delta*delta; max=Math.max(max,delta); }
-            }
-        }
-        multiview=saved; expressions=savedExpressions; fixedAngle=Float.NaN;
-        multiviewVerification=new JSONObject().put("fixtures",angles.length).put("views",views)
-                .put("rgb_byte_mismatches",differences).put("max_rgb_error",max).put("alpha_mismatches",alpha)
-                .put("rmse",Math.sqrt(squared/(double)(width*height*3L*angles.length)))
-                .put("scope","Serial versus OVR four-view batches; full output at five angles and neutral/maximum morph weights");
-        if(max>1||alpha!=0||multiviewVerification.getDouble("rmse")>.1)
-            throw new IllegalStateException("Multiview changed output: "+multiviewVerification);
-        checkGl();
+        boolean saved=multiview;
+        try { multiviewVerification=compareScenePixels("Serial versus OVR four-view batches",value->multiview=value); }
+        finally { multiview=saved; }
+        validateScenePixels(multiviewVerification);
     }
     private void verifyAtlasPixels() throws Exception {
-        boolean savedAtlas=atlas; float[] savedExpressions=expressions;
-        ByteBuffer expected=ByteBuffer.allocateDirect(width*height*4);
-        ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
-        long differences=0,squared=0; int max=0,alpha=0;
-        float[] angles={0,31,90,180,277};
-        for(int fixture=0;fixture<angles.length;fixture++) {
-            fixedAngle=angles[fixture];
-            expressions=fixture%2==0?new float[]{0,0,0,0}:new float[]{1,1,1,1};
-            atlas=false; drawViews(); drawInterlace(false);
-            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
-            atlas=true; drawViews(); drawInterlace(false);
-            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);
-            for(int i=0;i<expected.capacity();i++) {
-                int delta=Math.abs((expected.get(i)&255)-(actual.get(i)&255));
-                if(i%4==3) { if(delta>0) alpha++; }
-                else { if(delta>0) differences++; squared+=(long)delta*delta; max=Math.max(max,delta); }
-            }
-        }
-        atlas=savedAtlas; expressions=savedExpressions; fixedAngle=Float.NaN;
-        atlasVerification=new JSONObject().put("fixtures",angles.length).put("views",views)
-                .put("rgb_byte_mismatches",differences).put("max_rgb_error",max).put("alpha_mismatches",alpha)
-                .put("rmse",Math.sqrt(squared/(double)(width*height*3L*angles.length)))
-                .put("scope","Texture array versus atlas; full interlaced output at five angles and neutral/maximum morph weights");
-        if(max>1||alpha!=0||atlasVerification.getDouble("rmse")>.1)
-            throw new IllegalStateException("Atlas changed output: "+atlasVerification);
-        checkGl();
+        boolean saved=atlas;
+        try { atlasVerification=compareScenePixels("Texture array versus atlas",value->atlas=value); }
+        finally { atlas=saved; }
+        validateScenePixels(atlasVerification);
     }
     private void verifyCullingPixels() throws Exception {
-        boolean savedCull=cull; float[] savedExpressions=expressions;
+        boolean saved=cull;
+        try { cullVerification=compareScenePixels("Two-sided versus backface-culled closed mesh",value->cull=value); }
+        finally { cull=saved; }
+        long rgbBytes=width*height*3L*5;
+        if(cullVerification.getInt("max_rgb_error")>1||cullVerification.getInt("alpha_mismatches")!=0
+                ||cullVerification.getLong("rgb_byte_mismatches")>rgbBytes/1_000_000)
+            throw new IllegalStateException("Culling changed output: "+cullVerification);
+    }
+    private JSONObject compareScenePixels(String scope,java.util.function.Consumer<Boolean> mode) throws Exception {
+        float[] savedExpressions=expressions; float savedAngle=fixedAngle;
         ByteBuffer expected=ByteBuffer.allocateDirect(width*height*4);
         ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
         long differences=0,squared=0; int max=0,alpha=0;
         float[] angles={0,31,90,180,277};
-        for(int fixture=0;fixture<angles.length;fixture++) {
-            fixedAngle=angles[fixture];
-            expressions=fixture%2==0?new float[]{0,0,0,0}:new float[]{1,1,1,1};
-            cull=false; drawViews(); drawInterlace(false);
-            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
-            cull=true; drawViews(); drawInterlace(false);
-            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);
-            for(int i=0;i<expected.capacity();i++) {
-                int delta=Math.abs((expected.get(i)&255)-(actual.get(i)&255));
-                if(i%4==3) { if(delta>0) alpha++; }
-                else { if(delta>0) differences++; squared+=(long)delta*delta; max=Math.max(max,delta); }
+        try {
+            for(int fixture=0;fixture<angles.length;fixture++) {
+                fixedAngle=angles[fixture];
+                expressions=fixture%2==0?new float[]{0,0,0,0}:new float[]{1,1,1,1};
+                mode.accept(false); drawViews(); drawInterlace(false);
+                GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
+                mode.accept(true); drawViews(); drawInterlace(false);
+                GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);
+                checkGl();
+                for(int i=0;i<expected.capacity();i++) {
+                    int delta=Math.abs((expected.get(i)&255)-(actual.get(i)&255));
+                    if(i%4==3) { if(delta>0) alpha++; }
+                    else { if(delta>0) differences++; squared+=(long)delta*delta; max=Math.max(max,delta); }
+                }
             }
-        }
-        cull=savedCull; expressions=savedExpressions; fixedAngle=Float.NaN;
-        cullVerification=new JSONObject().put("fixtures",angles.length).put("views",views)
+        } finally { expressions=savedExpressions; fixedAngle=savedAngle; }
+        return new JSONObject().put("fixtures",angles.length).put("views",views)
                 .put("angles_degrees",new JSONArray(angles)).put("rgb_byte_mismatches",differences)
                 .put("max_rgb_error",max).put("alpha_mismatches",alpha)
                 .put("rmse",Math.sqrt(squared/(double)(width*height*3L*angles.length)))
-                .put("scope","Full interlaced output at five angles; neutral and maximum morph weights");
-        // Removal of hidden geometry may change a final UNORM8 rounding bit at
-        // a shared edge. Permit one level on at most one RGB byte per million.
-        long rgbBytes=width*height*3L*angles.length;
-        if(max>1||alpha!=0||differences>rgbBytes/1_000_000)
-            throw new IllegalStateException("Culling changed output: "+cullVerification);
+                .put("scope",scope+"; full interlaced output, neutral/maximum morph weights");
+    }
+    private static void validateScenePixels(JSONObject report) throws Exception {
+        if(report.getInt("max_rgb_error")>1||report.getInt("alpha_mismatches")!=0||report.getDouble("rmse")>.1)
+            throw new IllegalStateException("Scene output changed: "+report);
+    }
+    private void verifyCombinedPixels() throws Exception {
+        if(atlas||lookup) throw new IllegalArgumentException("Combined check covers array storage with arithmetic interlace");
+        boolean savedCull=cull,savedMultiview=multiview,savedPreblend=preblend,savedLod=explicitLod;
+        try {
+            combinedVerification=compareScenePixels("Original scene versus selected combined optimizations",enabled->{
+                cull=enabled&&savedCull; multiview=enabled&&savedMultiview;
+                preblend=enabled&&savedPreblend; explicitLod=enabled&&savedLod;
+            });
+        } finally {
+            cull=savedCull; multiview=savedMultiview; preblend=savedPreblend; explicitLod=savedLod;
+        }
+        validateScenePixels(combinedVerification);
     }
     private void makeMesh() {
         int segments=128,rings=80;
@@ -579,6 +542,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("morph_computation",preblend?"Transform feedback once per expression update, shared by every view":"Repeated per view")
                 .put("preblend_updates",preblendUpdates).put("preblend_verification",preblendVerification)
                 .put("interlace_explicit_lod_zero",explicitLod)
+                .put("combined_verification",combinedVerification)
                 .put("submitted_scene_draw_calls_per_frame",scene?views*8/(multiview?4:1):0)
                 .put("output_width",width).put("output_height",height)
                 .put("view_width",viewWidth).put("view_height",viewHeight)
