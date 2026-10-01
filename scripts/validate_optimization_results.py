@@ -42,8 +42,11 @@ assert npu['result']['status']=='success' and npu['npu_busy_percent_peak']>0
 fallback=json.loads((root/'replay-npu-verified.json').read_text(encoding='utf-8-sig'))
 assert fallback['system']['npu_busy_percent_peak']==0
 assert not fallback['accelerator_verification']['hardware_activity_observed']
+app_npu=json.loads((root/'npu-app-probe.json').read_text(encoding='utf-8-sig'))
+assert app_npu['result']['status']=='success' and app_npu['result']['uid']>=10000
+assert app_npu['npu_busy_percent_peak']>0 and app_npu['result']['top_class']==156 and app_npu['result']['score']>.9
 report=dict(status='passed',cases=checked,color_check='max RGB error 1/255; alpha identical',
             packing_check='24 live frames byte-identical; known fixtures and bounds checks passed',
-            npu_check='RKNN classifier hardware activity observed; MediaPipe NPU enum has no NPU activity')
+            npu_check='RKNN classifier hardware activity observed from shell and ordinary app; MediaPipe NPU enum has no NPU activity')
 (root/'validation.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report))
