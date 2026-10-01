@@ -26,6 +26,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private boolean measuring;
     private long firstFrame,lastFrame;
     private final ArrayList<Double> workMs=new ArrayList<>(),intervalMs=new ArrayList<>();
+    private final ArrayList<Double> sceneStageMs=new ArrayList<>(),interlaceStageMs=new ArrayList<>();
+    private volatile boolean profileStages;
     private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
 
     InterlaceRenderer(int views,float scale,boolean scene) {
@@ -33,8 +35,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         this.views=views; this.scale=scale; this.scene=scene;
     }
     void setExpressions(float[] values) { expressions=values; }
+    void setProfileStages(boolean enabled) { profileStages=enabled; }
     synchronized void beginMeasurement() {
         measuring=true; firstFrame=0; lastFrame=0; workMs.clear(); intervalMs.clear();
+        sceneStageMs.clear(); interlaceStageMs.clear();
     }
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
@@ -82,7 +86,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(!error.isEmpty()||texture==0) return;
         try {
             long before=SystemClock.elapsedRealtimeNanos();
+            boolean split=profileStages&&measuring&&workMs.size()%30==0;
             if(scene) drawViews();
+            long sceneEnd=before;
+            if(split) { GLES30.glFinish(); sceneEnd=SystemClock.elapsedRealtimeNanos(); }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
             GLES30.glViewport(0,0,width,height);
             GLES30.glDisable(GLES30.GL_DEPTH_TEST);
@@ -102,6 +109,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                     if(firstFrame==0) firstFrame=before;
                     if(lastFrame!=0) intervalMs.add((before-lastFrame)/1e6);
                     lastFrame=before; workMs.add((after-before)/1e6);
+                    if(split) { sceneStageMs.add((sceneEnd-before)/1e6); interlaceStageMs.add((after-sceneEnd)/1e6); }
                 }
             }
         } catch(Throwable problem) { fail(problem); }
@@ -191,6 +199,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("frame_work_p95_ms",BenchActivity.percentile(workMs,.95))
                 .put("frame_interval_p95_ms",BenchActivity.percentile(intervalMs,.95))
                 .put("frame_work_samples_ms",new JSONArray(workMs)).put("frame_interval_samples_ms",new JSONArray(intervalMs))
+                .put("stage_profile_samples",sceneStageMs.size())
+                .put("scene_completion_mean_ms",sceneStageMs.stream().mapToDouble(x->x).average().orElse(0))
+                .put("scene_completion_p95_ms",BenchActivity.percentile(sceneStageMs,.95))
+                .put("interlace_completion_mean_ms",interlaceStageMs.stream().mapToDouble(x->x).average().orElse(0))
+                .put("interlace_completion_p95_ms",BenchActivity.percentile(interlaceStageMs,.95))
+                .put("stage_timing","One extra glFinish every 30 frames; completion wall time including submission, GPU work and shared-GPU waiting; not GPU-exclusive")
                 .put("calibration","diagnostic constants; not a verified optical panel calibration")
                 .put("timing","glFinish completion wall time; includes CPU submission and GPU execution; excludes EGL swap");
     }

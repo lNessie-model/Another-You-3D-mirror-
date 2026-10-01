@@ -49,6 +49,7 @@ public class BenchActivity extends Activity {
                     |View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
             renderer=new InterlaceRenderer(getIntent().getIntExtra("views",4),
                     getIntent().getFloatExtra("scale",1),"scene".equals(renderMode));
+            renderer.setProfileStages(getIntent().getBooleanExtra("profile_stages",false));
             surface=new GLSurfaceView(this);
             surface.setEGLContextClientVersion(3);
             surface.setEGLConfigChooser(8,8,8,8,16,0);
