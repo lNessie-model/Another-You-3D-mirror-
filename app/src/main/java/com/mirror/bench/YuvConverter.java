@@ -14,14 +14,17 @@ final class YuvConverter implements AutoCloseable {
     private final Allocation input,output;
     private final byte[] nv21;
     private final YuvPacking.Workspace packing=new YuvPacking.Workspace();
-    private final boolean rga;
+    private final boolean rga,nativePacking;
     private final int width,height;
     final Bitmap bitmap;
     YuvConverter(Context context,int width,int height) {
         this(context,width,height,false);
     }
     YuvConverter(Context context,int width,int height,boolean rga) {
-        this.width=width; this.height=height; this.rga=rga;
+        this(context,width,height,rga,false);
+    }
+    YuvConverter(Context context,int width,int height,boolean rga,boolean nativePacking) {
+        this.width=width; this.height=height; this.rga=rga; this.nativePacking=nativePacking;
         bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
         nv21=new byte[width*height*3/2];
         if(rga) {
@@ -37,6 +40,10 @@ final class YuvConverter implements AutoCloseable {
     }
     void convert(Image image) {
         Image.Plane[] p=image.getPlanes();
+        if(nativePacking&&RgaConvert.pack(image.getWidth(),image.getHeight(),p[0].getBuffer(),p[0].getRowStride(),p[0].getPixelStride(),
+                p[1].getBuffer(),p[1].getRowStride(),p[1].getPixelStride(),p[2].getBuffer(),p[2].getRowStride(),p[2].getPixelStride(),nv21)) {
+            convertNv21(nv21); return;
+        }
         YuvPacking.toNv21(image.getWidth(),image.getHeight(),p[0].getBuffer(),p[0].getRowStride(),p[0].getPixelStride(),
                 p[1].getBuffer(),p[1].getRowStride(),p[1].getPixelStride(),p[2].getBuffer(),p[2].getRowStride(),p[2].getPixelStride(),nv21,packing);
         convertNv21(nv21);

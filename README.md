@@ -109,6 +109,36 @@ adb shell run-as com.mirror.bench cat files/recordings/face-reference-20261001-0
 
 当前 Android 固件禁止通过 ADB 直接写应用外部目录，因此用 `/data/local/tmp` 中转到私有目录。视频可用于离线面捕和渲染对照；离线解码的成本应单列，不能替代真实 USB 采集性能。录制结束自动关闭相机，检查完成后由 ADB 停止测试应用。
 
+### 录制回放与硬件利用优化
+
+`--input replay` 按录制平均速率回放应用私有目录中的 NV21 文件。消费最新帧、跳过旧帧，映射只读且限制 512 MiB；`--preload` 可预读映射页。这条路径不包含 USB 采集或视频解码。其 PSS 包含可回收的录像文件映射页，不能作为产品工作内存的估算。35 秒稳定片仍会在循环边界出现姿态跳变，需查看完整面捕覆盖率。
+
+```powershell
+& $benchPython -X utf8 'E:\tripo\device-lab\scripts\run_case.py' replay-gpu4 `
+  --input replay --record-id face-reference-stable-20261001-01 `
+  --delegate GPU --analysis-fps 10 --render scene --views 4 --scale .5 --pipeline `
+  --conversion-backend rga --pitch 10 --tan .2777777 --pitch-units pixels `
+  --output-dir E:/tripo/output/hardware-optimization/20261001
+```
+
+用户提供 `pitch=10`、`tan=0.2777777`。pitch 单位尚未确认，目前新参数性能组显式假设完整像素；tan 解释为每个垂直像素对应的水平像素偏移。shader 的 x 使用 RGB 子像素，因此完整像素 pitch 乘 3，tan 也乘 3；若 pitch 已是 RGB 子像素，则使用 `--pitch-units subpixels`，只换算 tan。未指定 pitch 的旧对照组继续使用原诊断系数，结果不可混写。视点顺序、RGB/BGR、中心偏移和光学对齐尚未验证。
+
+`--pipeline` 以两个 GPU fence 限制在途帧，去掉逐帧 glFinish，保留真实 EGL 交换约束。异步时工作耗时只表示 CPU 提交和 fence 等待，不表示 GPU 完成。脚本每次资源采样同时采集 SurfaceFlinger 的实际呈现时间戳，在设备 monotonic 测量窗口内计算屏幕呈现 FPS；结果记录覆盖时长。旧 APK 缺少 monotonic 窗口时仅得到尾部历史，不能将其当作整段呈现 FPS。
+
+`--lookup --verify-lookup` 可试验 GPU 生成的整数交织索引纹理（1200×1920 时额外约 8.8 MiB）。校验使用每个视图各通道都不同的固定颜色，与原公式逐字节对照。当前板子上该路径降低帧率，默认关闭。
+
+`--conversion-backend rga` 使用应用本地 Rockchip NDK 库同步 NV21→RGBA（BT601 limited），不更换系统库或驱动。17 个录制/合成色彩样本与 RenderScript 的 RGB 最大差异为 1/255，alpha 一致。`--native-packing` 用原生代码复制真实 Camera2 直接缓冲；共享 NV21 布局通过指针关系确认，其他 row/pixel stride 按通用循环打包，非直接缓冲回退 Java 行读取。已与 24 张实际采集图像逐字节对照，并验证已知平面、共享色度、非零 position、截短缓冲拒绝和堆缓冲回退。
+
+```powershell
+& 'E:\tripo\device-lab\scripts\build_native.ps1'
+adb shell am start -n com.mirror.bench/.ConversionCheckActivity
+adb shell run-as com.mirror.bench cat files/conversion-check.json
+adb shell am start -n com.mirror.bench/.PackingCheckActivity
+adb shell run-as com.mirror.bench cat files/packing-check.json
+```
+
+NPU 独立验证使用 RKNN 1.3.0 官方 MobileNet 模型，3000 次推理平均约 5.64 ms，实际 RKNPU 峰值 87%。这是分类模型性能。本机 MediaPipe 1.0.0 的枚举虽含 NPU，其 Java acceleration 转换只处理 CPU/GPU；请求 NPU 的实际日志显示 XNNPACK CPU 执行，NPU 采样为 0%，不能据此声称面捕已使用 NPU。完整面捕的 NPU 路径需要 RKNN 模型转换和完整的裁剪、跟踪、478 点及 52 表情后处理接入。原生依赖来源、哈希、构建方法见 `native/DEPENDENCIES.md`。
+
 Java 17、Gradle 8.5、AGP 8.2.2、compileSdk 35、build-tools 35.0.1；目标 Android 11，minSdk 24，MediaPipe `tasks-vision:1.0.0`，仅 arm64 原生库。模型和依赖来源及 SHA-256 在 `asset-manifest.json`，`prepare_assets.py` 可下载同版本资产。电脑上已有其余依赖缓存，本次构建已完成；首次在另一台机器上构建需要 Android SDK 与网络。
 
 - [Google Face Landmarker Android](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/android)

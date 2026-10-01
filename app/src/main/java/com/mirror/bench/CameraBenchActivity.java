@@ -69,12 +69,13 @@ public final class CameraBenchActivity extends Activity {
         int targetFps=getIntent().getIntExtra("analysis_fps",0),seconds=getIntent().getIntExtra("seconds",30);
         int rotation=getIntent().getIntExtra("rotation",0);
         boolean rga="rga".equals(getIntent().getStringExtra("conversion_backend"));
+        boolean nativePacking=getIntent().getBooleanExtra("native_packing",false);
         FrameInput camera=null; YuvConverter converter=null; FaceLandmarker task=null; MPImage image=null;
         ArrayList<Double> conversion=new ArrayList<>(),inferenceMs=new ArrayList<>(),queueAge=new ArrayList<>();
         try {
             if(seconds<1||seconds>600||targetFps<0) throw new IllegalArgumentException("Invalid measurement duration/rate");
             if(convert) {
-                converter=new YuvConverter(this,width,height,rga);
+                converter=new YuvConverter(this,width,height,rga,nativePacking);
                 if(rga) result.put("rga_version",RgaConvert.version());
                 Bitmap input=converter.bitmap;
                 if(inference&&portrait) {
@@ -206,6 +207,7 @@ public final class CameraBenchActivity extends Activity {
                     .put("camera_width",width).put("camera_height",height).put("requested_capture_fps",requestedFps)
                     .put("rotation",rotation).put("conversion_enabled",convert).put("running_mode","VIDEO");
             result.put("conversion_backend",rga?"RGA BT601 limited":"RenderScript YuvToRGB");
+            result.put("packing_backend",nativePacking?"native direct-plane packing; Java fallback for heap planes":"bulk Java plane rows");
             result.put("face_input",portrait?"controlled official portrait fitted to camera dimensions":replay?"recorded camera frames":"real camera frames")
                     .put("condition",portrait?"Real camera capture and conversion; independent fixed face for full-landmark load":replay?"Paced recorded face clip; excludes camera acquisition and decode":"Real camera input; inspect face_fraction for complete face load");
             save(runId,result);

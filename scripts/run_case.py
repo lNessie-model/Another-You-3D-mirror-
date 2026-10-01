@@ -33,6 +33,7 @@ parser.add_argument('--capture-fps',type=int,default=25)
 parser.add_argument('--rotation',type=int,default=0)
 parser.add_argument('--convert',action='store_true')
 parser.add_argument('--conversion-backend',choices=['rs','rga'],default='rs')
+parser.add_argument('--native-packing',action='store_true')
 parser.add_argument('--profile-stages',action='store_true')
 parser.add_argument('--face-input',choices=['camera','portrait'],default='camera')
 parser.add_argument('--output-dir',type=Path,default=DEFAULT_OUT)
@@ -70,7 +71,7 @@ camera_extras=(f' --ei camera_width {args.camera_width} --ei camera_height {args
                f' --ei capture_fps {args.capture_fps} --ei rotation {args.rotation} --ez convert {str(args.convert).lower()}'
                f' --es face_input {args.face_input} --es input {args.input} --es record_id {shlex.quote(args.record_id)}'
                f' --ef replay_fps {args.replay_fps} --ez preload {str(args.preload).lower()}'
-               f' --es conversion_backend {args.conversion_backend}') if args.input in ('camera','replay') else ''
+               f' --es conversion_backend {args.conversion_backend} --ez native_packing {str(args.native_packing).lower()}') if args.input in ('camera','replay') else ''
 panel_extras=f' --ef pitch {args.pitch} --ef tan {args.tan} --es pitch_units {args.pitch_units}' if args.pitch is not None else ''
 adb('shell',f'am start -n com.mirror.bench/.{activity} --es run_id {args.name} '
     f'--es delegate {args.delegate} --ei seconds {args.seconds} --ei analysis_fps {args.analysis_fps} '

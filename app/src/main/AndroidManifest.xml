@@ -6,6 +6,7 @@
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
     <application android:label="Mirror Device Lab" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
         <activity android:name=".ConversionCheckActivity" android:exported="true" android:screenOrientation="portrait" />
+        <activity android:name=".PackingCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CameraRecordActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".VideoCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CameraBenchActivity" android:exported="true" android:screenOrientation="portrait" />
