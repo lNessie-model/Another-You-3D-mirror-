@@ -23,6 +23,7 @@ parser.add_argument('--capture-fps',type=int,default=25)
 parser.add_argument('--rotation',type=int,default=0)
 parser.add_argument('--convert',action='store_true')
 parser.add_argument('--profile-stages',action='store_true')
+parser.add_argument('--face-input',choices=['camera','portrait'],default='camera')
 parser.add_argument('--output-dir',type=Path,default=DEFAULT_OUT)
 args=parser.parse_args()
 OUT=args.output_dir
@@ -50,7 +51,8 @@ device_clock_offset=device_epoch-(clock_before+time.time())/2
 print('START',args.name,flush=True)
 activity='CameraBenchActivity' if args.input=='camera' else 'BenchActivity'
 camera_extras=(f' --ei camera_width {args.camera_width} --ei camera_height {args.camera_height}'
-               f' --ei capture_fps {args.capture_fps} --ei rotation {args.rotation} --ez convert {str(args.convert).lower()}') if args.input=='camera' else ''
+               f' --ei capture_fps {args.capture_fps} --ei rotation {args.rotation} --ez convert {str(args.convert).lower()}'
+               f' --es face_input {args.face_input}') if args.input=='camera' else ''
 adb('shell',f'am start -n com.mirror.bench/.{activity} --es run_id {args.name} '
     f'--es delegate {args.delegate} --ei seconds {args.seconds} --ei analysis_fps {args.analysis_fps} '
     f'--es running_mode {args.running_mode} '

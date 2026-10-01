@@ -7,6 +7,7 @@ from pathlib import Path
 parser=argparse.ArgumentParser()
 parser.add_argument('--group',choices=['components','joint','hd','steady'],required=True)
 parser.add_argument('--output-dir',type=Path,default=Path(r'E:\tripo\output\camera-benchmark\20261001'))
+parser.add_argument('--face-input',choices=['camera','portrait'],default='camera')
 args=parser.parse_args()
 camera=['--input','camera']
 scene=['--render','scene','--scale','.5','--profile-stages']
@@ -37,6 +38,7 @@ groups={
     ]
 }
 for name,seconds,options in groups[args.group]:
+    if args.face_input=='portrait': name+='-controlled-face'
     command=[sys.executable,'-X','utf8',str(Path(__file__).with_name('run_case.py')),name,
-             '--seconds',str(seconds),'--output-dir',str(args.output_dir)]+options
+             '--seconds',str(seconds),'--output-dir',str(args.output_dir),'--face-input',args.face_input]+options
     subprocess.run(command,check=True)

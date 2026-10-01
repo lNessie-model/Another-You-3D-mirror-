@@ -70,6 +70,8 @@ MediaPipe 在同一工作线程创建和调用 GPU 委托，使用同步 VIDEO �
 
 运行结束关闭相机并停止测试进程，没有后台推理或摄像头服务；原厂相机应用保持精简后的停用状态。测试程序新增 CAMERA 权限，不需要网络权限、刷机或更换驱动。
 
+当无法持续保持人脸入镜时，可给矩阵脚本添加 `--face-input portrait`，运行可控完整负载。摄像头仍真正采集并转换每个被消费的图像；面捕使用按当前采集尺寸等比例缩放的官方人脸。结果名称带 `controlled-face`，并记录明确的输入条件。这能测完整关键点/表情推理与其他模块的资源争用，但不包含动态人脸跟踪丢失/重检测，不能称为真实人脸的连续视频测试。无人脸的真实输入结果另存为 `no-face`，不可将仅检测阶段的高 FPS 当作完整面捕 FPS。
+
 - [Android ImageReader 最新帧与资源释放](https://developer.android.com/reference/android/media/ImageReader#acquireLatestImage())
 - [Android CameraCaptureSession 重复采集](https://developer.android.com/reference/android/hardware/camera2/CameraCaptureSession#setRepeatingRequest(android.hardware.camera2.CaptureRequest,%20android.hardware.camera2.CameraCaptureSession.CaptureCallback,%20android.os.Handler))
 - [Android 11 可用的 YUV 转换接口](https://developer.android.com/reference/android/renderscript/ScriptIntrinsicYuvToRGB)

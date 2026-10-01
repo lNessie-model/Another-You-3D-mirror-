@@ -1,6 +1,11 @@
 package com.mirror.bench;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
@@ -52,6 +57,7 @@ public final class CameraBenchActivity extends Activity {
         String delegate=getIntent().getStringExtra("delegate");
         if(delegate==null) delegate="NONE";
         boolean inference=!"NONE".equals(delegate);
+        boolean portrait="portrait".equals(getIntent().getStringExtra("face_input"));
         boolean convert=inference||getIntent().getBooleanExtra("convert",false);
         int width=getIntent().getIntExtra("camera_width",640),height=getIntent().getIntExtra("camera_height",480);
         int requestedFps=getIntent().getIntExtra("capture_fps",width>=1280?15:25);
@@ -63,7 +69,19 @@ public final class CameraBenchActivity extends Activity {
             if(seconds<1||seconds>600||targetFps<0) throw new IllegalArgumentException("Invalid measurement duration/rate");
             if(convert) {
                 converter=new YuvConverter(this,width,height);
-                image=new BitmapImageBuilder(converter.bitmap).build();
+                Bitmap input=converter.bitmap;
+                if(inference&&portrait) {
+                    // Controlled full-landmark load while REAL camera capture/conversion still run.
+                    Bitmap asset;
+                    try(var stream=getAssets().open("portrait.jpg")) { asset=BitmapFactory.decodeStream(stream); }
+                    input=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
+                    Canvas canvas=new Canvas(input); canvas.drawColor(android.graphics.Color.BLACK);
+                    float ratio=Math.min(width/(float)asset.getWidth(),height/(float)asset.getHeight());
+                    float w=asset.getWidth()*ratio,h=asset.getHeight()*ratio;
+                    canvas.drawBitmap(asset,null,new RectF((width-w)/2,(height-h)/2,(width+w)/2,(height+h)/2),new Paint(Paint.FILTER_BITMAP_FLAG));
+                    asset.recycle();
+                }
+                image=new BitmapImageBuilder(input).build();
             }
             if(inference) {
                 long init=SystemClock.elapsedRealtimeNanos();
@@ -175,6 +193,8 @@ public final class CameraBenchActivity extends Activity {
                     .put("input","live USB Camera2 YUV_420_888; native MJPEG decode in external camera HAL")
                     .put("camera_width",width).put("camera_height",height).put("requested_capture_fps",requestedFps)
                     .put("rotation",rotation).put("conversion_enabled",convert).put("running_mode","VIDEO");
+            result.put("face_input",portrait?"controlled official portrait fitted to camera dimensions":"real camera frames")
+                    .put("condition",portrait?"Real camera capture and conversion; independent fixed face for full-landmark load":"Real camera input; inspect face_fraction for complete face load");
             save(runId,result);
             JSONObject compact=new JSONObject(result.toString()); compact.remove("inference_samples_ms"); compact.remove("conversion_samples_ms");
             if(compact.has("render")) { compact.getJSONObject("render").remove("frame_work_samples_ms"); compact.getJSONObject("render").remove("frame_interval_samples_ms"); }
