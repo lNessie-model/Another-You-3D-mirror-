@@ -86,6 +86,29 @@ MediaPipe 在同一工作线程创建和调用 GPU 委托，使用同步 VIDEO �
 
 ## 构建和官方来源
 
+### 录制可重复使用的人脸视频
+
+`CameraRecordActivity` 复用已验证的 Camera2 采集和 YUV 打包路径，默认录制 60 秒、640×480、请求 25 FPS；仅录画面。应用专属外部目录 `recordings/` 保存 NV21 像素、逐帧相机时间戳和 JSON 统计，不进行面捕或渲染，以减少录制干扰。入口参数 `record_id` 只允许字母、数字、下划线和连字符，同名原始录像不会覆盖。
+
+```powershell
+adb shell am start -W -n com.mirror.bench/.CameraRecordActivity --es record_id face-reference-20261001-01 --ei seconds 60
+adb pull /sdcard/Android/data/com.mirror.bench/files/recordings E:/tripo/output/camera-reference/20261001
+```
+
+录制后的 MP4 使用 H.264 / yuv420p / CRF 16，不插帧，以相机时间戳平均速率生成恒定帧率参考片。另用 FFV1 / yuv420p 保存无损 MKV；恢复为 NV21 后的完整字节 MD5 与原始录像相同。逐帧 CSV 保留原始非均匀采集时序，精确时序测试应读取 CSV，而不是把 MP4 当作原始时间戳。
+
+`VideoCheckActivity` 从应用私有目录 `files/recordings/<record_id>.mp4` 读取视频，每秒解码一帧，转换为 MediaPipe 要求的 ARGB_8888，再用现有 GPU Face Landmarker 检查 478 个关键点和 52 个表情系数。输出 `files/recordings/<record_id>-face-check.json`。这只是解码、人脸覆盖和表情变化抽查，不是吞吐率测试，也不证明未经抽查的每帧都有完整人脸。
+
+```powershell
+adb push E:/tripo/output/camera-reference/20261001/recordings/face-reference-20261001-01.mp4 /data/local/tmp/
+adb shell run-as com.mirror.bench mkdir -p files/recordings
+adb shell run-as com.mirror.bench cp /data/local/tmp/face-reference-20261001-01.mp4 files/recordings/
+adb shell am start -W -n com.mirror.bench/.VideoCheckActivity --es record_id face-reference-20261001-01
+adb shell run-as com.mirror.bench cat files/recordings/face-reference-20261001-01-face-check.json
+```
+
+当前 Android 固件禁止通过 ADB 直接写应用外部目录，因此用 `/data/local/tmp` 中转到私有目录。视频可用于离线面捕和渲染对照；离线解码的成本应单列，不能替代真实 USB 采集性能。录制结束自动关闭相机，检查完成后由 ADB 停止测试应用。
+
 Java 17、Gradle 8.5、AGP 8.2.2、compileSdk 35、build-tools 35.0.1；目标 Android 11，minSdk 24，MediaPipe `tasks-vision:1.0.0`，仅 arm64 原生库。模型和依赖来源及 SHA-256 在 `asset-manifest.json`，`prepare_assets.py` 可下载同版本资产。电脑上已有其余依赖缓存，本次构建已完成；首次在另一台机器上构建需要 Android SDK 与网络。
 
 - [Google Face Landmarker Android](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/android)
