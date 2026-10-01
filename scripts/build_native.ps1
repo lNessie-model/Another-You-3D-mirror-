@@ -27,4 +27,8 @@ if($LASTEXITCODE) { throw 'RKNN probe compilation failed' }
     -I (Join-Path $projectRoot 'native\vendor\rknn') (Join-Path $projectRoot 'native\rknn_probe.c') `
     -o (Join-Path $destination 'libmirror_npu.so') -ldl
 if($LASTEXITCODE) { throw 'RKNN JNI compilation failed' }
+& $clang --target=aarch64-linux-android24 -O2 -Wall -Wextra -fPIC -shared `
+    (Join-Path $projectRoot 'native\multiview_gl.c') -lEGL -lGLESv2 `
+    -o (Join-Path $destination 'libmirror_gl.so')
+if($LASTEXITCODE) { throw 'Multiview JNI compilation failed' }
 Write-Output 'Native binaries built without modifying target system libraries.'

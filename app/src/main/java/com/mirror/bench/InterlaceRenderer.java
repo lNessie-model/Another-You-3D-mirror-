@@ -1,6 +1,7 @@
 package com.mirror.bench;
 
 import android.opengl.GLES30;
+import android.opengl.GLES32;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.os.SystemClock;
@@ -21,6 +22,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private int width,height,viewWidth,viewHeight,texture,fbo,depth,sceneProgram,interlaceProgram;
     private int vertexBuffer,indexBuffer,indexCount;
     private String gpu="";
+    private String extensions="";
+    private int maxArrayLayers,maxMultiviewViews;
     private volatile String error="";
     private volatile float[] expressions={0,0,0,0};
     private boolean measuring;
@@ -32,6 +35,24 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private final long[] fences=new long[2];
     private int fenceSlot;
     private boolean lookup,verifyLookup;
+    private boolean cull,verifyCull;
+    private JSONObject cullVerification;
+    private float fixedAngle=Float.NaN;
+    private boolean atlas,verifyAtlas,atlasCopy;
+    private int atlasTexture,atlasFbo,atlasDepth,atlasProgram,atlasColumns,atlasRows;
+    private JSONObject atlasVerification;
+    private boolean multiview,verifyMultiview;
+    private int multiviewProgram,multiviewDepth,multiviewFbo;
+    private JSONObject multiviewVerification;
+    private final float[] multiviewMatrices=new float[64];
+    private boolean preblend,verifyPreblend;
+    private int preblendProgram,preblendSceneProgram,preblendMultiviewProgram,preblendBuffer,vertexCount;
+    private float[] lastBlendedWeights;
+    private JSONObject preblendVerification;
+    private long preblendUpdates;
+    private boolean explicitLod;
+    private int explicitLodProgram;
+    private float widthScale;
     private int lookupTexture,lookupProgram,lookupGenerator;
     private int lookupMismatch=-1;
     private float pitch=9.69f,tilt=.28f;
@@ -39,13 +60,23 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
 
     InterlaceRenderer(int views,float scale,boolean scene) {
-        if(views<1||views>16||scale<=0||scale>1) throw new IllegalArgumentException("Invalid view configuration");
-        this.views=views; this.scale=scale; this.scene=scene;
+        if(views<1||views>32||scale<=0||scale>1) throw new IllegalArgumentException("Invalid view configuration");
+        this.views=views; this.scale=scale; this.widthScale=scale; this.scene=scene;
     }
     void setExpressions(float[] values) { expressions=values; }
     void setProfileStages(boolean enabled) { profileStages=enabled; }
     void setPipeline(boolean enabled) { pipeline=enabled; }
     void setLookup(boolean enabled,boolean verify) { lookup=enabled; verifyLookup=verify; }
+    void setCull(boolean enabled,boolean verify) { cull=enabled; verifyCull=verify; }
+    void setAtlas(boolean enabled,boolean verify) { atlas=enabled; verifyAtlas=verify; }
+    void setAtlasCopy(boolean enabled) { atlasCopy=enabled; if(enabled) atlas=true; }
+    void setMultiview(boolean enabled,boolean verify) { multiview=enabled; verifyMultiview=verify; }
+    void setPreblend(boolean enabled,boolean verify) { preblend=enabled; verifyPreblend=verify; }
+    void setExplicitLod(boolean enabled) { explicitLod=enabled; }
+    void setWidthScale(float value) {
+        if(!Float.isFinite(value)||value<=0||value>1) throw new IllegalArgumentException("Invalid horizontal view scale");
+        widthScale=value;
+    }
     void setPanelParameters(float suppliedPitch,float suppliedTan,String pitchUnits) {
         if(!Float.isFinite(suppliedPitch)||!Float.isFinite(suppliedTan)||suppliedPitch<=0||
                 !("pixels".equals(pitchUnits)||"subpixels".equals(pitchUnits)))
@@ -66,9 +97,37 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             for(int i=0;i<fences.length;i++) fences[i]=0;
             fenceSlot=0;
             texture=0; fbo=0; depth=0; lookupTexture=0; lookupMismatch=-1;
+            atlasTexture=0; atlasFbo=0; atlasDepth=0;
+            multiviewDepth=0; multiviewFbo=0;
+            lastBlendedWeights=null; preblendUpdates=0;
             gpu=GLES30.glGetString(GLES30.GL_RENDERER)+" / "+GLES30.glGetString(GLES30.GL_VERSION);
+            extensions=GLES30.glGetString(GLES30.GL_EXTENSIONS);
+            int[] limit=new int[1];
+            GLES30.glGetIntegerv(GLES30.GL_MAX_ARRAY_TEXTURE_LAYERS,limit,0); maxArrayLayers=limit[0];
+            if(extensions.contains("GL_OVR_multiview")) {
+                GLES30.glGetIntegerv(0x9631,limit,0); maxMultiviewViews=limit[0];
+            }
+            if(views>maxArrayLayers) throw new IllegalArgumentException("Views exceed GPU array layer limit");
+            if(multiview||verifyMultiview) {
+                if(maxMultiviewViews<4||!extensions.contains("GL_OVR_multiview2")||views%4!=0||(atlas&&!atlasCopy))
+                    throw new IllegalArgumentException("Four-view batches require OVR_multiview2, divisible-by-four views, and array storage");
+                multiviewProgram=program(multiviewVertex(SCENE_VERTEX),SCENE_FRAGMENT);
+            }
             sceneProgram=program(SCENE_VERTEX,SCENE_FRAGMENT);
             interlaceProgram=program(SCREEN_VERTEX,INTERLACE_FRAGMENT);
+            if(explicitLod) {
+                String shader=INTERLACE_FRAGMENT;
+                for(String channel:new String[]{"0.0","1.0","2.0"}) shader=shader.replace(
+                        "texture(uViews,vec3(vUv,viewAt("+channel+")))",
+                        "textureLod(uViews,vec3(vUv,viewAt("+channel+")),0.0)");
+                explicitLodProgram=program(SCREEN_VERTEX,shader);
+            }
+            if(preblend||verifyPreblend) {
+                preblendProgram=program(PREBLEND_VERTEX,SCENE_FRAGMENT,new String[]{"tfPosition","tfNormal","tfUv"});
+                preblendSceneProgram=program(PREBLEND_SCENE_VERTEX,SCENE_FRAGMENT);
+                if(multiview||verifyMultiview) preblendMultiviewProgram=program(multiviewVertex(PREBLEND_SCENE_VERTEX),SCENE_FRAGMENT);
+            }
+            if(atlas||verifyAtlas) atlasProgram=program(SCREEN_VERTEX,ATLAS_FRAGMENT);
             if(lookup||verifyLookup) {
                 lookupProgram=program(SCREEN_VERTEX,LOOKUP_FRAGMENT);
                 lookupGenerator=program(SCREEN_VERTEX,LOOKUP_GENERATOR);
@@ -78,7 +137,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
         this.width=width; this.height=height;
-        viewWidth=Math.max(1,Math.round(width*scale)); viewHeight=Math.max(1,Math.round(height*scale));
+        viewWidth=Math.max(1,Math.round(width*widthScale)); viewHeight=Math.max(1,Math.round(height*scale));
         try {
             int[] ids=new int[1];
             if(texture!=0) GLES30.glDeleteTextures(1,new int[]{texture},0);
@@ -106,6 +165,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
             }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+            if(atlas||verifyAtlas) makeAtlas();
+            if(multiview||verifyMultiview) makeMultiviewDepth();
+            if(verifyCull&&scene) verifyCullingPixels();
+            if(verifyAtlas&&scene) verifyAtlasPixels();
+            if(verifyMultiview&&scene) verifyMultiviewPixels();
+            if(verifyPreblend&&scene) verifyPreblendPixels();
             if(lookup||verifyLookup) {
                 makeLookup();
                 if(verifyLookup) verifyLookupPixels();
@@ -152,13 +217,20 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform1f(GLES30.glGetUniformLocation(program,"uTilt"),tilt);
     }
     private void drawInterlace(boolean cached) {
-        int program=cached?lookupProgram:interlaceProgram;
+        if(atlas&&cached) throw new IllegalArgumentException("Atlas and lookup are independent experiments");
+        int program=atlas?atlasProgram:(cached?lookupProgram:(explicitLod?explicitLodProgram:interlaceProgram));
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
         GLES30.glViewport(0,0,width,height); GLES30.glDisable(GLES30.GL_DEPTH_TEST);
+        GLES30.glDisable(GLES30.GL_CULL_FACE);
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST);
         GLES30.glUseProgram(program);
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,texture);
+        GLES30.glBindTexture(atlas?GLES30.GL_TEXTURE_2D:GLES30.GL_TEXTURE_2D_ARRAY,atlas?atlasTexture:texture);
         GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uViews"),0);
+        if(atlas) {
+            GLES30.glUniform2f(GLES30.glGetUniformLocation(program,"uGrid"),atlasColumns,atlasRows);
+            GLES30.glUniform2f(GLES30.glGetUniformLocation(program,"uHalfTexel"),.5f/viewWidth,.5f/viewHeight);
+        }
         if(cached) {
             GLES30.glActiveTexture(GLES30.GL_TEXTURE1); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,lookupTexture);
             GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uLookup"),1);
@@ -202,10 +274,111 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         checkGl();
     }
     private void drawViews() {
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo);
+        if(preblend) updatePreblend();
+        boolean drawAtlas=atlas&&!atlasCopy;
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiview?multiviewFbo:(drawAtlas?atlasFbo:fbo));
         GLES30.glViewport(0,0,viewWidth,viewHeight);
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST);
+        if(drawAtlas) {
+            GLES30.glClearColor(.035f,.045f,.06f,1);
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+            GLES30.glEnable(GLES30.GL_SCISSOR_TEST);
+        }
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);
-        GLES30.glUseProgram(sceneProgram);
+        if(cull) {
+            // The generated mesh uses clockwise outward-facing triangles.
+            GLES30.glEnable(GLES30.GL_CULL_FACE); GLES30.glFrontFace(GLES30.GL_CW);
+            GLES30.glCullFace(GLES30.GL_BACK);
+        } else GLES30.glDisable(GLES30.GL_CULL_FACE);
+        int activeProgram=preblend?(multiview?preblendMultiviewProgram:preblendSceneProgram)
+                :(multiview?multiviewProgram:sceneProgram);
+        GLES30.glUseProgram(activeProgram);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,preblend?preblendBuffer:vertexBuffer);
+        int[] sizes=preblend?new int[]{3,3,2}:new int[]{3,3,2,3,3,3,3}; int offset=0;
+        for(int attribute=0;attribute<sizes.length;attribute++) {
+            GLES30.glEnableVertexAttribArray(attribute);
+            GLES30.glVertexAttribPointer(attribute,sizes[attribute],GLES30.GL_FLOAT,false,preblend?32:80,offset);
+            offset+=sizes[attribute]*4;
+        }
+        GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,indexBuffer);
+        float[] weights=expressions;
+        GLES30.glUniform4fv(GLES30.glGetUniformLocation(activeProgram,"uWeights"),1,weights,0);
+        float angle=Float.isNaN(fixedAngle)?(SystemClock.uptimeMillis()%12000)/12000f*360:fixedAngle;
+        Matrix.setIdentityM(model,0); Matrix.rotateM(model,0,angle,0,1,0);
+        float aspect=(float)viewWidth/viewHeight;
+        int group=multiview?4:1;
+        for(int v=0;v<views;v+=group) {
+            if(multiview) {
+                MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,texture,v,4);
+                MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,multiviewDepth,v,4);
+                GLES30.glClearColor(.035f,.045f,.06f,1);
+                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+            } else if(drawAtlas) {
+                int x=v%atlasColumns*viewWidth,y=v/atlasColumns*viewHeight;
+                GLES30.glViewport(x,y,viewWidth,viewHeight); GLES30.glScissor(x,y,viewWidth,viewHeight);
+            } else {
+                GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
+                GLES30.glClearColor(.035f,.045f,.06f,1);
+                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+            }
+            for(int relative=0;relative<group;relative++) {
+                float eye=views==1?0:((v+relative)/(float)(views-1)-.5f)*.4f;
+                Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
+                float near=.1f,half=.052f,shift=-eye*near/3;
+                Matrix.frustumM(projection,0,-half*aspect+shift,half*aspect+shift,-half,half,near,10);
+                Matrix.multiplyMM(mv,0,view,0,model,0); Matrix.multiplyMM(mvp,0,projection,0,mv,0);
+                if(multiview) System.arraycopy(mvp,0,multiviewMatrices,relative*16,16);
+            }
+            GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(activeProgram,multiview?"uMvps":"uMvp"),group,false,
+                    multiview?multiviewMatrices:mvp,0);
+            GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(activeProgram,"uModel"),1,false,model,0);
+            int perBatch=indexCount/8;
+            for(int batch=0;batch<8;batch++) {
+                GLES30.glUniform3f(GLES30.glGetUniformLocation(activeProgram,"uColor"),.65f+batch*.02f,.42f,.30f);
+                GLES30.glDrawElements(GLES30.GL_TRIANGLES,perBatch,GLES30.GL_UNSIGNED_SHORT,batch*perBatch*2);
+            }
+        }
+        for(int attribute=0;attribute<7;attribute++) GLES30.glDisableVertexAttribArray(attribute);
+        GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);
+        if(atlas&&atlasCopy) {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+            for(int v=0;v<views;v++) GLES32.glCopyImageSubData(texture,GLES30.GL_TEXTURE_2D_ARRAY,0,0,0,v,
+                    atlasTexture,GLES30.GL_TEXTURE_2D,0,v%atlasColumns*viewWidth,v/atlasColumns*viewHeight,0,
+                    viewWidth,viewHeight,1);
+        }
+    }
+    private void makeAtlas() {
+        atlasColumns=(int)Math.ceil(Math.sqrt(views)); atlasRows=(views+atlasColumns-1)/atlasColumns;
+        int w=atlasColumns*viewWidth,h=atlasRows*viewHeight;
+        int[] limit=new int[1]; GLES30.glGetIntegerv(GLES30.GL_MAX_TEXTURE_SIZE,limit,0);
+        if(w>limit[0]||h>limit[0]) throw new IllegalArgumentException("Atlas exceeds GPU texture size");
+        if(atlasTexture!=0) GLES30.glDeleteTextures(1,new int[]{atlasTexture},0);
+        if(atlasDepth!=0) GLES30.glDeleteRenderbuffers(1,new int[]{atlasDepth},0);
+        int[] ids=new int[1]; GLES30.glGenTextures(1,ids,0); atlasTexture=ids[0];
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,atlasTexture);
+        GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,1,GLES30.GL_RGBA8,w,h);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_LINEAR);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_LINEAR);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_S,GLES30.GL_CLAMP_TO_EDGE);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_T,GLES30.GL_CLAMP_TO_EDGE);
+        GLES30.glGenRenderbuffers(1,ids,0); atlasDepth=ids[0];
+        GLES30.glBindRenderbuffer(GLES30.GL_RENDERBUFFER,atlasDepth);
+        GLES30.glRenderbufferStorage(GLES30.GL_RENDERBUFFER,GLES30.GL_DEPTH_COMPONENT16,w,h);
+        if(atlasFbo==0) { GLES30.glGenFramebuffers(1,ids,0); atlasFbo=ids[0]; }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,atlasFbo);
+        GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,atlasTexture,0);
+        GLES30.glFramebufferRenderbuffer(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,GLES30.GL_RENDERBUFFER,atlasDepth);
+        if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)
+            throw new IllegalStateException("Atlas framebuffer incomplete");
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+    }
+    private void updatePreblend() {
+        float[] weights=expressions;
+        if(weights==lastBlendedWeights) return;
+        // OVR disallows active transform feedback on a multiview framebuffer.
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+        GLES30.glUseProgram(preblendProgram);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,vertexBuffer);
         int[] sizes={3,3,2,3,3,3,3}; int offset=0;
         for(int attribute=0;attribute<sizes.length;attribute++) {
@@ -213,35 +386,147 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             GLES30.glVertexAttribPointer(attribute,sizes[attribute],GLES30.GL_FLOAT,false,80,offset);
             offset+=sizes[attribute]*4;
         }
-        GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,indexBuffer);
-        float[] weights=expressions;
-        GLES30.glUniform4fv(GLES30.glGetUniformLocation(sceneProgram,"uWeights"),1,weights,0);
-        float angle=(SystemClock.uptimeMillis()%12000)/12000f*360;
-        Matrix.setIdentityM(model,0); Matrix.rotateM(model,0,angle,0,1,0);
-        float aspect=(float)viewWidth/viewHeight;
-        for(int v=0;v<views;v++) {
-            GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
-            GLES30.glClearColor(.035f,.045f,.06f,1);
-            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
-            float eye=views==1?0:(v/(float)(views-1)-.5f)*.4f;
-            Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
-            float near=.1f,half=.052f,shift=-eye*near/3;
-            Matrix.frustumM(projection,0,-half*aspect+shift,half*aspect+shift,-half,half,near,10);
-            Matrix.multiplyMM(mv,0,view,0,model,0); Matrix.multiplyMM(mvp,0,projection,0,mv,0);
-            GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(sceneProgram,"uMvp"),1,false,mvp,0);
-            GLES30.glUniformMatrix4fv(GLES30.glGetUniformLocation(sceneProgram,"uModel"),1,false,model,0);
-            int perBatch=indexCount/8;
-            for(int batch=0;batch<8;batch++) {
-                GLES30.glUniform3f(GLES30.glGetUniformLocation(sceneProgram,"uColor"),.65f+batch*.02f,.42f,.30f);
-                GLES30.glDrawElements(GLES30.GL_TRIANGLES,perBatch,GLES30.GL_UNSIGNED_SHORT,batch*perBatch*2);
+        GLES30.glUniform4fv(GLES30.glGetUniformLocation(preblendProgram,"uWeights"),1,weights,0);
+        GLES30.glBindBufferBase(GLES30.GL_TRANSFORM_FEEDBACK_BUFFER,0,preblendBuffer);
+        GLES30.glEnable(GLES30.GL_RASTERIZER_DISCARD);
+        GLES30.glBeginTransformFeedback(GLES30.GL_POINTS);
+        GLES30.glDrawArrays(GLES30.GL_POINTS,0,vertexCount);
+        GLES30.glEndTransformFeedback(); GLES30.glDisable(GLES30.GL_RASTERIZER_DISCARD);
+        GLES30.glBindBufferBase(GLES30.GL_TRANSFORM_FEEDBACK_BUFFER,0,0);
+        for(int attribute=0;attribute<7;attribute++) GLES30.glDisableVertexAttribArray(attribute);
+        lastBlendedWeights=weights; preblendUpdates++;
+    }
+    private void verifyPreblendPixels() throws Exception {
+        boolean saved=preblend; float[] savedExpressions=expressions;
+        ByteBuffer expected=ByteBuffer.allocateDirect(width*height*4);
+        ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
+        long differences=0,squared=0; int max=0,alpha=0;
+        float[] angles={0,31,90,180,277};
+        for(int fixture=0;fixture<angles.length;fixture++) {
+            fixedAngle=angles[fixture];
+            expressions=fixture%2==0?new float[]{0,0,0,0}:new float[]{1,1,1,1};
+            preblend=false; drawViews(); drawInterlace(false);
+            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
+            preblend=true; drawViews(); drawInterlace(false);
+            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);
+            for(int i=0;i<expected.capacity();i++) {
+                int delta=Math.abs((expected.get(i)&255)-(actual.get(i)&255));
+                if(i%4==3) { if(delta>0) alpha++; }
+                else { if(delta>0) differences++; squared+=(long)delta*delta; max=Math.max(max,delta); }
             }
         }
-        for(int attribute=0;attribute<7;attribute++) GLES30.glDisableVertexAttribArray(attribute);
-        GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
-        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);
+        preblend=saved; expressions=savedExpressions; fixedAngle=Float.NaN;
+        preblendVerification=new JSONObject().put("fixtures",angles.length).put("views",views)
+                .put("rgb_byte_mismatches",differences).put("max_rgb_error",max).put("alpha_mismatches",alpha)
+                .put("rmse",Math.sqrt(squared/(double)(width*height*3L*angles.length)))
+                .put("scope","Per-view morph versus shared transform-feedback morph; five angles and neutral/maximum morph weights");
+        if(max>1||alpha!=0||preblendVerification.getDouble("rmse")>.1)
+            throw new IllegalStateException("Shared morph changed output: "+preblendVerification);
+        checkGl();
+    }
+    private void makeMultiviewDepth() {
+        if(multiviewDepth!=0) GLES30.glDeleteTextures(1,new int[]{multiviewDepth},0);
+        int[] ids=new int[1]; GLES30.glGenTextures(1,ids,0); multiviewDepth=ids[0];
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,multiviewDepth);
+        GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_DEPTH_COMPONENT16,viewWidth,viewHeight,views);
+        if(multiviewFbo==0) { GLES30.glGenFramebuffers(1,ids,0); multiviewFbo=ids[0]; }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiviewFbo);
+        MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,texture,0,4);
+        MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,multiviewDepth,0,4);
+        if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)
+            throw new IllegalStateException("Multiview framebuffer incomplete");
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0); checkGl();
+    }
+    private void verifyMultiviewPixels() throws Exception {
+        boolean saved=multiview; float[] savedExpressions=expressions;
+        ByteBuffer expected=ByteBuffer.allocateDirect(width*height*4);
+        ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
+        long differences=0,squared=0; int max=0,alpha=0;
+        float[] angles={0,31,90,180,277};
+        for(int fixture=0;fixture<angles.length;fixture++) {
+            fixedAngle=angles[fixture];
+            expressions=fixture%2==0?new float[]{0,0,0,0}:new float[]{1,1,1,1};
+            multiview=false; drawViews(); drawInterlace(false);
+            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
+            multiview=true; drawViews(); drawInterlace(false);
+            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);
+            for(int i=0;i<expected.capacity();i++) {
+                int delta=Math.abs((expected.get(i)&255)-(actual.get(i)&255));
+                if(i%4==3) { if(delta>0) alpha++; }
+                else { if(delta>0) differences++; squared+=(long)delta*delta; max=Math.max(max,delta); }
+            }
+        }
+        multiview=saved; expressions=savedExpressions; fixedAngle=Float.NaN;
+        multiviewVerification=new JSONObject().put("fixtures",angles.length).put("views",views)
+                .put("rgb_byte_mismatches",differences).put("max_rgb_error",max).put("alpha_mismatches",alpha)
+                .put("rmse",Math.sqrt(squared/(double)(width*height*3L*angles.length)))
+                .put("scope","Serial versus OVR four-view batches; full output at five angles and neutral/maximum morph weights");
+        if(max>1||alpha!=0||multiviewVerification.getDouble("rmse")>.1)
+            throw new IllegalStateException("Multiview changed output: "+multiviewVerification);
+        checkGl();
+    }
+    private void verifyAtlasPixels() throws Exception {
+        boolean savedAtlas=atlas; float[] savedExpressions=expressions;
+        ByteBuffer expected=ByteBuffer.allocateDirect(width*height*4);
+        ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
+        long differences=0,squared=0; int max=0,alpha=0;
+        float[] angles={0,31,90,180,277};
+        for(int fixture=0;fixture<angles.length;fixture++) {
+            fixedAngle=angles[fixture];
+            expressions=fixture%2==0?new float[]{0,0,0,0}:new float[]{1,1,1,1};
+            atlas=false; drawViews(); drawInterlace(false);
+            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
+            atlas=true; drawViews(); drawInterlace(false);
+            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);
+            for(int i=0;i<expected.capacity();i++) {
+                int delta=Math.abs((expected.get(i)&255)-(actual.get(i)&255));
+                if(i%4==3) { if(delta>0) alpha++; }
+                else { if(delta>0) differences++; squared+=(long)delta*delta; max=Math.max(max,delta); }
+            }
+        }
+        atlas=savedAtlas; expressions=savedExpressions; fixedAngle=Float.NaN;
+        atlasVerification=new JSONObject().put("fixtures",angles.length).put("views",views)
+                .put("rgb_byte_mismatches",differences).put("max_rgb_error",max).put("alpha_mismatches",alpha)
+                .put("rmse",Math.sqrt(squared/(double)(width*height*3L*angles.length)))
+                .put("scope","Texture array versus atlas; full interlaced output at five angles and neutral/maximum morph weights");
+        if(max>1||alpha!=0||atlasVerification.getDouble("rmse")>.1)
+            throw new IllegalStateException("Atlas changed output: "+atlasVerification);
+        checkGl();
+    }
+    private void verifyCullingPixels() throws Exception {
+        boolean savedCull=cull; float[] savedExpressions=expressions;
+        ByteBuffer expected=ByteBuffer.allocateDirect(width*height*4);
+        ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
+        long differences=0,squared=0; int max=0,alpha=0;
+        float[] angles={0,31,90,180,277};
+        for(int fixture=0;fixture<angles.length;fixture++) {
+            fixedAngle=angles[fixture];
+            expressions=fixture%2==0?new float[]{0,0,0,0}:new float[]{1,1,1,1};
+            cull=false; drawViews(); drawInterlace(false);
+            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
+            cull=true; drawViews(); drawInterlace(false);
+            GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);
+            for(int i=0;i<expected.capacity();i++) {
+                int delta=Math.abs((expected.get(i)&255)-(actual.get(i)&255));
+                if(i%4==3) { if(delta>0) alpha++; }
+                else { if(delta>0) differences++; squared+=(long)delta*delta; max=Math.max(max,delta); }
+            }
+        }
+        cull=savedCull; expressions=savedExpressions; fixedAngle=Float.NaN;
+        cullVerification=new JSONObject().put("fixtures",angles.length).put("views",views)
+                .put("angles_degrees",new JSONArray(angles)).put("rgb_byte_mismatches",differences)
+                .put("max_rgb_error",max).put("alpha_mismatches",alpha)
+                .put("rmse",Math.sqrt(squared/(double)(width*height*3L*angles.length)))
+                .put("scope","Full interlaced output at five angles; neutral and maximum morph weights");
+        // Removal of hidden geometry may change a final UNORM8 rounding bit at
+        // a shared edge. Permit one level on at most one RGB byte per million.
+        long rgbBytes=width*height*3L*angles.length;
+        if(max>1||alpha!=0||differences>rgbBytes/1_000_000)
+            throw new IllegalStateException("Culling changed output: "+cullVerification);
     }
     private void makeMesh() {
         int segments=128,rings=80;
+        vertexCount=(segments+1)*(rings+1);
         ByteBuffer vertices=ByteBuffer.allocateDirect((segments+1)*(rings+1)*80).order(ByteOrder.nativeOrder());
         for(int r=0;r<=rings;r++) for(int s=0;s<=segments;s++) {
             double a=Math.PI*r/rings,b=2*Math.PI*s/segments;
@@ -270,12 +555,31 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,indexBuffer);
         GLES30.glBufferData(GLES30.GL_ELEMENT_ARRAY_BUFFER,indices.capacity(),indices,GLES30.GL_STATIC_DRAW);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0); GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
+        if(preblend||verifyPreblend) {
+            GLES30.glGenBuffers(1,ids,0); preblendBuffer=ids[0];
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,preblendBuffer);
+            GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,vertexCount*32,null,GLES30.GL_DYNAMIC_COPY);
+            GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);
+        }
     }
     synchronized JSONObject summary() throws Exception {
         measuring=false;
         double seconds=lastFrame>firstFrame?(lastFrame-firstFrame)/1e9:0;
         return new JSONObject().put("mode",scene?"scene+interlace":"interlace_only")
                 .put("gpu",gpu).put("error",error).put("views",views)
+                .put("gl_extensions",extensions).put("max_array_texture_layers",maxArrayLayers)
+                .put("max_multiview_views",maxMultiviewViews)
+                .put("backface_culling",cull).put("culling_verification",cullVerification)
+                .put("view_storage",atlas?"single RGBA8 atlas":"RGBA8 texture array")
+                .put("atlas_population",atlasCopy?"exact GPU copy of independently rendered array layers":"direct viewport rendering")
+                .put("atlas_grid_columns",atlasColumns).put("atlas_grid_rows",atlasRows)
+                .put("atlas_verification",atlasVerification)
+                .put("view_submission",multiview?"OVR_multiview2 four-view batches":"serial per view")
+                .put("multiview_verification",multiviewVerification)
+                .put("morph_computation",preblend?"Transform feedback once per expression update, shared by every view":"Repeated per view")
+                .put("preblend_updates",preblendUpdates).put("preblend_verification",preblendVerification)
+                .put("interlace_explicit_lod_zero",explicitLod)
+                .put("submitted_scene_draw_calls_per_frame",scene?views*8/(multiview?4:1):0)
                 .put("output_width",width).put("output_height",height)
                 .put("view_width",viewWidth).put("view_height",viewHeight)
                 .put("view_color_buffer_mib",viewWidth*(double)viewHeight*views*4/1048576)
@@ -306,6 +610,15 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private void fail(Throwable problem) { error=problem.toString(); Log.e("MirrorBench","GL failure",problem); }
     private static void checkGl() { int e=GLES30.glGetError(); if(e!=0) throw new IllegalStateException("GL error "+e); }
     private static int program(String vertex,String fragment) {
+        return program(vertex,fragment,null);
+    }
+    private static String multiviewVertex(String shader) {
+        return shader.replace("#version 300 es",
+                "#version 300 es\n#extension GL_OVR_multiview2 : require\nlayout(num_views=4) in;")
+                .replace("uniform mat4 uMvp,uModel;","uniform mat4 uMvps[4],uModel;")
+                .replace("uMvp*vec4(p,1)","uMvps[gl_ViewID_OVR]*vec4(p,1)");
+    }
+    private static int program(String vertex,String fragment,String[] feedback) {
         int p=GLES30.glCreateProgram();
         for(int type:new int[]{GLES30.GL_VERTEX_SHADER,GLES30.GL_FRAGMENT_SHADER}) {
             int shader=GLES30.glCreateShader(type);
@@ -314,6 +627,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             if(ok[0]==0) throw new IllegalStateException(GLES30.glGetShaderInfoLog(shader));
             GLES30.glAttachShader(p,shader); GLES30.glDeleteShader(shader);
         }
+        if(feedback!=null) GLES30.glTransformFeedbackVaryings(p,feedback,GLES30.GL_INTERLEAVED_ATTRIBS);
         GLES30.glLinkProgram(p); int[] ok=new int[1]; GLES30.glGetProgramiv(p,GLES30.GL_LINK_STATUS,ok,0);
         if(ok[0]==0) throw new IllegalStateException(GLES30.glGetProgramInfoLog(p));
         return p;
@@ -340,6 +654,17 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         float viewAt(float c){return floor(fract((gl_FragCoord.x*3.0+gl_FragCoord.y*uTilt+c)/uPitch)*float(uCount));}
         void main(){indices=uvec4(uint(viewAt(0.0)),uint(viewAt(1.0)),uint(viewAt(2.0)),0u);}
         """;
+    private static final String ATLAS_FRAGMENT="""
+        #version 300 es
+        precision highp float;
+        precision highp sampler2D;
+        in vec2 vUv;
+        uniform sampler2D uViews; uniform int uCount; uniform float uPitch,uTilt;
+        uniform vec2 uGrid,uHalfTexel; out vec4 color;
+        float viewAt(float c){return floor(fract((gl_FragCoord.x*3.0+gl_FragCoord.y*uTilt+c)/uPitch)*float(uCount));}
+        vec2 atlasUv(float v){vec2 tile=vec2(mod(v,uGrid.x),floor(v/uGrid.x));return (tile+clamp(vUv,uHalfTexel,1.0-uHalfTexel))/uGrid;}
+        void main(){color=vec4(textureLod(uViews,atlasUv(viewAt(0.0)),0.0).r,textureLod(uViews,atlasUv(viewAt(1.0)),0.0).g,textureLod(uViews,atlasUv(viewAt(2.0)),0.0).b,1);}
+        """;
     private static final String LOOKUP_FRAGMENT="""
         #version 300 es
         precision highp float; precision highp int;
@@ -354,6 +679,21 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         layout(location=3) in vec3 aJaw; layout(location=4) in vec3 aBlink; layout(location=5) in vec3 aSmile; layout(location=6) in vec3 aBrow;
         uniform mat4 uMvp,uModel; uniform vec4 uWeights; out vec3 vNormal; out vec2 vUv;
         void main(){vec3 p=aPosition+aJaw*uWeights.x+aBlink*uWeights.y+aSmile*uWeights.z+aBrow*uWeights.w;gl_Position=uMvp*vec4(p,1);vNormal=mat3(uModel)*aNormal;vUv=aUv;}
+        """;
+    private static final String PREBLEND_VERTEX="""
+        #version 300 es
+        layout(location=0) in vec3 aPosition; layout(location=1) in vec3 aNormal; layout(location=2) in vec2 aUv;
+        layout(location=3) in vec3 aJaw; layout(location=4) in vec3 aBlink; layout(location=5) in vec3 aSmile; layout(location=6) in vec3 aBrow;
+        uniform vec4 uWeights; out vec3 tfPosition,tfNormal; out vec2 tfUv;
+        out vec3 vNormal; out vec2 vUv;
+        void main(){vec3 p=aPosition+aJaw*uWeights.x+aBlink*uWeights.y+aSmile*uWeights.z+aBrow*uWeights.w;
+        tfPosition=p;tfNormal=aNormal;tfUv=aUv;vNormal=aNormal;vUv=aUv;gl_Position=vec4(p,1);}
+        """;
+    private static final String PREBLEND_SCENE_VERTEX="""
+        #version 300 es
+        layout(location=0) in vec3 aPosition; layout(location=1) in vec3 aNormal; layout(location=2) in vec2 aUv;
+        uniform mat4 uMvp,uModel; out vec3 vNormal; out vec2 vUv;
+        void main(){vec3 p=aPosition;gl_Position=uMvp*vec4(p,1);vNormal=mat3(uModel)*aNormal;vUv=aUv;}
         """;
     private static final String SCENE_FRAGMENT="""
         #version 300 es

@@ -16,12 +16,23 @@ parser.add_argument('--running-mode',default='VIDEO',choices=['VIDEO','IMAGE'])
 parser.add_argument('--render',default='none',choices=['none','interlace','scene'])
 parser.add_argument('--views',type=int,default=4)
 parser.add_argument('--scale',type=float,default=1)
+parser.add_argument('--width-scale',type=float)
 parser.add_argument('--screenshot',action='store_true')
 parser.add_argument('--input',default='portrait',choices=['portrait','camera','replay'])
 parser.add_argument('--record-id',default='face-reference-stable-20261001-01')
 parser.add_argument('--replay-fps',type=float,default=24.369906558)
 parser.add_argument('--preload',action='store_true')
 parser.add_argument('--pipeline',action='store_true')
+parser.add_argument('--cull',action='store_true')
+parser.add_argument('--verify-cull',action='store_true')
+parser.add_argument('--atlas',action='store_true')
+parser.add_argument('--verify-atlas',action='store_true')
+parser.add_argument('--atlas-copy',action='store_true')
+parser.add_argument('--multiview',action='store_true')
+parser.add_argument('--verify-multiview',action='store_true')
+parser.add_argument('--preblend',action='store_true')
+parser.add_argument('--verify-preblend',action='store_true')
+parser.add_argument('--explicit-lod',action='store_true')
 parser.add_argument('--lookup',action='store_true')
 parser.add_argument('--verify-lookup',action='store_true')
 parser.add_argument('--pitch',type=float)
@@ -38,9 +49,11 @@ parser.add_argument('--profile-stages',action='store_true')
 parser.add_argument('--face-input',choices=['camera','portrait'],default='camera')
 parser.add_argument('--output-dir',type=Path,default=DEFAULT_OUT)
 args=parser.parse_args()
-if not (1<=args.seconds<=600 and 1<=args.views<=16 and math.isfinite(args.scale) and 0<args.scale<=1
+if not (1<=args.seconds<=600 and 1<=args.views<=32 and math.isfinite(args.scale) and 0<args.scale<=1
         and args.analysis_fps>=0 and math.isfinite(args.replay_fps) and 0<args.replay_fps<=60):
     parser.error('Invalid duration, views, scale or frame rate')
+if args.width_scale is not None and not (math.isfinite(args.width_scale) and 0<args.width_scale<=1):
+    parser.error('Invalid horizontal view scale')
 if args.pitch is not None and not (math.isfinite(args.pitch) and args.pitch>0 and math.isfinite(args.tan)):
     parser.error('Pitch must be positive and pitch/tan finite')
 OUT=args.output_dir
@@ -72,11 +85,18 @@ camera_extras=(f' --ei camera_width {args.camera_width} --ei camera_height {args
                f' --ef replay_fps {args.replay_fps} --ez preload {str(args.preload).lower()}'
                f' --es conversion_backend {args.conversion_backend} --ez native_packing {str(args.native_packing).lower()}') if args.input in ('camera','replay') else ''
 panel_extras=f' --ef pitch {args.pitch} --ef tan {args.tan} --es pitch_units {args.pitch_units}' if args.pitch is not None else ''
+if args.width_scale is not None: panel_extras+=f' --ef width_scale {args.width_scale}'
 adb('shell',f'am start -n com.mirror.bench/.{activity} --es run_id {args.name} '
     f'--es delegate {args.delegate} --ei seconds {args.seconds} --ei analysis_fps {args.analysis_fps} '
     f'--es running_mode {args.running_mode} '
     f'--es render {args.render} --ei views {args.views} --ef scale {args.scale} '
     f'--ez profile_stages {str(args.profile_stages).lower()} --ez pipeline {str(args.pipeline).lower()} '
+    f'--ez cull {str(args.cull).lower()} --ez verify_cull {str(args.verify_cull).lower()} '
+    f'--ez atlas {str(args.atlas).lower()} --ez verify_atlas {str(args.verify_atlas).lower()} '
+    f'--ez atlas_copy {str(args.atlas_copy).lower()} '
+    f'--ez multiview {str(args.multiview).lower()} --ez verify_multiview {str(args.verify_multiview).lower()} '
+    f'--ez preblend {str(args.preblend).lower()} --ez verify_preblend {str(args.verify_preblend).lower()} '
+    f'--ez explicit_lod {str(args.explicit_lod).lower()} '
     f'--ez lookup {str(args.lookup).lower()} --ez verify_lookup {str(args.verify_lookup).lower()}'+camera_extras+panel_extras)
 series=[]
 deadline=time.monotonic()+args.seconds+120

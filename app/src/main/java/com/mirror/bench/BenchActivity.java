@@ -51,6 +51,13 @@ public class BenchActivity extends Activity {
                     getIntent().getFloatExtra("scale",1),"scene".equals(renderMode));
             renderer.setProfileStages(getIntent().getBooleanExtra("profile_stages",false));
             renderer.setPipeline(getIntent().getBooleanExtra("pipeline",false));
+            renderer.setCull(getIntent().getBooleanExtra("cull",false),getIntent().getBooleanExtra("verify_cull",false));
+            renderer.setAtlas(getIntent().getBooleanExtra("atlas",false),getIntent().getBooleanExtra("verify_atlas",false));
+            renderer.setAtlasCopy(getIntent().getBooleanExtra("atlas_copy",false));
+            renderer.setMultiview(getIntent().getBooleanExtra("multiview",false),getIntent().getBooleanExtra("verify_multiview",false));
+            renderer.setPreblend(getIntent().getBooleanExtra("preblend",false),getIntent().getBooleanExtra("verify_preblend",false));
+            renderer.setExplicitLod(getIntent().getBooleanExtra("explicit_lod",false));
+            if(getIntent().hasExtra("width_scale")) renderer.setWidthScale(getIntent().getFloatExtra("width_scale",.5f));
             renderer.setLookup(getIntent().getBooleanExtra("lookup",false),getIntent().getBooleanExtra("verify_lookup",false));
             if(getIntent().hasExtra("pitch")) renderer.setPanelParameters(getIntent().getFloatExtra("pitch",10),
                     getIntent().getFloatExtra("tan",.2777777f),getIntent().getStringExtra("pitch_units"));
