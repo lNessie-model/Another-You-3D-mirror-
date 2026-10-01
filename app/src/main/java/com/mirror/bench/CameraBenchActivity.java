@@ -47,6 +47,10 @@ public final class CameraBenchActivity extends Activity {
                     |View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
             renderer=new InterlaceRenderer(getIntent().getIntExtra("views",4),getIntent().getFloatExtra("scale",.5f),"scene".equals(mode));
             renderer.setProfileStages(true);
+            renderer.setPipeline(getIntent().getBooleanExtra("pipeline",false));
+            renderer.setLookup(getIntent().getBooleanExtra("lookup",false),getIntent().getBooleanExtra("verify_lookup",false));
+            if(getIntent().hasExtra("pitch")) renderer.setPanelParameters(getIntent().getFloatExtra("pitch",10),
+                    getIntent().getFloatExtra("tan",.2777777f),getIntent().getStringExtra("pitch_units"));
             surface=new GLSurfaceView(this); surface.setEGLContextClientVersion(3);
             surface.setEGLConfigChooser(8,8,8,8,16,0); surface.setRenderer(renderer); setContentView(surface);
         }
@@ -57,18 +61,21 @@ public final class CameraBenchActivity extends Activity {
         String delegate=getIntent().getStringExtra("delegate");
         if(delegate==null) delegate="NONE";
         boolean inference=!"NONE".equals(delegate);
+        boolean replay="replay".equals(getIntent().getStringExtra("input"));
         boolean portrait="portrait".equals(getIntent().getStringExtra("face_input"));
         boolean convert=inference||getIntent().getBooleanExtra("convert",false);
         int width=getIntent().getIntExtra("camera_width",640),height=getIntent().getIntExtra("camera_height",480);
         int requestedFps=getIntent().getIntExtra("capture_fps",width>=1280?15:25);
         int targetFps=getIntent().getIntExtra("analysis_fps",0),seconds=getIntent().getIntExtra("seconds",30);
         int rotation=getIntent().getIntExtra("rotation",0);
-        CameraFrameSource camera=null; YuvConverter converter=null; FaceLandmarker task=null; MPImage image=null;
+        boolean rga="rga".equals(getIntent().getStringExtra("conversion_backend"));
+        FrameInput camera=null; YuvConverter converter=null; FaceLandmarker task=null; MPImage image=null;
         ArrayList<Double> conversion=new ArrayList<>(),inferenceMs=new ArrayList<>(),queueAge=new ArrayList<>();
         try {
             if(seconds<1||seconds>600||targetFps<0) throw new IllegalArgumentException("Invalid measurement duration/rate");
             if(convert) {
-                converter=new YuvConverter(this,width,height);
+                converter=new YuvConverter(this,width,height,rga);
+                if(rga) result.put("rga_version",RgaConvert.version());
                 Bitmap input=converter.bitmap;
                 if(inference&&portrait) {
                     // Controlled full-landmark load while REAL camera capture/conversion still run.
@@ -86,19 +93,21 @@ public final class CameraBenchActivity extends Activity {
             if(inference) {
                 long init=SystemClock.elapsedRealtimeNanos();
                 BaseOptions base=BaseOptions.builder().setModelAssetPath("face_landmarker.task")
-                        .setDelegate("GPU".equals(delegate)?Delegate.GPU:Delegate.CPU).build();
+                        .setDelegate(Delegate.valueOf(delegate)).build();
                 task=FaceLandmarker.createFromOptions(this,FaceLandmarker.FaceLandmarkerOptions.builder()
                         .setBaseOptions(base).setRunningMode(RunningMode.VIDEO).setNumFaces(1)
                         .setOutputFaceBlendshapes(true).setOutputFacialTransformationMatrixes(true).build());
                 result.put("initialization_ms",(SystemClock.elapsedRealtimeNanos()-init)/1e6);
             }
             ImageProcessingOptions processing=ImageProcessingOptions.builder().setRotationDegrees(rotation).build();
-            camera=new CameraFrameSource(this,width,height,requestedFps);
+            camera=replay?new ReplayFrameSource(this,width,height,getIntent().getStringExtra("record_id"),
+                    getIntent().getFloatExtra("replay_fps",24.369907f),getIntent().getBooleanExtra("preload",false))
+                    :new CameraFrameSource(this,width,height,requestedFps);
             long timestamp=0;
             // Warm up the actual camera conversion and actual face input, not an asset portrait.
             for(int i=0;i<10&&!stopped;i++) {
-                CameraFrameSource.Frame frame=camera.take();
-                try { if(convert) converter.convert(frame.image); } finally { frame.image.close(); }
+                FrameInput.Frame frame=camera.take();
+                try { if(convert) converter.convert(frame); } finally { frame.close(); }
                 if(inference) {
                     timestamp=Math.max(timestamp+1,SystemClock.uptimeMillis());
                     task.detectForVideo(image,processing,timestamp);
@@ -107,22 +116,23 @@ public final class CameraBenchActivity extends Activity {
             if(renderer!=null) { SystemClock.sleep(1500); surface.queueEvent(renderer::beginMeasurement); }
             camera.beginMeasurement();
             long start=SystemClock.elapsedRealtimeNanos(),startEpoch=System.currentTimeMillis();
+            long startMonotonic=System.nanoTime();
             long cpuStart=android.os.Process.getElapsedCpuTime(),workerCpuStart=android.os.Debug.threadCpuTimeNanos();
             long conversionCpu=0,inferenceCallerCpu=0;
             int consumed=0,faces=0,landmarks=0,blendshapes=0;
             long nextProgress=start;
             while(!stopped&&SystemClock.elapsedRealtimeNanos()<start+seconds*1_000_000_000L) {
                 long iteration=SystemClock.elapsedRealtimeNanos();
-                CameraFrameSource.Frame frame=camera.take();
+                FrameInput.Frame frame=camera.take();
                 queueAge.add((SystemClock.elapsedRealtimeNanos()-frame.receivedNs)/1e6);
                 try {
                     if(convert) {
                         long before=SystemClock.elapsedRealtimeNanos(),cpu=android.os.Debug.threadCpuTimeNanos();
-                        converter.convert(frame.image);
+                        converter.convert(frame);
                         conversion.add((SystemClock.elapsedRealtimeNanos()-before)/1e6);
                         conversionCpu+=android.os.Debug.threadCpuTimeNanos()-cpu;
                     }
-                } finally { frame.image.close(); }
+                } finally { frame.close(); }
                 consumed++;
                 if(inference) {
                     timestamp=Math.max(timestamp+1,SystemClock.uptimeMillis());
@@ -159,11 +169,13 @@ public final class CameraBenchActivity extends Activity {
             }
             double elapsed=(SystemClock.elapsedRealtimeNanos()-start)/1e9;
             result.put("elapsed_s",elapsed).put("measurement_start_epoch_ms",startEpoch)
+                    .put("measurement_start_monotonic_ns",startMonotonic)
+                    .put("measurement_end_monotonic_ns",System.nanoTime())
                     .put("measurement_end_epoch_ms",System.currentTimeMillis())
                     .put("frames",inferenceMs.size()).put("consumed_images",consumed).put("consumption_fps",consumed/elapsed)
                     .put("face_frames",faces).put("face_fraction",inferenceMs.isEmpty()?0:faces/(double)inferenceMs.size())
                     .put("effective_fps",inferenceMs.size()/elapsed).put("landmarks",landmarks).put("blendshapes",blendshapes)
-                    .put("camera",camera.summary(elapsed)).put("conversion",stats(conversion))
+                    .put(replay?"replay":"camera",camera.summary(elapsed)).put("conversion",stats(conversion))
                     .put("inference",stats(inferenceMs)).put("pending_frame_age",stats(queueAge))
                     .put("process_cpu_percent_4cores",(android.os.Process.getElapsedCpuTime()-cpuStart)/(elapsed*40))
                     .put("worker_cpu_percent_4cores",(android.os.Debug.threadCpuTimeNanos()-workerCpuStart)/(elapsed*4e7))
@@ -177,7 +189,7 @@ public final class CameraBenchActivity extends Activity {
                 if(!render.getString("error").isEmpty()||render.getInt("frames")==0)
                     result.put("status","error").put("error",render.optString("error"));
             }
-            if(!result.getJSONObject("camera").getString("error").isEmpty()||consumed==0)
+            if(!result.getJSONObject(replay?"replay":"camera").getString("error").isEmpty()||consumed==0)
                 result.put("status","error").put("error","Camera input failed");
         } catch(Throwable error) {
             Log.e("MirrorBench","Camera benchmark failed",error);
@@ -190,11 +202,12 @@ public final class CameraBenchActivity extends Activity {
         }
         try {
             result.put("run_id",runId).put("delegate",delegate).put("analysis_target_fps",targetFps)
-                    .put("input","live USB Camera2 YUV_420_888; native MJPEG decode in external camera HAL")
+                    .put("input",replay?"recorded NV21 replay; no USB capture or video decoder":"live USB Camera2 YUV_420_888; native MJPEG decode in external camera HAL")
                     .put("camera_width",width).put("camera_height",height).put("requested_capture_fps",requestedFps)
                     .put("rotation",rotation).put("conversion_enabled",convert).put("running_mode","VIDEO");
-            result.put("face_input",portrait?"controlled official portrait fitted to camera dimensions":"real camera frames")
-                    .put("condition",portrait?"Real camera capture and conversion; independent fixed face for full-landmark load":"Real camera input; inspect face_fraction for complete face load");
+            result.put("conversion_backend",rga?"RGA BT601 limited":"RenderScript YuvToRGB");
+            result.put("face_input",portrait?"controlled official portrait fitted to camera dimensions":replay?"recorded camera frames":"real camera frames")
+                    .put("condition",portrait?"Real camera capture and conversion; independent fixed face for full-landmark load":replay?"Paced recorded face clip; excludes camera acquisition and decode":"Real camera input; inspect face_fraction for complete face load");
             save(runId,result);
             JSONObject compact=new JSONObject(result.toString()); compact.remove("inference_samples_ms"); compact.remove("conversion_samples_ms");
             if(compact.has("render")) { compact.getJSONObject("render").remove("frame_work_samples_ms"); compact.getJSONObject("render").remove("frame_interval_samples_ms"); }

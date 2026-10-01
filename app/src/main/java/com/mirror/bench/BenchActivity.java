@@ -50,6 +50,10 @@ public class BenchActivity extends Activity {
             renderer=new InterlaceRenderer(getIntent().getIntExtra("views",4),
                     getIntent().getFloatExtra("scale",1),"scene".equals(renderMode));
             renderer.setProfileStages(getIntent().getBooleanExtra("profile_stages",false));
+            renderer.setPipeline(getIntent().getBooleanExtra("pipeline",false));
+            renderer.setLookup(getIntent().getBooleanExtra("lookup",false),getIntent().getBooleanExtra("verify_lookup",false));
+            if(getIntent().hasExtra("pitch")) renderer.setPanelParameters(getIntent().getFloatExtra("pitch",10),
+                    getIntent().getFloatExtra("tan",.2777777f),getIntent().getStringExtra("pitch_units"));
             surface=new GLSurfaceView(this);
             surface.setEGLContextClientVersion(3);
             surface.setEGLConfigChooser(8,8,8,8,16,0);
@@ -64,6 +68,7 @@ public class BenchActivity extends Activity {
     private void runBenchmark() {
         JSONObject summary = new JSONObject();
         String delegateName = getIntent().getStringExtra("delegate");
+        if(delegateName==null) delegateName="CPU";
         boolean gpu = "GPU".equals(delegateName);
         boolean inference=!"NONE".equals(delegateName);
         int duration = getIntent().getIntExtra("seconds", 20);
@@ -83,7 +88,7 @@ public class BenchActivity extends Activity {
             image = new BitmapImageBuilder(bitmap).build();
             long initStart = SystemClock.elapsedRealtimeNanos();
             BaseOptions base = BaseOptions.builder().setModelAssetPath("face_landmarker.task")
-                    .setDelegate(gpu ? Delegate.GPU : Delegate.CPU).build();
+                    .setDelegate(Delegate.valueOf(delegateName)).build();
             // https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/android
             task = FaceLandmarker.createFromOptions(this, FaceLandmarker.FaceLandmarkerOptions.builder()
                     .setBaseOptions(base).setRunningMode(imageMode?RunningMode.IMAGE:RunningMode.VIDEO).setNumFaces(1)

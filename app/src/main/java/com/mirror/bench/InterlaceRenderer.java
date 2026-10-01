@@ -28,6 +28,14 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private final ArrayList<Double> workMs=new ArrayList<>(),intervalMs=new ArrayList<>();
     private final ArrayList<Double> sceneStageMs=new ArrayList<>(),interlaceStageMs=new ArrayList<>();
     private volatile boolean profileStages;
+    private boolean pipeline;
+    private final long[] fences=new long[2];
+    private int fenceSlot;
+    private boolean lookup,verifyLookup;
+    private int lookupTexture,lookupProgram,lookupGenerator;
+    private int lookupMismatch=-1;
+    private float pitch=9.69f,tilt=.28f;
+    private String calibration="diagnostic constants; not a verified optical panel calibration";
     private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
 
     InterlaceRenderer(int views,float scale,boolean scene) {
@@ -36,6 +44,18 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     void setExpressions(float[] values) { expressions=values; }
     void setProfileStages(boolean enabled) { profileStages=enabled; }
+    void setPipeline(boolean enabled) { pipeline=enabled; }
+    void setLookup(boolean enabled,boolean verify) { lookup=enabled; verifyLookup=verify; }
+    void setPanelParameters(float suppliedPitch,float suppliedTan,String pitchUnits) {
+        if(!Float.isFinite(suppliedPitch)||!Float.isFinite(suppliedTan)||suppliedPitch<=0||
+                !("pixels".equals(pitchUnits)||"subpixels".equals(pitchUnits)))
+            throw new IllegalArgumentException("Invalid panel pitch/tan/units");
+        // Shader x is measured in RGB subpixels, while gl_FragCoord.y is pixels.
+        pitch=suppliedPitch*("pixels".equals(pitchUnits)?3:1);
+        tilt=suppliedTan*3;
+        calibration="user pitch="+suppliedPitch+" "+pitchUnits+", tan="+suppliedTan+
+                " horizontal pixels/vertical pixel; optical alignment unverified";
+    }
     synchronized void beginMeasurement() {
         measuring=true; firstFrame=0; lastFrame=0; workMs.clear(); intervalMs.clear();
         sceneStageMs.clear(); interlaceStageMs.clear();
@@ -43,9 +63,16 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
         try {
+            for(int i=0;i<fences.length;i++) fences[i]=0;
+            fenceSlot=0;
+            texture=0; fbo=0; depth=0; lookupTexture=0; lookupMismatch=-1;
             gpu=GLES30.glGetString(GLES30.GL_RENDERER)+" / "+GLES30.glGetString(GLES30.GL_VERSION);
             sceneProgram=program(SCENE_VERTEX,SCENE_FRAGMENT);
             interlaceProgram=program(SCREEN_VERTEX,INTERLACE_FRAGMENT);
+            if(lookup||verifyLookup) {
+                lookupProgram=program(SCREEN_VERTEX,LOOKUP_FRAGMENT);
+                lookupGenerator=program(SCREEN_VERTEX,LOOKUP_GENERATOR);
+            }
             makeMesh();
         } catch(Throwable problem) { fail(problem); }
     }
@@ -79,6 +106,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
             }
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+            if(lookup||verifyLookup) {
+                makeLookup();
+                if(verifyLookup) verifyLookupPixels();
+            }
             GLES30.glFinish(); checkGl();
         } catch(Throwable problem) { fail(problem); }
     }
@@ -86,23 +117,24 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(!error.isEmpty()||texture==0) return;
         try {
             long before=SystemClock.elapsedRealtimeNanos();
-            boolean split=profileStages&&measuring&&workMs.size()%30==0;
+            if(pipeline&&fences[fenceSlot]!=0) {
+                int wait=GLES30.glClientWaitSync(fences[fenceSlot],GLES30.GL_SYNC_FLUSH_COMMANDS_BIT,1_000_000_000L);
+                if(wait==GLES30.GL_WAIT_FAILED||wait==GLES30.GL_TIMEOUT_EXPIRED)
+                    throw new IllegalStateException("GPU fence did not complete: "+wait);
+                GLES30.glDeleteSync(fences[fenceSlot]); fences[fenceSlot]=0;
+            }
+            boolean split=profileStages&&!pipeline&&measuring&&workMs.size()%30==0;
             if(scene) drawViews();
             long sceneEnd=before;
             if(split) { GLES30.glFinish(); sceneEnd=SystemClock.elapsedRealtimeNanos(); }
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
-            GLES30.glViewport(0,0,width,height);
-            GLES30.glDisable(GLES30.GL_DEPTH_TEST);
-            GLES30.glUseProgram(interlaceProgram);
-            GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,texture);
-            GLES30.glUniform1i(GLES30.glGetUniformLocation(interlaceProgram,"uViews"),0);
-            GLES30.glUniform1i(GLES30.glGetUniformLocation(interlaceProgram,"uCount"),views);
-            GLES30.glUniform1f(GLES30.glGetUniformLocation(interlaceProgram,"uPitch"),9.69f);
-            GLES30.glUniform1f(GLES30.glGetUniformLocation(interlaceProgram,"uTilt"),0.28f);
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,3);
+            drawInterlace(lookup);
             // Completion wall time includes CPU submission + GPU execution, not a GPU-only timer.
-            GLES30.glFinish(); checkGl();
+            if(pipeline) {
+                fences[fenceSlot]=GLES30.glFenceSync(GLES30.GL_SYNC_GPU_COMMANDS_COMPLETE,0);
+                if(fences[fenceSlot]==0) throw new IllegalStateException("Cannot create GPU fence");
+                GLES30.glFlush(); fenceSlot=(fenceSlot+1)%fences.length;
+            } else GLES30.glFinish();
+            checkGl();
             long after=SystemClock.elapsedRealtimeNanos();
             synchronized(this) {
                 if(measuring) {
@@ -113,6 +145,61 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 }
             }
         } catch(Throwable problem) { fail(problem); }
+    }
+    private void phaseUniforms(int program) {
+        GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uCount"),views);
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(program,"uPitch"),pitch);
+        GLES30.glUniform1f(GLES30.glGetUniformLocation(program,"uTilt"),tilt);
+    }
+    private void drawInterlace(boolean cached) {
+        int program=cached?lookupProgram:interlaceProgram;
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+        GLES30.glViewport(0,0,width,height); GLES30.glDisable(GLES30.GL_DEPTH_TEST);
+        GLES30.glUseProgram(program);
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,texture);
+        GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uViews"),0);
+        if(cached) {
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE1); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,lookupTexture);
+            GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uLookup"),1);
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
+        } else phaseUniforms(program);
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,3);
+    }
+    private void makeLookup() {
+        if(lookupTexture!=0) GLES30.glDeleteTextures(1,new int[]{lookupTexture},0);
+        int[] ids=new int[1]; GLES30.glGenTextures(1,ids,0); lookupTexture=ids[0];
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE1); GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,lookupTexture);
+        GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,1,GLES30.GL_RGBA8UI,width,height);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_NEAREST);
+        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_NEAREST);
+        int[] frame=new int[1]; GLES30.glGenFramebuffers(1,frame,0); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,frame[0]);
+        GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,lookupTexture,0);
+        if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)
+            throw new IllegalStateException("Lookup framebuffer incomplete");
+        GLES30.glViewport(0,0,width,height); GLES30.glDisable(GLES30.GL_DEPTH_TEST);
+        GLES30.glUseProgram(lookupGenerator); phaseUniforms(lookupGenerator);
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,3);
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0); GLES30.glDeleteFramebuffers(1,frame,0);
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
+        checkGl();
+    }
+    private void verifyLookupPixels() {
+        // Every channel encodes a distinct value for every view. A repeated three-
+        // color fixture would hide index mistakes in a four/eight-view lookup table.
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo);
+        for(int v=0;v<views;v++) {
+            GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
+            GLES30.glClearColor((v+1f)/(views+1),(views-v)/(views+1f),(v+1f)/(views+1)*.7f,1);
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT);
+        }
+        ByteBuffer reference=ByteBuffer.allocateDirect(width*height*4),candidate=ByteBuffer.allocateDirect(width*height*4);
+        drawInterlace(false); GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,reference);
+        drawInterlace(true); GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,candidate);
+        lookupMismatch=0;
+        for(int i=0;i<reference.capacity();i++) if(reference.get(i)!=candidate.get(i)) lookupMismatch++;
+        if(lookupMismatch!=0) throw new IllegalStateException("Lookup pixel mismatch: "+lookupMismatch);
+        checkGl();
     }
     private void drawViews() {
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo);
@@ -194,6 +281,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("view_color_buffer_mib",viewWidth*(double)viewHeight*views*4/1048576)
                 .put("triangles_per_view",scene?indexCount/3:0).put("draw_calls_per_view",scene?8:0)
                 .put("morph_targets",scene?4:0).put("frames",workMs.size())
+                .put("sync_mode",pipeline?"bounded two-frame GPU fence pipeline":"per-frame glFinish")
+                .put("max_frames_in_flight",pipeline?2:1)
+                .put("interlace_index_mode",lookup?"GPU-generated integer lookup":"per-pixel arithmetic")
+                .put("lookup_color_buffer_mib",lookup||verifyLookup?width*(double)height*4/1048576:0)
+                .put("lookup_verification_byte_mismatches",lookupMismatch)
                 .put("fps",seconds>0?(workMs.size()-1)/seconds:0)
                 .put("frame_work_p50_ms",BenchActivity.percentile(workMs,.5))
                 .put("frame_work_p95_ms",BenchActivity.percentile(workMs,.95))
@@ -204,9 +296,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("scene_completion_p95_ms",BenchActivity.percentile(sceneStageMs,.95))
                 .put("interlace_completion_mean_ms",interlaceStageMs.stream().mapToDouble(x->x).average().orElse(0))
                 .put("interlace_completion_p95_ms",BenchActivity.percentile(interlaceStageMs,.95))
-                .put("stage_timing","One extra glFinish every 30 frames; completion wall time including submission, GPU work and shared-GPU waiting; not GPU-exclusive")
-                .put("calibration","diagnostic constants; not a verified optical panel calibration")
-                .put("timing","glFinish completion wall time; includes CPU submission and GPU execution; excludes EGL swap");
+                .put("stage_timing",pipeline?"Completion stage profiling disabled for asynchronous pipeline"
+                        :"One extra glFinish every 30 frames; completion wall time including submission, GPU work and shared-GPU waiting; not GPU-exclusive")
+                .put("phase_pitch_rgb_subpixels",pitch).put("phase_tilt_rgb_subpixels_per_y_pixel",tilt)
+                .put("calibration",calibration)
+                .put("timing",pipeline?"CPU submission and bounded fence wait; not GPU completion; callback FPS includes EGL swap backpressure"
+                        :"glFinish completion wall time; includes CPU submission and GPU execution; excludes EGL swap");
     }
     private void fail(Throwable problem) { error=problem.toString(); Log.e("MirrorBench","GL failure",problem); }
     private static void checkGl() { int e=GLES30.glGetError(); if(e!=0) throw new IllegalStateException("GL error "+e); }
@@ -237,6 +332,21 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         out vec4 color;
         float viewAt(float c){return floor(fract((gl_FragCoord.x*3.0+gl_FragCoord.y*uTilt+c)/uPitch)*float(uCount));}
         void main(){color=vec4(texture(uViews,vec3(vUv,viewAt(0.0))).r,texture(uViews,vec3(vUv,viewAt(1.0))).g,texture(uViews,vec3(vUv,viewAt(2.0))).b,1);}
+        """;
+    private static final String LOOKUP_GENERATOR="""
+        #version 300 es
+        precision highp float; precision highp int;
+        uniform int uCount; uniform float uPitch,uTilt; out uvec4 indices;
+        float viewAt(float c){return floor(fract((gl_FragCoord.x*3.0+gl_FragCoord.y*uTilt+c)/uPitch)*float(uCount));}
+        void main(){indices=uvec4(uint(viewAt(0.0)),uint(viewAt(1.0)),uint(viewAt(2.0)),0u);}
+        """;
+    private static final String LOOKUP_FRAGMENT="""
+        #version 300 es
+        precision highp float; precision highp int;
+        precision highp sampler2DArray; precision highp usampler2D;
+        in vec2 vUv; uniform sampler2DArray uViews; uniform usampler2D uLookup; out vec4 color;
+        void main(){uvec3 v=texelFetch(uLookup,ivec2(gl_FragCoord.xy),0).rgb;
+        color=vec4(texture(uViews,vec3(vUv,float(v.r))).r,texture(uViews,vec3(vUv,float(v.g))).g,texture(uViews,vec3(vUv,float(v.b))).b,1);}
         """;
     private static final String SCENE_VERTEX="""
         #version 300 es

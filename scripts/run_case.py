@@ -2,13 +2,14 @@ import argparse
 import json
 import re
 import shlex
+import math
 import time
 from pathlib import Path
 from device_profile import adb, sample, summarize, OUT as DEFAULT_OUT
 
 parser=argparse.ArgumentParser()
 parser.add_argument('name')
-parser.add_argument('--delegate',default='CPU',choices=['CPU','GPU','NONE'])
+parser.add_argument('--delegate',default='CPU',choices=['CPU','GPU','NPU','NONE'])
 parser.add_argument('--seconds',type=int,default=30)
 parser.add_argument('--analysis-fps',type=int,default=0)
 parser.add_argument('--running-mode',default='VIDEO',choices=['VIDEO','IMAGE'])
@@ -16,16 +17,31 @@ parser.add_argument('--render',default='none',choices=['none','interlace','scene
 parser.add_argument('--views',type=int,default=4)
 parser.add_argument('--scale',type=float,default=1)
 parser.add_argument('--screenshot',action='store_true')
-parser.add_argument('--input',default='portrait',choices=['portrait','camera'])
+parser.add_argument('--input',default='portrait',choices=['portrait','camera','replay'])
+parser.add_argument('--record-id',default='face-reference-stable-20261001-01')
+parser.add_argument('--replay-fps',type=float,default=24.369906558)
+parser.add_argument('--preload',action='store_true')
+parser.add_argument('--pipeline',action='store_true')
+parser.add_argument('--lookup',action='store_true')
+parser.add_argument('--verify-lookup',action='store_true')
+parser.add_argument('--pitch',type=float)
+parser.add_argument('--tan',type=float,default=.2777777)
+parser.add_argument('--pitch-units',choices=['pixels','subpixels'],default='pixels')
 parser.add_argument('--camera-width',type=int,default=640)
 parser.add_argument('--camera-height',type=int,default=480)
 parser.add_argument('--capture-fps',type=int,default=25)
 parser.add_argument('--rotation',type=int,default=0)
 parser.add_argument('--convert',action='store_true')
+parser.add_argument('--conversion-backend',choices=['rs','rga'],default='rs')
 parser.add_argument('--profile-stages',action='store_true')
 parser.add_argument('--face-input',choices=['camera','portrait'],default='camera')
 parser.add_argument('--output-dir',type=Path,default=DEFAULT_OUT)
 args=parser.parse_args()
+if not (1<=args.seconds<=600 and 1<=args.views<=16 and math.isfinite(args.scale) and 0<args.scale<=1
+        and args.analysis_fps>=0 and math.isfinite(args.replay_fps) and 0<args.replay_fps<=60):
+    parser.error('Invalid duration, views, scale or frame rate')
+if args.pitch is not None and not (math.isfinite(args.pitch) and args.pitch>0 and math.isfinite(args.tan)):
+    parser.error('Pitch must be positive and pitch/tan finite')
 OUT=args.output_dir
 OUT.mkdir(parents=True,exist_ok=True)
 if not re.fullmatch('[a-zA-Z0-9_-]+',args.name): raise ValueError('Invalid run name')
@@ -49,21 +65,30 @@ clock_before=time.time()
 device_epoch=int(adb('shell','date +%s'))
 device_clock_offset=device_epoch-(clock_before+time.time())/2
 print('START',args.name,flush=True)
-activity='CameraBenchActivity' if args.input=='camera' else 'BenchActivity'
+activity='CameraBenchActivity' if args.input in ('camera','replay') else 'BenchActivity'
 camera_extras=(f' --ei camera_width {args.camera_width} --ei camera_height {args.camera_height}'
                f' --ei capture_fps {args.capture_fps} --ei rotation {args.rotation} --ez convert {str(args.convert).lower()}'
-               f' --es face_input {args.face_input}') if args.input=='camera' else ''
+               f' --es face_input {args.face_input} --es input {args.input} --es record_id {shlex.quote(args.record_id)}'
+               f' --ef replay_fps {args.replay_fps} --ez preload {str(args.preload).lower()}'
+               f' --es conversion_backend {args.conversion_backend}') if args.input in ('camera','replay') else ''
+panel_extras=f' --ef pitch {args.pitch} --ef tan {args.tan} --es pitch_units {args.pitch_units}' if args.pitch is not None else ''
 adb('shell',f'am start -n com.mirror.bench/.{activity} --es run_id {args.name} '
     f'--es delegate {args.delegate} --ei seconds {args.seconds} --ei analysis_fps {args.analysis_fps} '
     f'--es running_mode {args.running_mode} '
     f'--es render {args.render} --ei views {args.views} --ef scale {args.scale} '
-    f'--ez profile_stages {str(args.profile_stages).lower()}'+camera_extras)
+    f'--ez profile_stages {str(args.profile_stages).lower()} --ez pipeline {str(args.pipeline).lower()} '
+    f'--ez lookup {str(args.lookup).lower()} --ez verify_lookup {str(args.verify_lookup).lower()}'+camera_extras+panel_extras)
 series=[]
 deadline=time.monotonic()+args.seconds+120
 result=None
 last_memory_sample=0
+surface_layer=''
+presentation_stamps=set()
 while time.monotonic()<deadline:
     point=sample()
+    npu_text=adb('shell','cat /sys/kernel/debug/rknpu/load',check=False)
+    npu_match=re.search(r'(\d+)%',npu_text)
+    if npu_match: point['npu_busy_percent']=int(npu_match[1])
     point['processes']=processes()
     if time.monotonic()-last_memory_sample>=5:
         memory=adb('shell','dumpsys meminfo com.mirror.bench',check=False)
@@ -75,6 +100,20 @@ while time.monotonic()<deadline:
         if match: point['camera_provider_pss_kib']=int(match.group(1))
         last_memory_sample=time.monotonic()
     series.append(point)
+    if args.render!='none':
+        if not surface_layer:
+            layers=adb('shell','dumpsys SurfaceFlinger --list',check=False).splitlines()
+            surface_layer=next((x for x in layers if x.startswith('SurfaceView') and 'com.mirror.bench' in x),'')
+        if surface_layer:
+            trace=adb('shell','dumpsys SurfaceFlinger --latency '+shlex.quote(surface_layer),check=False)
+            values=[]
+            for line in trace.splitlines()[1:]:
+                columns=line.split()
+                if len(columns)==3 and all(v.isdigit() for v in columns):
+                    actual=int(columns[1])
+                    if 0<actual<2**63-1: values.append(actual)
+            presentation_stamps.update(values)
+            point['presented_timestamps_ns']=values
     text=adb('shell',f'run-as com.mirror.bench cat files/{args.name}.json',check=False)
     try:
         result=json.loads(text)
@@ -100,6 +139,10 @@ provider_pss=[x['camera_provider_pss_kib']/1024 for x in measured if 'camera_pro
 if provider_pss: metrics['camera_provider_pss_mib_peak']=max(provider_pss)
 gpu=[int(re.match(r'(\d+)@',x['gpu_load'])[1]) for x in measured if re.match(r'(\d+)@',x['gpu_load'])]
 if gpu: metrics['gpu_busy_percent_mean']=sum(gpu)/len(gpu)
+npu=[x['npu_busy_percent'] for x in measured if 'npu_busy_percent' in x]
+if npu:
+    metrics['npu_busy_percent_mean']=sum(npu)/len(npu)
+    metrics['npu_busy_percent_peak']=max(npu)
 attribution={}
 for name in process_names:
     ratios=[]
@@ -110,7 +153,43 @@ for name in process_names:
     if ratios: attribution[name]=sum(ratios)/len(ratios)
 metrics['process_cpu_percent_4cores']=attribution
 arguments=vars(args).copy(); arguments['output_dir']=str(arguments['output_dir'])
-payload=dict(arguments=arguments,apk_sha256=apk_sha256,result=result,system=metrics,samples=series)
+presentation={}
+mono_start=result.get('measurement_start_monotonic_ns')
+mono_end=result.get('measurement_end_monotonic_ns')
+if mono_start and mono_end:
+    stamps=sorted(x for x in presentation_stamps if mono_start<=x<=mono_end)
+    if len(stamps)>=3:
+        presentation=dict(layer=surface_layer,presented_fps=(len(stamps)-1)*1e9/(stamps[-1]-stamps[0]),
+                          samples=len(stamps),scope='SurfaceFlinger actual presentation timestamps within benchmark',
+                          covered_duration_s=(stamps[-1]-stamps[0])/1e9)
+elif args.render!='none':
+    layers=adb('shell','dumpsys SurfaceFlinger --list',check=False).splitlines()
+    layers=[x for x in layers if 'SurfaceView' in x and 'com.mirror.bench' in x]
+    for layer in layers:
+        trace=adb('shell','dumpsys SurfaceFlinger --latency '+shlex.quote(layer),check=False)
+        stamps=[]
+        for line in trace.splitlines()[1:]:
+            values=line.split()
+            if len(values)==3 and all(v.isdigit() for v in values):
+                actual=int(values[1])
+                if 0<actual<2**63-1: stamps.append(actual)
+        stamps=sorted(set(stamps))
+        if len(stamps)>=3:
+            presentation=dict(layer=layer,presented_fps=(len(stamps)-1)*1e9/(stamps[-1]-stamps[0]),
+                              samples=len(stamps),scope='SurfaceFlinger recent presentation history; includes tail after benchmark')
+            break
+    presentation['layers']=layers
+payload=dict(arguments=arguments,apk_sha256=apk_sha256,result=result,system=metrics,samples=series,presentation=presentation)
+if args.delegate=='NPU':
+    runtime_log=adb('logcat','-d','-s','tflite','MirrorBench','AndroidRuntime')
+    pids={x['processes']['com.mirror.bench']['pid'] for x in series if 'com.mirror.bench' in x['processes']}
+    runtime_log='\n'.join(line for line in runtime_log.splitlines() if
+            (match:=re.match(r'\S+\s+\S+\s+(\d+)\s+',line)) and int(match[1]) in pids)
+    (OUT/f'{args.name}-runtime-log.txt').write_text(runtime_log,encoding='utf-8')
+    payload['accelerator_verification']={'requested':'NPU','busy_samples':len(npu),
+        'hardware_activity_observed':bool(npu and max(npu)>0),
+        'cpu_delegate_observed':'TfLiteXNNPackDelegate' in runtime_log,
+        'note':'Selecting the enum does not prove hardware dispatch; inspect runtime log and NPU counter.'}
 (OUT/f'{args.name}.json').write_text(json.dumps(payload,indent=2),encoding='utf-8')
 compact=json.loads(json.dumps(result))
 compact.pop('inference_samples_ms',None)
@@ -123,5 +202,5 @@ if args.screenshot:
     adb('pull','/data/local/tmp/mirror-bench-shot.png',str(OUT/f'{args.name}.png'))
     adb('shell','rm -f /data/local/tmp/mirror-bench-shot.png')
 adb('shell','am force-stop com.mirror.bench')
-print(json.dumps(dict(run=args.name,result=compact,system=metrics)),flush=True)
+print(json.dumps(dict(run=args.name,result=compact,system=metrics,presentation=presentation)),flush=True)
 if result['status'] not in ['success','interrupted']: raise SystemExit(1)
