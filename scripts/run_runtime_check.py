@@ -222,7 +222,14 @@ def analyze_run(samples, statuses, windows, actions):
         if stamp is not None:
             sample["device_monotonic_ns"] = stamp
     presentation = analyze_presentation(statuses, windows, pause_exclusions(actions, statuses))
-    observed_end = max((sample.get("device_monotonic_ns", 0) for sample in samples), default=0)
+    observed = [sample.get("device_monotonic_ns", 0) for sample in samples]
+    for window in windows:
+        mapped = map_clock(window.get("device_elapsed_ns"), statuses)
+        if mapped is not None:
+            observed.append(mapped)
+        observed.extend(stamp for stamp in window.get("timestamps_ns", [])
+                        if isinstance(stamp, int) and 0 < stamp < 2**63-1)
+    observed_end = max(observed, default=0)
     presentation["unconfirmed_tail_seconds"] = max(0, observed_end-presentation["confirmed_until_monotonic_ns"])/1e9
     presentation["observed_until_monotonic_ns"] = observed_end
     presentation["pause_clock_complete"] = all(
@@ -250,6 +257,7 @@ def arguments():
     parser.add_argument("--blackout-seconds", type=int, default=0)
     parser.add_argument("--pause-at", type=int)
     parser.add_argument("--pause-seconds", type=int, default=5)
+    parser.add_argument("--avatar-synchronous", action="store_true", help="Debug-only same-APK control: deform on the GL thread")
     args = parser.parse_args()
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,120}", args.name):
         parser.error("Invalid run name")
@@ -273,7 +281,71 @@ def run(args):
     payload = dict(schema_version=1, serial=SERIAL, arguments={**vars(args), "output_dir": str(args.output_dir)},
                    samples=samples, statuses=statuses, surface_windows=windows, host_actions=actions,
                    status_reads=reads, collection_errors=failures, collection_status="starting")
+    payload["collector_policy"] = "non-waiting launch; discover/query surface in same poll before resource dumps; final snapshot before independent force-stop"
+    probes = payload["surface_probes"] = []
     authorized_device, started, layer = False, None, ""
+    seen_status, launch_elapsed = set(), None
+
+    def read_status(text, poll_start, reason):
+        read = dict(host_monotonic_s=poll_start, reason=reason, raw=text)
+        reads.append(read)
+        try:
+            current = json.loads(text)
+            stamp = current.get("updated_elapsed_ns")
+            monotonic = current.get("updated_monotonic_ns")
+            if (type(stamp) is not int or type(monotonic) is not int
+                    or launch_elapsed is None or stamp < launch_elapsed):
+                read["result"] = "missing_or_prelaunch_timestamp"
+            elif stamp in seen_status:
+                read["result"] = "duplicate"
+            else:
+                current["host_observed_monotonic_s"] = poll_start
+                statuses.append(current); seen_status.add(stamp); read["result"] = "new"
+        except (json.JSONDecodeError, AttributeError) as error:
+            read["result"], read["error"] = "unavailable", str(error)
+        return read
+
+    def discover_surface(reason):
+        nonlocal layer
+        probe = dict(reason=reason, host_monotonic_s=time.monotonic())
+        probes.append(probe)
+        try:
+            probe["raw"] = adb("shell", "dumpsys SurfaceFlinger --list", check=False)
+            candidates = surface_layer_candidates(probe["raw"])
+            probe["candidates"] = candidates
+            layer = candidates[0] if len(candidates) == 1 else ""
+            if len(candidates) > 1:
+                failures.append(dict(host_monotonic_s=probe["host_monotonic_s"],
+                                     scope="ambiguous_surface_layer", layers=candidates, raw=probe["raw"]))
+        except Exception as error:
+            probe["error"] = str(error)
+            raise
+        finally:
+            probe["host_end_monotonic_s"] = time.monotonic()
+
+    def final_snapshot():
+        # Discovery/history/status reads may fail; the caller always executes the
+        # independent final force-stop in its own finally block afterwards.
+        if not layer:
+            discover_surface("pre_stop")
+        poll_start = time.monotonic()
+        commands = ["printf '\\n__RUNTIME_STATUS__\\n'", f"run-as {PACKAGE} cat {STATUS_FILE}"]
+        if layer:
+            commands.extend(["printf '\\n__RUNTIME_SURFACE__\\n'",
+                             "dumpsys SurfaceFlinger --latency " + shlex.quote(layer)])
+        commands.extend(["printf '\\n__RUNTIME_CLOCK__\\n'", "cat /proc/uptime"])
+        raw = adb("shell", "; ".join(commands), check=False)
+        sections = re.split(r"(?:^|\n)__RUNTIME_(\w+)__\n", raw)
+        parts = dict(zip(sections[1::2], sections[2::2]))
+        read = read_status(parts.get("STATUS", ""), poll_start, "pre_stop")
+        refresh, stamps = parse_surface_latency(parts.get("SURFACE", ""))
+        clock = uptime_ns(parts.get("CLOCK", ""))
+        windows.append(dict(layer=layer, reason="pre_stop", host_monotonic_s=poll_start,
+                            host_poll_end_s=time.monotonic(), device_elapsed_ns=clock,
+                            refresh_period_ns=refresh, timestamps_ns=stamps,
+                            raw=parts.get("SURFACE", ""), raw_snapshot=raw))
+        if not stamps or clock is None or read["result"] not in ("new", "duplicate"):
+            failures.append(dict(scope="final_snapshot", error="Incomplete final status/surface/clock snapshot", raw=raw))
 
     def save():
         payload.update(analyze_run(samples, statuses, windows, actions))
@@ -335,6 +407,8 @@ def run(args):
 
     extras = (f" --es runtime_input {args.input} --ei test_blackout_after_s {args.blackout_after}"
               f" --ei test_blackout_duration_s {args.blackout_seconds}")
+    if args.avatar_synchronous:
+        extras += " --ez test_avatar_synchronous true"
     try:
         if adb("get-serialno") != SERIAL:
             raise RuntimeError("Wrong device serial")
@@ -347,14 +421,20 @@ def run(args):
         if not re.fullmatch(r"[a-fA-F0-9]{64}", checksum):
             raise RuntimeError("Cannot read installed APK checksum")
         payload["apk_sha256"], payload["apk_path"] = checksum.lower(), package_path
+        # APK identity alone does not describe ART execution mode. In particular,
+        # Android 11 can accept a requested speed compile but use quicken for a
+        # debuggable package. Preserve the actual package state, not the request.
+        payload["app_package_state_before_run"] = adb("shell", "dumpsys package " + PACKAGE, check=False)
         action("initial_force_stop", "am force-stop " + PACKAGE)
         action("clear_known_status", f"run-as {PACKAGE} rm -f {STATUS_FILE}")
-        action("start", "am start -W -n " + COMPONENT + extras, clock=True)
+        # -W waits for the Activity's first drawn window. Capture real startup
+        # history while it is still being produced instead of waiting for that.
+        action("start", "am start -n " + COMPONENT + extras, clock=True)
         started = time.monotonic()
         payload["collection_start_host_monotonic_s"] = started
         payload["collection_status"] = "running"
         last_memory = last_status = last_layers = last_checkpoint = -float("inf")
-        seen_status, did_pause, did_resume = set(), False, False
+        did_pause, did_resume = False, False
         paused_host = None
         launch_elapsed = actions[-1].get("device_elapsed_before_ns", 0)
         while time.monotonic() - started < args.seconds:
@@ -367,31 +447,34 @@ def run(args):
                 paused_host = time.monotonic()
             if did_pause and not did_resume and time.monotonic() >= paused_host + args.pause_seconds:
                 # Reorder the existing Activity to front; no force-stop during the pause test.
-                action("resume", "am start -W -n " + COMPONENT + " -f 0x20020000" + extras, clock=True)
+                action("resume", "am start -n " + COMPONENT + " -f 0x20020000" + extras, clock=True)
                 did_resume = True
                 layer = ""
             memory_due, status_due, layers_due = (poll_start-last_memory >= 5, poll_start-last_status >= 2,
                                                  poll_start-last_layers >= 3 or not layer)
-            commands = [SAMPLE_COMMAND]
+            if layers_due:
+                discover_surface("poll")
+                last_layers = poll_start
+            queried_layer = layer
+            commands = []
+            if queried_layer:
+                commands.extend(["printf '\\n__RUNTIME_SURFACE__\\n'", "dumpsys SurfaceFlinger --latency " + shlex.quote(queried_layer)])
+            commands.extend(["printf '\\n__RUNTIME_SYSTEM__\\n'", SAMPLE_COMMAND])
             for label, command in (("NPU", "cat /sys/kernel/debug/rknpu/load"), ("CLOCK", "cat /proc/uptime")):
                 commands.extend([f"printf '\\n__RUNTIME_{label}__\\n'", command])
             if memory_due:
                 commands.extend(["printf '\\n__RUNTIME_MEM__\\n'", "dumpsys meminfo " + PACKAGE])
-            if layers_due:
-                commands.extend(["printf '\\n__RUNTIME_LAYERS__\\n'", "dumpsys SurfaceFlinger --list"])
-            queried_layer = layer
-            if queried_layer:
-                commands.extend(["printf '\\n__RUNTIME_SURFACE__\\n'", "dumpsys SurfaceFlinger --latency " + shlex.quote(queried_layer)])
             if status_due:
                 commands.extend(["printf '\\n__RUNTIME_STATUS__\\n'", f"run-as {PACKAGE} cat {STATUS_FILE}"])
             raw = adb("shell", "; ".join(commands), check=False)
-            sections = re.split(r"\n__RUNTIME_(\w+)__\n", raw)
+            sections = re.split(r"(?:^|\n)__RUNTIME_(\w+)__\n", raw)
             parts = dict(zip(sections[1::2], sections[2::2]))
             device_elapsed = uptime_ns(parts.get("CLOCK", ""))
             try:
-                point = parse_sample(sections[0])
+                system = parts.get("SYSTEM", "")
+                point = parse_sample(system)
                 point.update(host_monotonic_s=poll_start, host_poll_end_s=time.monotonic(),
-                             device_elapsed_ns=device_elapsed, raw_system=sections[0], raw_npu=parts.get("NPU", ""))
+                             device_elapsed_ns=device_elapsed, raw_system=system, raw_npu=parts.get("NPU", ""))
                 if match := re.search(r"(\d+)%", parts.get("NPU", "")):
                     point["npu_busy_percent"] = int(match[1])
                 if memory_due:
@@ -405,28 +488,8 @@ def run(args):
                 refresh, stamps = parse_surface_latency(parts.get("SURFACE", ""))
                 windows.append(dict(layer=queried_layer, host_monotonic_s=poll_start, device_elapsed_ns=device_elapsed,
                                     refresh_period_ns=refresh, timestamps_ns=stamps, raw=parts.get("SURFACE", "")))
-            if layers_due:
-                candidates = surface_layer_candidates(parts.get("LAYERS", ""))
-                layer = candidates[0] if len(candidates) == 1 else ""
-                if len(candidates) > 1:
-                    failures.append(dict(host_monotonic_s=poll_start, scope="ambiguous_surface_layer", layers=candidates))
-                last_layers = poll_start
             if status_due:
-                text = parts.get("STATUS", "")
-                read = dict(host_monotonic_s=poll_start, raw=text)
-                reads.append(read)
-                try:
-                    current = json.loads(text)
-                    stamp = current.get("updated_elapsed_ns")
-                    if not isinstance(stamp, int) or stamp < launch_elapsed:
-                        read["result"] = "missing_or_prelaunch_timestamp"
-                    elif stamp in seen_status:
-                        read["result"] = "duplicate"
-                    else:
-                        current["host_observed_monotonic_s"] = poll_start
-                        statuses.append(current); seen_status.add(stamp); read["result"] = "new"
-                except (json.JSONDecodeError, AttributeError) as error:
-                    read["result"], read["error"] = "unavailable", str(error)
+                read_status(parts.get("STATUS", ""), poll_start, "poll")
                 last_status = poll_start
             # Avoid rewriting an increasingly large two-hour trace every two seconds.
             if poll_start-last_checkpoint >= 60:
@@ -447,10 +510,17 @@ def run(args):
     finally:
         if authorized_device:
             try:
-                action("final_force_stop", "am force-stop " + PACKAGE)
+                if started is not None:
+                    final_snapshot()
             except Exception as error:
-                failures.append(dict(scope="final_force_stop", error=str(error)))
+                failures.append(dict(scope="final_snapshot", error=str(error)))
                 payload["collection_status"] = "failed"
+            finally:
+                try:
+                    action("final_force_stop", "am force-stop " + PACKAGE)
+                except Exception as error:
+                    failures.append(dict(scope="final_force_stop", error=str(error)))
+                    payload["collection_status"] = "failed"
         payload["collection_end_host_monotonic_s"] = time.monotonic()
         payload["actual_collection_seconds"] = time.monotonic()-started if started is not None else 0
         save()

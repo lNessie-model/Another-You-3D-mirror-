@@ -12,20 +12,30 @@ public final class InteractionController {
 
     public static final class Snapshot {
         private final State state;
-        private final float[] renderWeights, pose;
+        private final float[] renderWeights, blendshapes52, pose;
+        private final long sequence, receivedNs, completedNs;
         private final boolean facePresent;
         private final long resultAgeMs;
 
-        private Snapshot(State state, float[] renderWeights, float[] pose,
-                         boolean facePresent, long resultAgeMs) {
+        private Snapshot(State state, float[] renderWeights, float[] blendshapes52, float[] pose,
+                         boolean facePresent, long resultAgeMs, FaceFrame frame) {
             this.state = state;
             this.renderWeights = renderWeights.clone();
+            this.blendshapes52 = blendshapes52.clone();
+            sequence = frame == null ? -1 : frame.sequence();
+            receivedNs = frame == null ? -1 : frame.receivedNs();
+            completedNs = frame == null ? -1 : frame.completedNs();
             this.pose = pose.clone();
             this.facePresent = facePresent;
             this.resultAgeMs = resultAgeMs;
         }
         public State state() { return state; }
         public float[] renderWeights() { return renderWeights.clone(); }
+        /** All input channels, independently smoothed and faded on loss; left/right remain separate. */
+        public float[] blendshapes52() { return blendshapes52.clone(); }
+        public long sequence() { return sequence; }
+        public long receivedNs() { return receivedNs; }
+        public long completedNs() { return completedNs; }
         /** Raw pose while interactive; otherwise identity, which the renderer smoothly approaches. */
         public float[] pose() { return pose.clone(); }
         public int analysisFps() { return state == State.INTERACTIVE || state == State.GRACE ? 17 : 3; }
@@ -39,6 +49,8 @@ public final class InteractionController {
     private long lastSequence = -1, lastSampleNs = -1, lastPresentReceivedNs = -1;
     private long acquireSinceNs = -1, acquireSequence = -1, graceSinceNs = -1;
     private final float[] smoothedWeights = new float[4];
+    private final float[] smoothedBlendshapes = new float[52];
+    private static final float[] NEUTRAL_BLENDSHAPES = new float[52];
 
     /** Latest-result mailbox. Duplicate/older sequences and results during ERROR are ignored. */
     public synchronized boolean accept(FaceFrame frame) {
@@ -103,16 +115,21 @@ public final class InteractionController {
             state = State.WAITING;
 
         boolean drive = state == State.INTERACTIVE && face;
-        float[] target = drive ? mapWeights(latest.blendshapes()) : new float[4];
+        float[] fullTarget = drive ? latest.blendshapes() : NEUTRAL_BLENDSHAPES;
+        float[] target = drive ? mapWeights(fullTarget) : new float[4];
         long elapsedNs = lastSampleNs < 0 ? 0 : nowNs - lastSampleNs;
         float alpha = (float) -Math.expm1(-elapsedNs / (drive ? ACTIVE_SMOOTH_NS : NEUTRAL_SMOOTH_NS));
         for (int i = 0; i < smoothedWeights.length; i++) {
             smoothedWeights[i] += (target[i] - smoothedWeights[i]) * alpha;
             if (state == State.WAITING || Math.abs(smoothedWeights[i]) < .00001f) smoothedWeights[i] = 0;
         }
+        for (int i = 0; i < smoothedBlendshapes.length; i++) {
+            smoothedBlendshapes[i] += (clamp(fullTarget[i]) - smoothedBlendshapes[i]) * alpha;
+            if (state == State.WAITING || Math.abs(smoothedBlendshapes[i]) < .00001f) smoothedBlendshapes[i] = 0;
+        }
         lastSampleNs = nowNs;
-        return new Snapshot(state, smoothedWeights, drive ? latest.pose() : FaceFrame.identity(),
-                face, ageNs < 0 ? -1 : ageNs / 1_000_000L);
+        return new Snapshot(state, smoothedWeights, smoothedBlendshapes, drive ? latest.pose() : FaceFrame.identity(),
+                face, ageNs < 0 ? -1 : ageNs / 1_000_000L, latest);
     }
 
     private void beginAcquiring() {
@@ -135,6 +152,7 @@ public final class InteractionController {
         lastSequence = lastSampleNs = lastPresentReceivedNs = -1;
         acquireSinceNs = acquireSequence = graceSinceNs = -1;
         java.util.Arrays.fill(smoothedWeights, 0);
+        java.util.Arrays.fill(smoothedBlendshapes, 0);
     }
     /** Latches ERROR until explicitly cleared. Existing motion fades toward neutral on sample(). */
     public synchronized void setError() {
@@ -147,5 +165,6 @@ public final class InteractionController {
         if (state != State.ERROR) return;
         state = State.WAITING;
         java.util.Arrays.fill(smoothedWeights, 0);
+        java.util.Arrays.fill(smoothedBlendshapes, 0);
     }
 }

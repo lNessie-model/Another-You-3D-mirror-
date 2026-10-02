@@ -28,6 +28,14 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private volatile String error="";
     private volatile float[] expressions={0,0,0,0};
     private boolean runtimeMode,surfaceInitialized;
+    private android.content.res.AssetManager avatarAssets;
+    private volatile AvatarGpuScene avatarScene;
+    private boolean avatarAsynchronous=true;
+    private volatile boolean avatarShutdown;
+    private volatile long avatarResumeGeneration;
+    private long consumedAvatarResumeGeneration;
+    private volatile boolean runtimeFrameReady;
+    private final float[] runtimeBlendshapes=new float[52];
     private volatile InteractiveFace interactiveFace=InteractiveFace.NEUTRAL;
     private final float[] runtimeWeights=new float[4],runtimeAngles=new float[3];
     private long runtimePoseTime,runtimeFrames,runtimeWindowStart;
@@ -72,6 +80,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private int lookupTexture,lookupProgram,lookupGenerator;
     private int lookupMismatch=-1;
     private float pitch=9.69f,tilt=.28f;
+    private PanelCalibration panelCalibration;
+    private boolean calibrationPattern;
     private volatile int targetFps;
     private volatile Thread renderThread;
     private long renderDeadline;
@@ -84,10 +94,28 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         this.views=views; this.scale=scale; this.widthScale=scale; this.scene=scene;
     }
     void setExpressions(float[] values) { expressions=values; }
-    /** Configure before attaching the renderer. Runtime still uses the diagnostic four-morph mesh. */
+    /** Configure before attaching the renderer; an avatar is selected separately. */
     synchronized void setRuntimeMode(boolean enabled) {
         if(surfaceInitialized) throw new IllegalStateException("Runtime mode must be set before GL initialization");
         runtimeMode=enabled;
+    }
+    synchronized void setRuntimeAvatar(android.content.res.AssetManager assets) {
+        if(surfaceInitialized||!runtimeMode) throw new IllegalStateException("Avatar must be selected before runtime GL initialization");
+        avatarAssets=java.util.Objects.requireNonNull(assets);
+        preblend=false;
+    }
+    synchronized void setAvatarAsynchronous(boolean value) {
+        if(surfaceInitialized)throw new IllegalStateException("Avatar backend must be configured before GL initialization");
+        avatarAsynchronous=value;
+    }
+    void closeRuntimeAvatar(){avatarShutdown=true;AvatarGpuScene previous=avatarScene;if(previous!=null)previous.stopCpu();}
+    /** UI thread signals lifecycle explicitly; only the GL thread resets pose progress. */
+    void resumeRuntimeAvatar(){runtimeFrameReady=false;avatarResumeGeneration++;}
+    /** Successful GL submission, not proof of a physical presentation timestamp. */
+    boolean hasRuntimeFrame(){return runtimeFrameReady&&error.isEmpty();}
+    void setInteractiveSnapshot(InteractionController.Snapshot snapshot,boolean active) {
+        interactiveFace=active?new InteractiveFace(snapshot.renderWeights(),snapshot.blendshapes52(),snapshot.pose(),SystemClock.elapsedRealtimeNanos())
+                :InteractiveFace.NEUTRAL;
     }
     /** Safe to call from inference/UI threads: caller-owned arrays never reach the GL thread. */
     void setInteractiveFace(float[] fourWeights,float[] columnMajorPose,boolean active) {
@@ -128,8 +156,34 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         // Shader x is measured in RGB subpixels, while gl_FragCoord.y is pixels.
         pitch=suppliedPitch*("pixels".equals(pitchUnits)?3:1);
         tilt=suppliedTan*3;
+        panelCalibration=null; // Legacy benchmark shader and defaults remain unchanged.
         calibration="user pitch="+suppliedPitch+" "+pitchUnits+", tan="+suppliedTan+
                 " horizontal pixels/vertical pixel; optical alignment unverified";
+    }
+    synchronized void setPanelCalibration(PanelCalibration value) {
+        if(surfaceInitialized) throw new IllegalStateException("Panel changes require a new GL surface");
+        if(value==null) throw new IllegalArgumentException("Panel calibration required");
+        applyPanel(value);
+    }
+    private void applyPanel(PanelCalibration value) {
+        panelCalibration=value; pitch=value.pitchSubpixels(); tilt=value.tiltSubpixelsPerPixel();
+        calibration="pitch="+value.pitch()+" "+value.pitchUnits()+", tan="+value.tan()+", phase="+value.phaseCycles()
+                +", "+value.subpixelOrder()+", reverse="+value.reverseViews()+", origin="+value.yOrigin()+"; optical alignment unverified";
+    }
+    void setCalibrationPattern(boolean enabled) {
+        if(surfaceInitialized||scene) throw new IllegalStateException("Test pattern requires a new scene-free renderer");
+        calibrationPattern=enabled;
+    }
+    private String calibrationShader(String source) {
+        // ES 3.20 precise is required to prevent reciprocal-multiply + phase from becoming one FMA.
+        // Keep both stages at the same language version. The legacy bench remains byte-for-byte ES 3.00.
+        return panelCalibration==null?source:source.replace("#version 300 es","#version 320 es")
+                .replace(LEGACY_VIEW_FUNCTION,PANEL_VIEW_FUNCTION);
+    }
+    boolean supportsSharedPhase() {
+        return views==20&&Math.abs(pitch-10)<=1e-6f&&(panelCalibration==null
+                ||(panelCalibration.phaseCycles()==0&&panelCalibration.subpixelOrder()==PanelCalibration.SubpixelOrder.RGB
+                &&!panelCalibration.reverseViews()&&panelCalibration.yOrigin()==PanelCalibration.YOrigin.BOTTOM));
     }
     synchronized void beginMeasurement() {
         measuring=!runtimeMode; firstFrame=0; lastFrame=0; workMs.clear(); intervalMs.clear();
@@ -141,6 +195,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
+        runtimeFrameReady=false;
         synchronized(this) { surfaceInitialized=true; }
         renderThread=Thread.currentThread();
         runtimePoseTime=0;
@@ -151,6 +206,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             atlasTexture=0; atlasFbo=0; atlasDepth=0;
             multiviewDepth=0; multiviewFbo=0;
             lastBlendedWeights=null; preblendUpdates=0;
+            // onSurfaceCreated means a new EGL context: old names must not be deleted in this context.
+            AvatarGpuScene previous=avatarScene;if(previous!=null)previous.stopCpu();avatarScene=null;
             gpu=GLES30.glGetString(GLES30.GL_RENDERER)+" / "+GLES30.glGetString(GLES30.GL_VERSION);
             extensions=GLES30.glGetString(GLES30.GL_EXTENSIONS);
             int[] limit=new int[1];
@@ -166,37 +223,42 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 multiviewProgram=program(multiviewVertex(SCENE_VERTEX),SCENE_FRAGMENT);
             }
             sceneProgram=program(SCENE_VERTEX,SCENE_FRAGMENT);
-            interlaceProgram=program(SCREEN_VERTEX,INTERLACE_FRAGMENT);
+            interlaceProgram=program(calibrationShader(SCREEN_VERTEX),calibrationShader(INTERLACE_FRAGMENT));
             if(sharedPhase||verifySharedPhase) {
-                if(views!=20||Math.abs(pitch-10)>1e-6f)
-                    throw new IllegalArgumentException("Shared RGB phase requires 20 views and pitch=10 RGB subpixels");
+                if(!supportsSharedPhase())
+                    throw new IllegalArgumentException("Shared RGB phase requires 20 views, pitch=10 subpixels, phase=0, RGB, forward views and bottom origin");
                 // Adjacent RGB subpixels advance exactly two views at this pitch/count.
-                sharedPhaseProgram=program(SCREEN_VERTEX,INTERLACE_FRAGMENT.replace(
+                sharedPhaseProgram=program(calibrationShader(SCREEN_VERTEX),calibrationShader(INTERLACE_FRAGMENT).replace(
                         "void main(){color=vec4(texture(uViews,vec3(vUv,viewAt(0.0))).r,texture(uViews,vec3(vUv,viewAt(1.0))).g,texture(uViews,vec3(vUv,viewAt(2.0))).b,1);}",
                         "void main(){float r=viewAt(0.0),g=r<18.0?r+2.0:r-18.0,b=r<16.0?r+4.0:r-16.0;"
                         +"color=vec4(textureLod(uViews,vec3(vUv,r),0.0).r,textureLod(uViews,vec3(vUv,g),0.0).g,textureLod(uViews,vec3(vUv,b),0.0).b,1);}"));
             }
             if(explicitLod) {
-                String shader=INTERLACE_FRAGMENT;
+                String shader=calibrationShader(INTERLACE_FRAGMENT);
                 for(String channel:new String[]{"0.0","1.0","2.0"}) shader=shader.replace(
                         "texture(uViews,vec3(vUv,viewAt("+channel+")))",
                         "textureLod(uViews,vec3(vUv,viewAt("+channel+")),0.0)");
-                explicitLodProgram=program(SCREEN_VERTEX,shader);
+                explicitLodProgram=program(calibrationShader(SCREEN_VERTEX),shader);
             }
             if(preblend||verifyPreblend) {
                 preblendProgram=program(PREBLEND_VERTEX,SCENE_FRAGMENT,new String[]{"tfPosition","tfNormal","tfUv"});
                 preblendSceneProgram=program(PREBLEND_SCENE_VERTEX,SCENE_FRAGMENT);
                 if(multiview||verifyMultiview) preblendMultiviewProgram=program(multiviewVertex(PREBLEND_SCENE_VERTEX),SCENE_FRAGMENT);
             }
-            if(atlas||verifyAtlas) atlasProgram=program(SCREEN_VERTEX,ATLAS_FRAGMENT);
+            if(atlas||verifyAtlas) atlasProgram=program(calibrationShader(SCREEN_VERTEX),calibrationShader(ATLAS_FRAGMENT));
             if(lookup||verifyLookup) {
                 lookupProgram=program(SCREEN_VERTEX,LOOKUP_FRAGMENT);
-                lookupGenerator=program(SCREEN_VERTEX,LOOKUP_GENERATOR);
+                lookupGenerator=program(calibrationShader(SCREEN_VERTEX),calibrationShader(LOOKUP_GENERATOR));
             }
-            makeMesh();
+            if(avatarAssets!=null) {
+                avatarScene=AvatarGpuScene.builtin(avatarAssets,multiview||verifyMultiview,avatarAsynchronous);
+                if(avatarShutdown)avatarScene.stopCpu();
+            }
+            else makeMesh();
         } catch(Throwable problem) { fail(problem); }
     }
     @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
+        runtimeFrameReady=false;
         this.width=width; this.height=height;
         viewWidth=requestedViewWidth>0?requestedViewWidth:Math.max(1,Math.round(width*widthScale));
         viewHeight=requestedViewHeight>0?requestedViewHeight:Math.max(1,Math.round(height*scale));
@@ -244,6 +306,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             if(lookup||verifyLookup) {
                 makeLookup();
                 if(verifyLookup) verifyLookupPixels();
+            }
+            if(calibrationPattern) {
+                fillCalibrationPattern();
+                if(atlas||verifyAtlas) copyViewsToAtlas();
             }
             GLES30.glFinish(); checkGl();
         } catch(Throwable problem) { fail(problem); }
@@ -295,6 +361,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
     }
     private void recordRuntimeFrame(long before,long after) {
+        runtimeFrameReady=true;
         // Constant-space aggregates replace the benchmark's per-frame arrays for an unlimited session.
         runtimeFrames++;
         if(runtimeWindowStart==0) runtimeWindowStart=before;
@@ -307,9 +374,15 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
     }
     synchronized JSONObject runtimeStatus() throws Exception {
-        return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",true)
+        return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",avatarAssets==null)
+                .put("avatar",avatarScene==null?JSONObject.NULL:avatarScene.status())
+                .put("output_width",width).put("output_height",height).put("view_count",views)
+                .put("view_width",viewWidth).put("view_height",viewHeight)
+                .put("projection_aspect",avatarAssets==null?(float)viewWidth/Math.max(1,viewHeight):(float)width/Math.max(1,height))
                 .put("frames",runtimeFrames).put("fps",runtimeFps).put("frame_work_mean_ms",runtimeWorkMeanMs)
+                .put("runtime_gl_frame_ready",hasRuntimeFrame())
                 .put("render_target_fps",targetFps).put("face_active",runtimeFaceActive).put("error",error)
+                .put("panel_calibration",calibration).put("optical_alignment_verified",false)
                 .put("retained_frame_samples",workMs.size()+intervalMs.size()+sceneStageMs.size()+interlaceStageMs.size())
                 .put("timing_window","approximately one second; callback cadence includes EGL swap backpressure");
     }
@@ -330,10 +403,16 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         // Preserve the preblend cache's reference-based change detection, including a settled idle pose.
         if(changed) expressions=runtimeWeights.clone();
         for(int i=0;i<3;i++) runtimeAngles[i]+=alpha*(face.angles[i]-runtimeAngles[i]);
+        for(int i=0;i<52;i++) {
+            float next=runtimeFaceActive?face.blendshapes[i]:runtimeBlendshapes[i]+alpha*(face.blendshapes[i]-runtimeBlendshapes[i]);
+            if(Math.abs(next-face.blendshapes[i])<.0001f)next=face.blendshapes[i];
+            runtimeBlendshapes[i]=next;
+        }
     }
     private static final class InteractiveFace {
         static final InteractiveFace NEUTRAL=new InteractiveFace();
         final float[] weights=new float[4],angles=new float[3];
+        final float[] blendshapes=new float[52];
         final long timestampNanos;
         private InteractiveFace() { timestampNanos=0; }
         InteractiveFace(float[] values,float[] pose,long timestamp) {
@@ -341,6 +420,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             if(values!=null&&values.length==4) for(int i=0;i<4;i++)
                 weights[i]=Float.isFinite(values[i])?Math.max(0,Math.min(1,values[i])):0;
             readRotation(pose,angles);
+        }
+        InteractiveFace(float[] values,float[] fullWeights,float[] pose,long timestamp) {
+            this(values,pose,timestamp);
+            if(fullWeights==null||fullWeights.length!=52)throw new IllegalArgumentException("Expected full avatar blendshapes");
+            for(int i=0;i<52;i++)blendshapes[i]=Float.isFinite(fullWeights[i])?Math.max(0,Math.min(1,fullWeights[i])):0;
         }
         private static void readRotation(float[] pose,float[] out) {
             if(pose==null||pose.length!=16) return;
@@ -373,6 +457,13 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uCount"),views);
         GLES30.glUniform1f(GLES30.glGetUniformLocation(program,"uPitch"),pitch);
         GLES30.glUniform1f(GLES30.glGetUniformLocation(program,"uTilt"),tilt);
+        if(panelCalibration!=null) {
+            GLES30.glUniform1f(GLES30.glGetUniformLocation(program,"uPhase"),panelCalibration.phaseCycles());
+            GLES30.glUniform1f(GLES30.glGetUniformLocation(program,"uHeight"),height);
+            GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uBgr"),panelCalibration.subpixelOrder()==PanelCalibration.SubpixelOrder.BGR?1:0);
+            GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uReverse"),panelCalibration.reverseViews()?1:0);
+            GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uTop"),panelCalibration.yOrigin()==PanelCalibration.YOrigin.TOP?1:0);
+        }
     }
     private void drawInterlace(boolean cached) {
         if(atlas&&cached) throw new IllegalArgumentException("Atlas and lookup are independent experiments");
@@ -432,6 +523,89 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(lookupMismatch!=0) throw new IllegalStateException("Lookup pixel mismatch: "+lookupMismatch);
         checkGl();
     }
+    private void fillCalibrationPattern() {
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,texture);
+        ByteBuffer upload=ByteBuffer.allocateDirect(viewWidth*viewHeight*4);
+        for(int v=0;v<views;v++) {
+            upload.clear(); upload.put(PanelTestImages.card(v,viewWidth,viewHeight)).flip();
+            GLES30.glTexSubImage3D(GLES30.GL_TEXTURE_2D_ARRAY,0,0,0,v,viewWidth,viewHeight,1,
+                    GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,upload);
+        }
+    }
+    private void copyViewsToAtlas() {
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo);
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,atlasTexture);
+        for(int v=0;v<views;v++) {
+            GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
+            GLES30.glCopyTexSubImage2D(GLES30.GL_TEXTURE_2D,0,v%atlasColumns*viewWidth,v/atlasColumns*viewHeight,
+                    0,0,viewWidth,viewHeight);
+        }
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+    }
+    private void fillEncodedViews() {
+        ByteBuffer pixel=ByteBuffer.allocateDirect(viewWidth*viewHeight*4);
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,texture);
+        for(int v=0;v<views;v++) {
+            pixel.clear();
+            for(int p=0;p<viewWidth*viewHeight;p++)pixel.put((byte)PanelTestImages.code(v,0))
+                    .put((byte)PanelTestImages.code(v,1)).put((byte)PanelTestImages.code(v,2)).put((byte)255);
+            pixel.flip();
+            GLES30.glTexSubImage3D(GLES30.GL_TEXTURE_2D_ARRAY,0,0,0,v,viewWidth,viewHeight,1,
+                    GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,pixel);
+        }
+        copyViewsToAtlas();
+    }
+    /** Diagnostic GL-thread entry. Reads actual RGB bytes; compares each path independently with the CPU oracle. */
+    JSONObject verifyPanelPixels(java.util.function.BooleanSupplier cancelled) throws Exception {
+        if(Thread.currentThread()!=renderThread||panelCalibration==null||scene||width<1||height<1
+                ||atlasProgram==0||lookupGenerator==0||explicitLodProgram==0)
+            throw new IllegalStateException("Panel check requires an initialized scene-free calibrated renderer with atlas/lookup/LOD programs");
+        if(!error.isEmpty())throw new IllegalStateException(error);
+        PanelCalibration savedPanel=panelCalibration;
+        boolean savedAtlas=atlas,savedLookup=lookup,savedLod=explicitLod;
+        JSONArray checks=new JSONArray(); long mismatches=0;
+        ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
+        // Distinct cases isolate controls, followed by a combined units/signed-slope case.
+        PanelCalibration[] cases={PanelCalibration.defaults(),
+                new PanelCalibration(10,.2777777f,PanelCalibration.PitchUnits.SUBPIXELS,.137f,PanelCalibration.SubpixelOrder.RGB,false,PanelCalibration.YOrigin.BOTTOM),
+                new PanelCalibration(10,.2777777f,PanelCalibration.PitchUnits.SUBPIXELS,0,PanelCalibration.SubpixelOrder.BGR,false,PanelCalibration.YOrigin.BOTTOM),
+                new PanelCalibration(10,.2777777f,PanelCalibration.PitchUnits.SUBPIXELS,0,PanelCalibration.SubpixelOrder.RGB,true,PanelCalibration.YOrigin.BOTTOM),
+                new PanelCalibration(10,.2777777f,PanelCalibration.PitchUnits.SUBPIXELS,0,PanelCalibration.SubpixelOrder.RGB,false,PanelCalibration.YOrigin.TOP),
+                new PanelCalibration(3.5f,-.125f,PanelCalibration.PitchUnits.PIXELS,.375f,PanelCalibration.SubpixelOrder.BGR,true,PanelCalibration.YOrigin.TOP)};
+        try {
+            fillEncodedViews(); GLES30.glDisable(GLES30.GL_DITHER);
+            for(int ci=0;ci<cases.length;ci++) {
+                if(cancelled.getAsBoolean())throw new InterruptedException("Panel check cancelled");
+                applyPanel(cases[ci]); makeLookup();
+                for(int path=0;path<4;path++) {
+                    atlas=path==2; lookup=path==3; explicitLod=path==1;
+                    drawInterlace(lookup); actual.clear();
+                    GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual); checkGl();
+                    long bad=0; String first="";
+                    for(int y=0;y<height;y++) {
+                      if(cancelled.getAsBoolean())throw new InterruptedException("Panel check cancelled");
+                      for(int x=0;x<width;x++)for(int channel=0;channel<3;channel++) {
+                        int expectedView=cases[ci].viewIndex(x,y,height,channel,views);
+                        int expected=PanelTestImages.code(expectedView,channel), value=actual.get((y*width+x)*4+channel)&255;
+                        if(value!=expected) {bad++;if(first.isEmpty())first="x="+x+",y="+y+",channel="+channel+",view="+expectedView+",expected="+expected+",actual="+value;}
+                      }
+                    }
+                    mismatches+=bad;
+                    checks.put(new JSONObject().put("case",ci).put("parameters",calibration)
+                            .put("path",new String[]{"array","array_explicit_lod","atlas","lookup"}[path])
+                            .put("rgb_byte_mismatches",bad).put("checked_rgb_bytes",width*(long)height*3).put("first_mismatch",first));
+                }
+            }
+        } finally {
+            atlas=savedAtlas; lookup=savedLookup; explicitLod=savedLod; applyPanel(savedPanel); makeLookup();
+            if(calibrationPattern)fillCalibrationPattern();
+            copyViewsToAtlas(); GLES30.glEnable(GLES30.GL_DITHER);
+        }
+        return new JSONObject().put("passed",mismatches==0).put("rgb_byte_mismatches",mismatches)
+                .put("width",width).put("height",height).put("view_count",views).put("cases",checks)
+                .put("scope","All output pixels and RGB components, independent CPU float oracle; optical alignment is not verified")
+                .put("optical_alignment_verified",false);
+    }
     private void verifySharedPhasePixels() throws Exception {
         // Every view has a unique value in every channel: detect even a one-view index error at any output pixel.
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo); GLES30.glDisable(GLES30.GL_SCISSOR_TEST);
@@ -453,6 +627,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         checkGl();
     }
     private void drawViews() {
+        if(avatarScene!=null) {drawAvatarViews();return;}
         if(preblend) updatePreblend();
         boolean drawAtlas=atlas&&!atlasCopy;
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiview?multiviewFbo:(drawAtlas?atlasFbo:fbo));
@@ -535,6 +710,50 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             for(int v=0;v<views;v++) GLES32.glCopyImageSubData(texture,GLES30.GL_TEXTURE_2D_ARRAY,0,0,0,v,
                     atlasTexture,GLES30.GL_TEXTURE_2D,0,v%atlasColumns*viewWidth,v/atlasColumns*viewHeight,0,
                     viewWidth,viewHeight,1);
+        }
+    }
+    private void drawAvatarViews() {
+        long generation=avatarResumeGeneration;
+        if(generation!=consumedAvatarResumeGeneration) {
+            avatarScene.resumeCpuPose();consumedAvatarResumeGeneration=generation;
+        }
+        avatarScene.prepare(runtimeBlendshapes,runtimeAngles);
+        boolean drawAtlas=atlas&&!atlasCopy;
+        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiview?multiviewFbo:(drawAtlas?atlasFbo:fbo));
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glViewport(0,0,viewWidth,viewHeight);
+        if(drawAtlas) {
+            GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+            GLES30.glEnable(GLES30.GL_SCISSOR_TEST);
+        }
+        // Sampling resolution can be anisotropic; projection follows the physical display shape.
+        int group=multiview?4:1;float aspect=(float)width/height;
+        for(int v=0;v<views;v+=group) {
+            if(multiview) {
+                MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,texture,v,4);
+                MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,multiviewDepth,v,4);
+            } else if(drawAtlas) {
+                int x=v%atlasColumns*viewWidth,y=v/atlasColumns*viewHeight;
+                GLES30.glViewport(x,y,viewWidth,viewHeight);GLES30.glScissor(x,y,viewWidth,viewHeight);
+            } else GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
+            if(!drawAtlas) {
+                GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+            }
+            for(int relative=0;relative<group;relative++) {
+                float eye=views==1?0:((v+relative)/(float)(views-1)-.5f)*.4f;
+                Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
+                float near=.1f,half=.052f,shift=-eye*near/3;
+                Matrix.frustumM(projection,0,-half*aspect+shift,half*aspect+shift,-half,half,near,10);
+                Matrix.multiplyMM(mvp,0,projection,0,view,0);
+                System.arraycopy(mvp,0,multiviewMatrices,relative*16,16);
+            }
+            avatarScene.draw(multiviewMatrices,group,aspect);
+            if(discardDepth&&!drawAtlas)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
+        }
+        if(discardDepth&&drawAtlas)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
+        if(atlas&&atlasCopy) {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+            for(int v=0;v<views;v++)GLES32.glCopyImageSubData(texture,GLES30.GL_TEXTURE_2D_ARRAY,0,0,0,v,
+                    atlasTexture,GLES30.GL_TEXTURE_2D,0,v%atlasColumns*viewWidth,v/atlasColumns*viewHeight,0,viewWidth,viewHeight,1);
         }
     }
     private void makeAtlas() {
@@ -792,6 +1011,25 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         #version 300 es
         out vec2 vUv;
         void main(){vec2 p=gl_VertexID==0?vec2(-1,-1):(gl_VertexID==1?vec2(3,-1):vec2(-1,3));vUv=p*.5+.5;gl_Position=vec4(p,0,1);}
+        """;
+    private static final String LEGACY_VIEW_FUNCTION="float viewAt(float c){return floor(fract((gl_FragCoord.x*3.0+gl_FragCoord.y*uTilt+c)/uPitch)*float(uCount));}";
+    // One function shared by arithmetic array, atlas and lookup generation. BGR changes physical offsets,
+    // while each caller still samples the corresponding R/G/B component. Phase is measured in cycles.
+    private static final String PANEL_VIEW_FUNCTION="""
+        uniform float uPhase,uHeight; uniform int uBgr,uReverse,uTop;
+        float viewAt(float c){
+            precise float y=uTop!=0?uHeight-gl_FragCoord.y:gl_FragCoord.y;
+            precise float offset=uBgr!=0?2.0-c:c;
+            precise float xt=gl_FragCoord.x*3.0;
+            precise float yt=y*uTilt;
+            precise float sum=xt+yt;
+            sum=sum+offset;
+            precise float q=sum/uPitch;
+            if(uPhase!=0.0)q=q+uPhase;
+            precise float fraction=q-floor(q);
+            precise float v=min(float(uCount-1),floor(fraction*float(uCount)));
+            return uReverse!=0?float(uCount-1)-v:v;
+        }
         """;
     private static final String INTERLACE_FRAGMENT="""
         #version 300 es

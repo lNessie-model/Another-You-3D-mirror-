@@ -1,0 +1,683 @@
+{
+  "schemaVersion": 2,
+  "id": "builtin-guide",
+  "displayName": "镜中向导 · 组合修正版",
+  "model": "character.glb",
+  "modelSha256": "8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407",
+  "inputSchema": "mediapipe-face-blendshapes-v1",
+  "coordinates": {
+    "up": "+Y",
+    "forward": "+Z",
+    "subjectLeft": "+X",
+    "units": "meters",
+    "rootScale": 1,
+    "headPivot": [
+      0,
+      0.1716,
+      0
+    ]
+  },
+  "normalPolicy": "recompute-deformed",
+  "materialProfile": "mirror-lit-v1",
+  "rig": {
+    "headNode": "Head",
+    "jawMode": "morph",
+    "jawAttachmentNode": "JawAttachments",
+    "jawAxis": [
+      1,
+      0,
+      0
+    ],
+    "jawOpenDegrees": 22,
+    "jawLateralMeters": 0.00845,
+    "jawForwardMeters": 0.0078,
+    "leftEyeNode": "EyeLeft",
+    "rightEyeNode": "EyeRight",
+    "gazeMode": "joint",
+    "gazeYawDegrees": 18,
+    "gazePitchDegrees": 15
+  },
+  "bindings": [
+    {
+      "source": "browDownLeft",
+      "mesh": "Face",
+      "target": "browDownLeft",
+      "gain": 1
+    },
+    {
+      "source": "browDownRight",
+      "mesh": "Face",
+      "target": "browDownRight",
+      "gain": 1
+    },
+    {
+      "source": "browInnerUp",
+      "mesh": "Face",
+      "target": "browInnerUp",
+      "gain": 1
+    },
+    {
+      "source": "browOuterUpLeft",
+      "mesh": "Face",
+      "target": "browOuterUpLeft",
+      "gain": 1
+    },
+    {
+      "source": "browOuterUpRight",
+      "mesh": "Face",
+      "target": "browOuterUpRight",
+      "gain": 1
+    },
+    {
+      "source": "cheekPuff",
+      "mesh": "Face",
+      "target": "cheekPuff",
+      "gain": 1
+    },
+    {
+      "source": "cheekSquintLeft",
+      "mesh": "Face",
+      "target": "cheekSquintLeft",
+      "gain": 1
+    },
+    {
+      "source": "cheekSquintRight",
+      "mesh": "Face",
+      "target": "cheekSquintRight",
+      "gain": 1
+    },
+    {
+      "source": "eyeBlinkLeft",
+      "mesh": "Face",
+      "target": "eyeBlinkLeft",
+      "gain": 1
+    },
+    {
+      "source": "eyeBlinkRight",
+      "mesh": "Face",
+      "target": "eyeBlinkRight",
+      "gain": 1
+    },
+    {
+      "source": "eyeSquintLeft",
+      "mesh": "Face",
+      "target": "eyeSquintLeft",
+      "gain": 1
+    },
+    {
+      "source": "eyeSquintRight",
+      "mesh": "Face",
+      "target": "eyeSquintRight",
+      "gain": 1
+    },
+    {
+      "source": "eyeWideLeft",
+      "mesh": "Face",
+      "target": "eyeWideLeft",
+      "gain": 1
+    },
+    {
+      "source": "eyeWideRight",
+      "mesh": "Face",
+      "target": "eyeWideRight",
+      "gain": 1
+    },
+    {
+      "source": "jawForward",
+      "mesh": "Face",
+      "target": "jawForward",
+      "gain": 1
+    },
+    {
+      "source": "jawLeft",
+      "mesh": "Face",
+      "target": "jawLeft",
+      "gain": 1
+    },
+    {
+      "source": "jawOpen",
+      "mesh": "Face",
+      "target": "jawOpen",
+      "gain": 1
+    },
+    {
+      "source": "jawRight",
+      "mesh": "Face",
+      "target": "jawRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthClose",
+      "mesh": "Face",
+      "target": "mouthClose",
+      "gain": 1
+    },
+    {
+      "source": "mouthDimpleLeft",
+      "mesh": "Face",
+      "target": "mouthDimpleLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthDimpleRight",
+      "mesh": "Face",
+      "target": "mouthDimpleRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthFrownLeft",
+      "mesh": "Face",
+      "target": "mouthFrownLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthFrownRight",
+      "mesh": "Face",
+      "target": "mouthFrownRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthFunnel",
+      "mesh": "Face",
+      "target": "mouthFunnel",
+      "gain": 1
+    },
+    {
+      "source": "mouthLeft",
+      "mesh": "Face",
+      "target": "mouthLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthLowerDownLeft",
+      "mesh": "Face",
+      "target": "mouthLowerDownLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthLowerDownRight",
+      "mesh": "Face",
+      "target": "mouthLowerDownRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthPressLeft",
+      "mesh": "Face",
+      "target": "mouthPressLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthPressRight",
+      "mesh": "Face",
+      "target": "mouthPressRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthPucker",
+      "mesh": "Face",
+      "target": "mouthPucker",
+      "gain": 1
+    },
+    {
+      "source": "mouthRight",
+      "mesh": "Face",
+      "target": "mouthRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthRollLower",
+      "mesh": "Face",
+      "target": "mouthRollLower",
+      "gain": 1
+    },
+    {
+      "source": "mouthRollUpper",
+      "mesh": "Face",
+      "target": "mouthRollUpper",
+      "gain": 1
+    },
+    {
+      "source": "mouthShrugLower",
+      "mesh": "Face",
+      "target": "mouthShrugLower",
+      "gain": 1
+    },
+    {
+      "source": "mouthShrugUpper",
+      "mesh": "Face",
+      "target": "mouthShrugUpper",
+      "gain": 1
+    },
+    {
+      "source": "mouthSmileLeft",
+      "mesh": "Face",
+      "target": "mouthSmileLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthSmileRight",
+      "mesh": "Face",
+      "target": "mouthSmileRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthStretchLeft",
+      "mesh": "Face",
+      "target": "mouthStretchLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthStretchRight",
+      "mesh": "Face",
+      "target": "mouthStretchRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthUpperUpLeft",
+      "mesh": "Face",
+      "target": "mouthUpperUpLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthUpperUpRight",
+      "mesh": "Face",
+      "target": "mouthUpperUpRight",
+      "gain": 1
+    },
+    {
+      "source": "noseSneerLeft",
+      "mesh": "Face",
+      "target": "noseSneerLeft",
+      "gain": 1
+    },
+    {
+      "source": "noseSneerRight",
+      "mesh": "Face",
+      "target": "noseSneerRight",
+      "gain": 1
+    },
+    {
+      "source": "browDownLeft",
+      "mesh": "MouthInterior",
+      "target": "browDownLeft",
+      "gain": 1
+    },
+    {
+      "source": "browDownRight",
+      "mesh": "MouthInterior",
+      "target": "browDownRight",
+      "gain": 1
+    },
+    {
+      "source": "browInnerUp",
+      "mesh": "MouthInterior",
+      "target": "browInnerUp",
+      "gain": 1
+    },
+    {
+      "source": "browOuterUpLeft",
+      "mesh": "MouthInterior",
+      "target": "browOuterUpLeft",
+      "gain": 1
+    },
+    {
+      "source": "browOuterUpRight",
+      "mesh": "MouthInterior",
+      "target": "browOuterUpRight",
+      "gain": 1
+    },
+    {
+      "source": "cheekPuff",
+      "mesh": "MouthInterior",
+      "target": "cheekPuff",
+      "gain": 1
+    },
+    {
+      "source": "cheekSquintLeft",
+      "mesh": "MouthInterior",
+      "target": "cheekSquintLeft",
+      "gain": 1
+    },
+    {
+      "source": "cheekSquintRight",
+      "mesh": "MouthInterior",
+      "target": "cheekSquintRight",
+      "gain": 1
+    },
+    {
+      "source": "eyeBlinkLeft",
+      "mesh": "MouthInterior",
+      "target": "eyeBlinkLeft",
+      "gain": 1
+    },
+    {
+      "source": "eyeBlinkRight",
+      "mesh": "MouthInterior",
+      "target": "eyeBlinkRight",
+      "gain": 1
+    },
+    {
+      "source": "eyeSquintLeft",
+      "mesh": "MouthInterior",
+      "target": "eyeSquintLeft",
+      "gain": 1
+    },
+    {
+      "source": "eyeSquintRight",
+      "mesh": "MouthInterior",
+      "target": "eyeSquintRight",
+      "gain": 1
+    },
+    {
+      "source": "eyeWideLeft",
+      "mesh": "MouthInterior",
+      "target": "eyeWideLeft",
+      "gain": 1
+    },
+    {
+      "source": "eyeWideRight",
+      "mesh": "MouthInterior",
+      "target": "eyeWideRight",
+      "gain": 1
+    },
+    {
+      "source": "jawForward",
+      "mesh": "MouthInterior",
+      "target": "jawForward",
+      "gain": 1
+    },
+    {
+      "source": "jawLeft",
+      "mesh": "MouthInterior",
+      "target": "jawLeft",
+      "gain": 1
+    },
+    {
+      "source": "jawOpen",
+      "mesh": "MouthInterior",
+      "target": "jawOpen",
+      "gain": 1
+    },
+    {
+      "source": "jawRight",
+      "mesh": "MouthInterior",
+      "target": "jawRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthClose",
+      "mesh": "MouthInterior",
+      "target": "mouthClose",
+      "gain": 1
+    },
+    {
+      "source": "mouthDimpleLeft",
+      "mesh": "MouthInterior",
+      "target": "mouthDimpleLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthDimpleRight",
+      "mesh": "MouthInterior",
+      "target": "mouthDimpleRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthFrownLeft",
+      "mesh": "MouthInterior",
+      "target": "mouthFrownLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthFrownRight",
+      "mesh": "MouthInterior",
+      "target": "mouthFrownRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthFunnel",
+      "mesh": "MouthInterior",
+      "target": "mouthFunnel",
+      "gain": 1
+    },
+    {
+      "source": "mouthLeft",
+      "mesh": "MouthInterior",
+      "target": "mouthLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthLowerDownLeft",
+      "mesh": "MouthInterior",
+      "target": "mouthLowerDownLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthLowerDownRight",
+      "mesh": "MouthInterior",
+      "target": "mouthLowerDownRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthPressLeft",
+      "mesh": "MouthInterior",
+      "target": "mouthPressLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthPressRight",
+      "mesh": "MouthInterior",
+      "target": "mouthPressRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthPucker",
+      "mesh": "MouthInterior",
+      "target": "mouthPucker",
+      "gain": 1
+    },
+    {
+      "source": "mouthRight",
+      "mesh": "MouthInterior",
+      "target": "mouthRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthRollLower",
+      "mesh": "MouthInterior",
+      "target": "mouthRollLower",
+      "gain": 1
+    },
+    {
+      "source": "mouthRollUpper",
+      "mesh": "MouthInterior",
+      "target": "mouthRollUpper",
+      "gain": 1
+    },
+    {
+      "source": "mouthShrugLower",
+      "mesh": "MouthInterior",
+      "target": "mouthShrugLower",
+      "gain": 1
+    },
+    {
+      "source": "mouthShrugUpper",
+      "mesh": "MouthInterior",
+      "target": "mouthShrugUpper",
+      "gain": 1
+    },
+    {
+      "source": "mouthSmileLeft",
+      "mesh": "MouthInterior",
+      "target": "mouthSmileLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthSmileRight",
+      "mesh": "MouthInterior",
+      "target": "mouthSmileRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthStretchLeft",
+      "mesh": "MouthInterior",
+      "target": "mouthStretchLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthStretchRight",
+      "mesh": "MouthInterior",
+      "target": "mouthStretchRight",
+      "gain": 1
+    },
+    {
+      "source": "mouthUpperUpLeft",
+      "mesh": "MouthInterior",
+      "target": "mouthUpperUpLeft",
+      "gain": 1
+    },
+    {
+      "source": "mouthUpperUpRight",
+      "mesh": "MouthInterior",
+      "target": "mouthUpperUpRight",
+      "gain": 1
+    },
+    {
+      "source": "noseSneerLeft",
+      "mesh": "MouthInterior",
+      "target": "noseSneerLeft",
+      "gain": 1
+    },
+    {
+      "source": "noseSneerRight",
+      "mesh": "MouthInterior",
+      "target": "noseSneerRight",
+      "gain": 1
+    }
+  ],
+  "requiredRigFeatures": [
+    "product-correctives-v1"
+  ],
+  "derivedBindings": [
+    {
+      "operation": "product",
+      "sources": [
+        "jawOpen",
+        "mouthClose"
+      ],
+      "mesh": "Face",
+      "target": "corrective_jawOpen_mouthClose",
+      "gain": 1.0
+    },
+    {
+      "operation": "product",
+      "sources": [
+        "eyeBlinkLeft",
+        "eyeWideLeft"
+      ],
+      "mesh": "Face",
+      "target": "corrective_eyeBlinkLeft_eyeWideLeft",
+      "gain": 1.0
+    },
+    {
+      "operation": "product",
+      "sources": [
+        "eyeBlinkLeft",
+        "eyeSquintLeft"
+      ],
+      "mesh": "Face",
+      "target": "corrective_eyeBlinkLeft_eyeSquintLeft",
+      "gain": 1.0
+    },
+    {
+      "operation": "product",
+      "sources": [
+        "eyeWideLeft",
+        "eyeSquintLeft"
+      ],
+      "mesh": "Face",
+      "target": "corrective_eyeWideLeft_eyeSquintLeft",
+      "gain": 1.0
+    },
+    {
+      "operation": "product",
+      "sources": [
+        "eyeBlinkLeft",
+        "eyeWideLeft",
+        "eyeSquintLeft"
+      ],
+      "mesh": "Face",
+      "target": "corrective_eyeBlinkLeft_eyeWideLeft_eyeSquintLeft",
+      "gain": 1.0
+    },
+    {
+      "operation": "product",
+      "sources": [
+        "eyeBlinkRight",
+        "eyeWideRight"
+      ],
+      "mesh": "Face",
+      "target": "corrective_eyeBlinkRight_eyeWideRight",
+      "gain": 1.0
+    },
+    {
+      "operation": "product",
+      "sources": [
+        "eyeBlinkRight",
+        "eyeSquintRight"
+      ],
+      "mesh": "Face",
+      "target": "corrective_eyeBlinkRight_eyeSquintRight",
+      "gain": 1.0
+    },
+    {
+      "operation": "product",
+      "sources": [
+        "eyeWideRight",
+        "eyeSquintRight"
+      ],
+      "mesh": "Face",
+      "target": "corrective_eyeWideRight_eyeSquintRight",
+      "gain": 1.0
+    },
+    {
+      "operation": "product",
+      "sources": [
+        "eyeBlinkRight",
+        "eyeWideRight",
+        "eyeSquintRight"
+      ],
+      "mesh": "Face",
+      "target": "corrective_eyeBlinkRight_eyeWideRight_eyeSquintRight",
+      "gain": 1.0
+    }
+  ],
+  "ignoredSources": [
+    "_neutral"
+  ],
+  "missingSources": [],
+  "incompleteSources": [],
+  "license": {
+    "name": "CC0-1.0",
+    "file": "LICENSE.txt"
+  },
+  "validation": {
+    "stage": "procedural prototype; not final art acceptance",
+    "morphActionsAuthored": 43,
+    "derivedGeometryTargets": 9,
+    "rigidGazeActions": 8,
+    "corePreviewCases": [
+      "neutral",
+      "left-blink",
+      "jaw-open",
+      "smile",
+      "three-quarter",
+      "gaze-left"
+    ],
+    "knownLimitations": [
+      "Jaw/close and blink/wide/squint combinations pass grid and offline visual checks; real GLES remains a separate acceptance step.",
+      "Extreme simultaneous mouth/eyelid coefficients require rig constraints and further visual acceptance.",
+      "Non-core action shapes are independently named procedural drafts; 52-input support is not a claim of 52 artist-approved expressions."
+    ]
+  }
+}

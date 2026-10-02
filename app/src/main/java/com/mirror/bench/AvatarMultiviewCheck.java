@@ -1,0 +1,188 @@
+package com.mirror.bench;
+
+import android.content.res.AssetManager;
+import android.opengl.GLES30;
+import android.opengl.Matrix;
+import java.nio.ByteBuffer;
+import java.util.concurrent.CancellationException;
+import java.util.function.BooleanSupplier;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+/**
+ * Explicit diagnostic only. Call on a current GLES3 GL thread, outside active queries/transform
+ * feedback. Owns a synchronous scene and private GL objects; it never touches the runtime scene.
+ * Serial and OVR renders share ONE prepared VBO/world pose. Every global array layer is read back.
+ * Does not test interlacing, asynchronous scheduling, physical optics, artwork, or FPS.
+ */
+public final class AvatarMultiviewCheck {
+    private AvatarMultiviewCheck(){}
+    public static JSONObject run(AssetManager assets,int width,int height,int views,float physicalAspect,
+                                 BooleanSupplier cancelled)throws Exception {
+        if(assets==null||width<64||height<64||width>2048||height>2048||views<4||views>32||views%4!=0
+                ||(long)width*height*views>8_388_608||!Float.isFinite(physicalAspect)||physicalAspect<=0)
+            throw new IllegalArgumentException("Require 64..2048 view dimensions, 4..32 views divisible by four, <=8M layer pixels, and positive physical aspect");
+        long started=System.nanoTime();JSONArray poseReports=new JSONArray();
+        JSONObject report=new JSONObject().put("passed",false).put("completed",false).put("cancelled",false)
+                .put("scope","actual avatar, synchronous shared CPU pose, serial single-view vs OVR4; every off-axis array layer before interlacing")
+                .put("input_schema",BlendshapeSchema.ID).put("view_width",width).put("view_height",height)
+                .put("views",views).put("physical_aspect",physicalAspect).put("max_rgb_error_allowed",1).put("rmse_allowed",.1)
+                .put("poses",poseReports).put("artwork_validated",false).put("performance_evidence",false);
+        SavedState saved=null;AvatarGpuScene scene=null;
+        int[] vao={0},fbos=new int[3],textures=new int[3],depth={0};
+        int completed=0,comparisons=0,prepareCalls=0,changedCenter=0;boolean pass=true;
+        try {
+            checkCancelled(cancelled);checkGl("entry requires a clean GL error state");
+            String extensions=GLES30.glGetString(GLES30.GL_EXTENSIONS);
+            if(extensions==null||!(" "+extensions+" ").contains(" GL_OVR_multiview2 "))throw new IllegalStateException("GL_OVR_multiview2 unavailable");
+            int maxViews=integer(0x9631);if(maxViews<4)throw new IllegalStateException("Four OVR views unsupported");
+            if(integer(GLES30.GL_TRANSFORM_FEEDBACK_ACTIVE)!=0)throw new IllegalStateException("Diagnostic cannot run during active transform feedback");
+            if(Math.max(width,height)>integer(GLES30.GL_MAX_TEXTURE_SIZE)||views>integer(GLES30.GL_MAX_ARRAY_TEXTURE_LAYERS))
+                throw new IllegalStateException("Diagnostic textures exceed device limits");
+            report.put("gl_vendor",GLES30.glGetString(GLES30.GL_VENDOR)).put("gl_renderer",GLES30.glGetString(GLES30.GL_RENDERER))
+                    .put("gl_version",GLES30.glGetString(GLES30.GL_VERSION)).put("max_ovr_views",maxViews);
+            saved=new SavedState();
+            GLES30.glGenVertexArrays(1,vao,0);GLES30.glBindVertexArray(vao[0]);
+            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,0);GLES30.glPixelStorei(GLES30.GL_PACK_ALIGNMENT,1);
+            GLES30.glPixelStorei(GLES30.GL_PACK_ROW_LENGTH,0);GLES30.glPixelStorei(GLES30.GL_PACK_SKIP_ROWS,0);GLES30.glPixelStorei(GLES30.GL_PACK_SKIP_PIXELS,0);
+            for(int cap:DISABLED)GLES30.glDisable(cap);
+            GLES30.glColorMask(true,true,true,true);GLES30.glDepthMask(true);GLES30.glDepthFunc(GLES30.GL_LESS);
+            GLES30.glDepthRangef(0,1);GLES30.glClearDepthf(1);GLES30.glViewport(0,0,width,height);
+            // Construct after binding our VAO: constructor element-buffer bindings must not touch caller VAO state.
+            scene=AvatarGpuScene.builtin(assets,true,false);
+            report.put("avatar",scene.status());
+            GLES30.glGenFramebuffers(3,fbos,0);GLES30.glGenTextures(3,textures,0);GLES30.glGenRenderbuffers(1,depth,0);
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,textures[0]);GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,1,GLES30.GL_RGBA8,width,height);
+            GLES30.glBindRenderbuffer(GLES30.GL_RENDERBUFFER,depth[0]);GLES30.glRenderbufferStorage(GLES30.GL_RENDERBUFFER,GLES30.GL_DEPTH_COMPONENT16,width,height);
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[0]);
+            GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,textures[0],0);
+            GLES30.glFramebufferRenderbuffer(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,GLES30.GL_RENDERBUFFER,depth[0]);complete("serial");
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[1]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_RGBA8,width,height,views);
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[2]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_DEPTH_COMPONENT16,width,height,views);
+            checkGl("private diagnostic objects");
+            int bytes=width*height*4;
+            ByteBuffer serial=ByteBuffer.allocateDirect(bytes),candidate=ByteBuffer.allocateDirect(bytes);
+            ByteBuffer firstSerial=ByteBuffer.allocateDirect(bytes),firstCandidate=ByteBuffer.allocateDirect(bytes);
+            float[] matrices=viewMatrices(views,physicalAspect),four=new float[64],one=new float[16];
+            float[] coefficients=new float[52],angles=new float[3];String neutralCenter=null;
+            var fixtures=AvatarPoseFixtures.regression();report.put("expected_fixtures",fixtures.size()).put("isolated_source_fixtures",52);
+            for(var pose:fixtures) {
+                checkCancelled(cancelled);long poseStarted=System.nanoTime();
+                pose.copyWeights(coefficients);pose.copyAngles(angles);
+                JSONArray perView=new JSONArray();JSONObject poseReport=new JSONObject().put("name",pose.name()).put("source_index",pose.sourceIndex())
+                        .put("weights",new JSONArray(coefficients)).put("head_angles",new JSONArray(angles)).put("views",perView).put("passed",false);
+                poseReports.put(poseReport);
+                scene.prepare(coefficients,angles);prepareCalls++;checkGl("prepare "+pose.name());
+                boolean posePass=true;String centerHash=null;
+                for(int base=0;base<views;base+=4) {
+                    checkCancelled(cancelled);
+                    // Real global base indices 0/4/... are exercised, not a reused four-layer scratch texture.
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[1]);
+                    MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,textures[1],base,4);
+                    MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,textures[2],base,4);complete("OVR batch "+base);
+                    System.arraycopy(matrices,base*16,four,0,64);clear();scene.draw(four,4,physicalAspect);checkGl("OVR draw "+base);
+                    for(int relative=0;relative<4;relative++) {
+                        int view=base+relative;checkCancelled(cancelled);
+                        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[0]);clear();
+                        System.arraycopy(matrices,view*16,one,0,16);scene.draw(one,1,physicalAspect);checkGl("serial draw "+view);
+                        serial.clear();GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,serial);checkGl("serial read "+view);
+                        // OVR forbids ReadPixels from a multi-view attachment. Attach exactly one layer to a separate FBO.
+                        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[2]);
+                        GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,textures[1],0,view);complete("read layer "+view);
+                        candidate.clear();GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,candidate);checkGl("layer read "+view);
+                        AvatarPixelComparison.Stats stats=AvatarPixelComparison.compare(serial,candidate,width,height);comparisons++;
+                        perView.put(toJson(stats).put("global_view",view).put("ovr_base",base).put("ovr_relative",relative)
+                                .put("eye_x",(view/(float)(views-1)-.5f)*.4f));
+                        posePass&=stats.passed();
+                        if(view==0){copyPixels(serial,firstSerial);copyPixels(candidate,firstCandidate);}
+                        if(view==views/2)centerHash=stats.serialSha256;
+                    }
+                }
+                var serialVariation=AvatarPixelComparison.compare(firstSerial,serial,width,height);
+                var candidateVariation=AvatarPixelComparison.compare(firstCandidate,candidate,width,height);
+                boolean independentViews=serialVariation.rgbMismatches>0&&candidateVariation.rgbMismatches>0;
+                posePass&=independentViews;
+                if(neutralCenter==null)neutralCenter=centerHash;
+                boolean differs=!neutralCenter.equals(centerHash);if(differs)changedCenter++;
+                poseReport.put("serial_cross_view_rgb_mismatches",serialVariation.rgbMismatches)
+                        .put("ovr_cross_view_rgb_mismatches",candidateVariation.rgbMismatches)
+                        .put("independent_views_visible",independentViews).put("center_differs_from_neutral",differs)
+                        .put("diagnostic_elapsed_ms",(System.nanoTime()-poseStarted)/1e6).put("passed",posePass);
+                pass&=posePass;completed++;
+            }
+            checkCancelled(cancelled);checkGl("completed avatar multiview check");
+            // Head fixtures alone must change output; otherwise a fixed neutral pose could falsely pass both programs.
+            pass&=changedCenter>0;
+            report.put("completed",true).put("passed",pass).put("fixtures_with_changed_center",changedCenter)
+                    .put("pose_variation_visible",changedCenter>0).put("avatar",scene.status());
+        } catch(Exception|LinkageError failure) {
+            report.put("passed",false).put("error",failure.toString()).put("cancelled",failure instanceof CancellationException);
+        } finally {
+            try {
+                if(scene!=null)scene.dispose();
+                GLES30.glDeleteRenderbuffers(1,depth,0);GLES30.glDeleteTextures(3,textures,0);
+                GLES30.glDeleteFramebuffers(3,fbos,0);GLES30.glDeleteVertexArrays(1,vao,0);
+                if(saved!=null){saved.restore();checkGl("diagnostic cleanup/state restore");}
+            } catch(Exception|LinkageError cleanup) {report.put("passed",false).put("cleanup_error",cleanup.toString());}
+            report.put("completed_fixtures",completed).put("layer_comparisons",comparisons).put("prepare_calls",prepareCalls)
+                    .put("diagnostic_elapsed_ms",(System.nanoTime()-started)/1e6);
+        }
+        return report;
+    }
+    private static JSONObject toJson(AvatarPixelComparison.Stats s)throws Exception {
+        return new JSONObject().put("passed",s.passed()).put("max_rgb_error",s.maxRgbError).put("rgb_byte_mismatches",s.rgbMismatches)
+                .put("rmse",s.rmse).put("alpha_mismatches",s.alphaMismatches).put("serial_foreground",s.serialForeground)
+                .put("ovr_foreground",s.candidateForeground).put("serial_nonopaque",s.serialNonOpaque).put("ovr_nonopaque",s.candidateNonOpaque)
+                .put("serial_sha256",s.serialSha256).put("ovr_sha256",s.candidateSha256);
+    }
+    private static float[] viewMatrices(int views,float aspect) {
+        float[] all=new float[views*16],view=new float[16],projection=new float[16];
+        for(int i=0;i<views;i++) {
+            float eye=(i/(float)(views-1)-.5f)*.4f,shift=-eye*.1f/3;
+            Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
+            Matrix.frustumM(projection,0,-.052f*aspect+shift,.052f*aspect+shift,-.052f,.052f,.1f,10);
+            Matrix.multiplyMM(all,i*16,projection,0,view,0);
+        }return all;
+    }
+    private static void clear(){GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);}
+    private static void copyPixels(ByteBuffer source,ByteBuffer target){source.clear();target.clear();target.put(source);target.flip();source.clear();}
+    private static void complete(String label){if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)throw new IllegalStateException(label+" framebuffer incomplete");checkGl(label);}
+    private static void checkCancelled(BooleanSupplier cancelled){if(cancelled!=null&&cancelled.getAsBoolean())throw new CancellationException("Avatar multiview check cancelled");}
+    private static void checkGl(String operation){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(operation+" GL error "+code);}
+    private static int integer(int name){int[] value=new int[1];GLES30.glGetIntegerv(name,value,0);return value[0];}
+    private static final int[] DISABLED={GLES30.GL_SCISSOR_TEST,GLES30.GL_BLEND,GLES30.GL_DITHER,GLES30.GL_STENCIL_TEST,
+            GLES30.GL_RASTERIZER_DISCARD,GLES30.GL_SAMPLE_COVERAGE,GLES30.GL_SAMPLE_ALPHA_TO_COVERAGE,GLES30.GL_POLYGON_OFFSET_FILL};
+    /** Restore every mutable context state this checker/AvatarGpuScene touches; private VAO isolates attribute pointers. */
+    private static final class SavedState {
+        final int drawFbo=integer(GLES30.GL_DRAW_FRAMEBUFFER_BINDING),readFbo=integer(GLES30.GL_READ_FRAMEBUFFER_BINDING);
+        final int vao=integer(GLES30.GL_VERTEX_ARRAY_BINDING),arrayBuffer=integer(GLES30.GL_ARRAY_BUFFER_BINDING);
+        final int packBuffer=integer(GLES30.GL_PIXEL_PACK_BUFFER_BINDING),renderbuffer=integer(GLES30.GL_RENDERBUFFER_BINDING),program=integer(GLES30.GL_CURRENT_PROGRAM);
+        final int activeTexture=integer(GLES30.GL_ACTIVE_TEXTURE),texture2d,textureArray;
+        final int depthFunc=integer(GLES30.GL_DEPTH_FUNC),depthMask=integer(GLES30.GL_DEPTH_WRITEMASK);
+        final int cullFace=integer(GLES30.GL_CULL_FACE_MODE),frontFace=integer(GLES30.GL_FRONT_FACE);
+        final int packAlignment=integer(GLES30.GL_PACK_ALIGNMENT),packRows=integer(GLES30.GL_PACK_ROW_LENGTH),skipRows=integer(GLES30.GL_PACK_SKIP_ROWS),skipPixels=integer(GLES30.GL_PACK_SKIP_PIXELS);
+        final int[] viewport=new int[4],colorMask=new int[4];final float[] clear=new float[4],depthRange=new float[2],depthClear=new float[1],attributeColor=new float[4];
+        final boolean[] enables=new boolean[DISABLED.length];final boolean depth=GLES30.glIsEnabled(GLES30.GL_DEPTH_TEST),cull=GLES30.glIsEnabled(GLES30.GL_CULL_FACE);
+        SavedState() {
+            GLES30.glGetIntegerv(GLES30.GL_VIEWPORT,viewport,0);GLES30.glGetIntegerv(GLES30.GL_COLOR_WRITEMASK,colorMask,0);
+            GLES30.glGetFloatv(GLES30.GL_COLOR_CLEAR_VALUE,clear,0);GLES30.glGetFloatv(GLES30.GL_DEPTH_RANGE,depthRange,0);
+            GLES30.glGetFloatv(GLES30.GL_DEPTH_CLEAR_VALUE,depthClear,0);GLES30.glGetVertexAttribfv(2,GLES30.GL_CURRENT_VERTEX_ATTRIB,attributeColor,0);
+            for(int i=0;i<DISABLED.length;i++)enables[i]=GLES30.glIsEnabled(DISABLED[i]);
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0);texture2d=integer(GLES30.GL_TEXTURE_BINDING_2D);textureArray=integer(GLES30.GL_TEXTURE_BINDING_2D_ARRAY);
+        }
+        void restore() {
+            GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER,drawFbo);GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER,readFbo);
+            GLES30.glBindVertexArray(vao);GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,arrayBuffer);
+            GLES30.glBindBuffer(GLES30.GL_PIXEL_PACK_BUFFER,packBuffer);GLES30.glBindRenderbuffer(GLES30.GL_RENDERBUFFER,renderbuffer);GLES30.glUseProgram(program);
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,texture2d);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textureArray);GLES30.glActiveTexture(activeTexture);
+            GLES30.glViewport(viewport[0],viewport[1],viewport[2],viewport[3]);GLES30.glColorMask(colorMask[0]!=0,colorMask[1]!=0,colorMask[2]!=0,colorMask[3]!=0);
+            GLES30.glClearColor(clear[0],clear[1],clear[2],clear[3]);GLES30.glDepthMask(depthMask!=0);GLES30.glDepthFunc(depthFunc);
+            GLES30.glDepthRangef(depthRange[0],depthRange[1]);GLES30.glClearDepthf(depthClear[0]);GLES30.glCullFace(cullFace);GLES30.glFrontFace(frontFace);
+            GLES30.glVertexAttrib4f(2,attributeColor[0],attributeColor[1],attributeColor[2],attributeColor[3]);
+            for(int i=0;i<DISABLED.length;i++)set(DISABLED[i],enables[i]);set(GLES30.GL_DEPTH_TEST,depth);set(GLES30.GL_CULL_FACE,cull);
+            GLES30.glPixelStorei(GLES30.GL_PACK_ALIGNMENT,packAlignment);GLES30.glPixelStorei(GLES30.GL_PACK_ROW_LENGTH,packRows);
+            GLES30.glPixelStorei(GLES30.GL_PACK_SKIP_ROWS,skipRows);GLES30.glPixelStorei(GLES30.GL_PACK_SKIP_PIXELS,skipPixels);
+        }
+        private static void set(int capability,boolean enabled){if(enabled)GLES30.glEnable(capability);else GLES30.glDisable(capability);}
+    }
+}

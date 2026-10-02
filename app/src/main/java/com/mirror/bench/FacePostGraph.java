@@ -21,7 +21,8 @@ import com.google.mediapipe.proto.CalculatorOptionsProto.CalculatorOptions;
 final class FacePostGraph implements AutoCloseable {
     private Graph graph;
     private PacketCreator creator;
-    private volatile float[] weights,pose,filtered;
+    private volatile float[][] output;
+    private volatile String outputError;
     FacePostGraph(String blendPath,String metadataPath,boolean smoothing) {
         System.loadLibrary("mediapipe_tasks_jni");
         Graph g=new Graph();
@@ -51,30 +52,35 @@ final class FacePostGraph implements AutoCloseable {
                             .setOptions(CalculatorOptions.newBuilder().setExtension(FaceGeometryGraphOptions.ext,geometry))).build();
             g.loadBinaryGraph(config);
             g.addMultiStreamCallback(java.util.List.of("blend","geometry","landmarks"),packets->{
-                Packet packet=packets.get(0);
-                var rows=PacketGetter.getProto(packet,ClassificationList.parser());
-                float[] out=new float[rows.getClassificationCount()];
-                for(int i=0;i<out.length;i++) out[i]=rows.getClassification(i).getScore();
-                weights=out;
-                packet=packets.get(1);
-                var geometries=PacketGetter.getProtoVector(packet,FaceGeometry.parser());
-                if(!geometries.isEmpty()) {
+                try {
+                    Packet packet=packets.get(0);
+                    var rows=PacketGetter.getProto(packet,ClassificationList.parser());
+                    float[] out=new float[rows.getClassificationCount()];
+                    if(out.length!=BlendshapeSchema.SIZE) throw new IllegalArgumentException("Expected 52 named blendshapes");
+                    for(int i=0;i<out.length;i++) {
+                        var row=rows.getClassification(i);
+                        BlendshapeSchema.validateClassification(i,row.getLabel(),row.hasIndex()?row.getIndex():i);
+                        if(!Float.isFinite(row.getScore())) throw new IllegalArgumentException("Nonfinite blendshape score");
+                        out[i]=row.getScore();
+                    }
+                    packet=packets.get(1);
+                    var geometries=PacketGetter.getProtoVector(packet,FaceGeometry.parser());
+                    if(geometries.size()!=1)throw new IllegalArgumentException("Expected one face geometry");
                     var matrix=geometries.get(0).getPoseTransformMatrix(); float[] transform=new float[matrix.getPackedDataCount()];
                     for(int i=0;i<transform.length;i++) transform[i]=matrix.getPackedData(i);
-                    pose=transform;
-                }
-                var points=PacketGetter.getProto(packets.get(2),NormalizedLandmarkList.parser());
-                float[] coords=new float[points.getLandmarkCount()*3];
-                for(int i=0;i<points.getLandmarkCount();i++) {
-                    coords[i*3]=points.getLandmark(i).getX(); coords[i*3+1]=points.getLandmark(i).getY(); coords[i*3+2]=points.getLandmark(i).getZ();
-                }
-                filtered=coords;
+                    var points=PacketGetter.getProto(packets.get(2),NormalizedLandmarkList.parser());
+                    float[] coords=new float[points.getLandmarkCount()*3];
+                    for(int i=0;i<points.getLandmarkCount();i++) {
+                        coords[i*3]=points.getLandmark(i).getX(); coords[i*3+1]=points.getLandmark(i).getY(); coords[i*3+2]=points.getLandmark(i).getZ();
+                    }
+                    output=BlendshapeSchema.copyValidatedPostOutput(out,transform,coords);
+                } catch(RuntimeException invalid) { output=null; outputError=invalid.toString(); }
             },false);
             g.startRunningGraph(); graph=g; creator=new PacketCreator(g);
         } catch(Throwable error) { g.tearDown(); throw error; }
     }
     float[][] process(float[] xyz,int width,int height,long timestampMs) {
-        weights=null; pose=null; filtered=null;
+        output=null; outputError=null;
         Packet lm=creator.createMatrix(1,xyz.length,xyz);
         try(ResourceCleanup.Release releaseLandmarks=lm::release) {
             Packet size=creator.createInt32Pair(width,height);
@@ -84,9 +90,11 @@ final class FacePostGraph implements AutoCloseable {
                 graph.waitUntilGraphIdle();
             }
         }
-        if(weights==null||weights.length!=52||pose==null||pose.length!=16||filtered==null||filtered.length!=1434)
+        if(outputError!=null) throw new IllegalStateException(outputError);
+        float[][] complete=output;
+        if(complete==null)
             throw new IllegalStateException("Incomplete CPU blendshape/pose outputs");
-        return new float[][] {weights,pose,filtered};
+        return complete;
     }
     private static CalculatorOptions landmarkOptions() {
         // Official tensors_to_landmarks_calculator.proto: ext=335742640, num_landmarks=1, width=2, height=3.

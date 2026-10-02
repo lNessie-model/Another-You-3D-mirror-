@@ -5,6 +5,9 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
     <application android:label="Mirror Device Lab" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
+        <activity android:name=".AvatarPreviewActivity" android:exported="true" android:screenOrientation="portrait" />
+        <activity android:name=".CalibrationActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".PanelPreviewActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CameraLifecycleCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".NpuCropCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".MirrorActivity" android:label="互动魔镜" android:exported="true" android:screenOrientation="portrait">

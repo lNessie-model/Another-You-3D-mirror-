@@ -3,6 +3,7 @@ import argparse
 import contextlib
 import io
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -161,14 +162,74 @@ class RuntimeMetricsTests(unittest.TestCase):
         self.assertGreater(payload["presentation"]["surface_history_gap_seconds"], 0.9)
         self.assertFalse(payload["presentation"]["meets_30_fps"])
 
-    def offline_collection(self, fail_sample, empty_pre_home=False):
+    def test_synchronous_avatar_override_survives_resume(self):
+        payload, calls = self.offline_collection(False, synchronous=True)
+        launches = [call[-1] for call in calls if "am start -n " in call[-1]]
+        self.assertEqual(len(launches), 2)
+        self.assertTrue(all("--ez test_avatar_synchronous true" in command for command in launches))
+        self.assertTrue(payload["arguments"]["avatar_synchronous"])
+
+    def test_surface_is_queried_before_slow_memory_and_without_draw_wait(self):
+        payload, calls = self.offline_collection(False, slow_start=True, memory_delay=3,
+                                                  presentation_delay=.4, no_pause=True)
+        first = payload["surface_windows"][0]
+        self.assertLess(first["host_monotonic_s"], 101)
+        self.assertGreaterEqual(payload["samples"][0]["host_poll_end_s"], 103)
+        command = next(call[-1] for call in calls if "__RUNTIME_MEM__" in call[-1])
+        self.assertLess(command.index("--latency"), command.index("dumpsys meminfo"))
+        probe = next(i for i, call in enumerate(calls) if call[-1]=="dumpsys SurfaceFlinger --list")
+        self.assertIn("--latency", calls[probe+1][-1], "The discovered layer is queried in this poll")
+        self.assertEqual(payload["presentation"]["surface_history_gap_seconds"], 0)
+
+    def test_real_startup_no_present_interval_is_not_interpolated_away(self):
+        payload, _ = self.offline_collection(False, presentation_delay=2, no_pause=True)
+        self.assertAlmostEqual(payload["presentation"]["surface_history_gap_seconds"], 1)
+        self.assertFalse(payload["presentation"]["meets_30_fps"])
+
+    def test_final_snapshot_captures_new_status_and_last_surface_before_stop(self):
+        payload, calls = self.offline_collection(False)
+        final = payload["surface_windows"][-1]
+        self.assertEqual(final["reason"], "pre_stop")
+        self.assertEqual(max(final["timestamps_ns"]), ns(120))
+        self.assertEqual(payload["statuses"][-1]["updated_monotonic_ns"], ns(120))
+        self.assertEqual(payload["presentation"]["unconfirmed_tail_seconds"], 0)
+        snapshot = next(i for i, call in enumerate(calls) if "__RUNTIME_STATUS__" in call[-1]
+                        and "__RUNTIME_NPU__" not in call[-1])
+        self.assertEqual(calls[snapshot+1][-1], "am force-stop com.mirror.bench")
+        self.assertIn("__RUNTIME_STATUS__", final["raw_snapshot"])
+
+    def test_stale_final_status_preserves_unconfirmed_tail(self):
+        payload, _ = self.offline_collection(False, final_status_offset=5)
+        self.assertAlmostEqual(payload["presentation"]["unconfirmed_tail_seconds"], 5)
+        self.assertEqual(payload["presentation"]["confirmed_until_monotonic_ns"], ns(115))
+        self.assertEqual(payload["presentation"]["observed_until_monotonic_ns"], ns(120))
+
+    def test_final_read_exception_still_force_stops_independently(self):
+        payload, calls = self.offline_collection(False, final_error="raise")
+        self.assertEqual(calls[-1][-1], "am force-stop com.mirror.bench")
+        self.assertTrue(any(row["scope"]=="final_snapshot" for row in payload["collection_errors"]))
+        self.assertFalse(payload["presentation"]["meets_30_fps"])
+
+    def test_malformed_final_output_is_preserved_and_never_passes(self):
+        payload, calls = self.offline_collection(False, final_error="malformed")
+        self.assertEqual(calls[-1][-1], "am force-stop com.mirror.bench")
+        self.assertEqual(payload["surface_windows"][-1]["raw_snapshot"], "wrong row\nPermission denied")
+        self.assertTrue(any(row["scope"]=="final_snapshot" for row in payload["collection_errors"]))
+        self.assertFalse(payload["presentation"]["collection_complete"])
+        self.assertFalse(payload["presentation"]["meets_30_fps"])
+
+    def offline_collection(self, fail_sample, empty_pre_home=False, synchronous=False,
+                           slow_start=False, memory_delay=0, presentation_delay=0, no_pause=False,
+                           final_error=None, final_status_offset=0):
         clock = [100.0]
         calls = []
         foreground = [True]
+        delayed_memory = [False]
 
         def latency():
+            first = max(100+presentation_delay, clock[0]-3)
             return "16666666\n" + "\n".join(f"{stamp} {stamp} {stamp}"
-                    for stamp in window(clock[0]-3, clock[0])["timestamps_ns"])
+                    for stamp in (window(first, clock[0])["timestamps_ns"] if first<=clock[0] else []))
 
         def fake_adb(*args, **kwargs):
             calls.append(args)
@@ -177,6 +238,8 @@ class RuntimeMetricsTests(unittest.TestCase):
             if command.startswith("pm path"): return "package:/data/app/base.apk"
             if command.startswith("sha256sum"): return "a"*64 + "  /data/app/base.apk"
             if command == "cat /proc/uptime": return f"{clock[0]+100:.2f} 100.00"
+            if command == "dumpsys SurfaceFlinger --list":
+                return "SurfaceView com.mirror.bench/MirrorActivity#0" if foreground[0] else ""
             if "android.intent.category.HOME" in command:
                 foreground[0] = False  # The real activity surface disappears on HOME.
                 if "__RUNTIME_SURFACE__" not in command: return "Status: ok"
@@ -185,23 +248,37 @@ class RuntimeMetricsTests(unittest.TestCase):
                         + "\n__RUNTIME_ACTION__\nStatus: ok"
                         + f"\n__RUNTIME_CLOCK_AFTER__\n{clock[0]+100:.2f} 100.00").strip()
             if "0x20020000" in command: foreground[0] = True
-            if "__RUNTIME_NPU__" not in command: return "Status: ok"
-            if fail_sample: raise RuntimeError("simulated ADB read failure")
-            raw = (f"cpu {int(clock[0]*20)} 0 0 {int(clock[0]*80)} 0 0 0 0\n"
-                   "MemAvailable: 512000 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n60000\n50@400\n1000000")
-            updated = int(clock[0]//5)*5
-            events = [(100, "WAITING")] + ([(101, "INTERACTIVE")] if updated >= 105 else [])
-            values = {"NPU": "NPU load: 30%", "CLOCK": f"{clock[0]+100:.2f} 100.00",
-                      "MEM": "TOTAL PSS: 102400", "LAYERS": "SurfaceView com.mirror.bench/MirrorActivity#0" if foreground[0] else "",
-                      "STATUS": json.dumps(status(updated, events, "INTERACTIVE" if updated >= 105 else "WAITING")),
-                      "SURFACE": latency() if foreground[0] else ""}
-            for label, value in values.items():
-                if f"__RUNTIME_{label}__" in command: raw += f"\n__RUNTIME_{label}__\n" + value
-            return raw
+            if command.startswith("am start ") and runtime.COMPONENT in command:
+                # A real elapsed draw wait in the fake protocol: -W holds the host
+                # until 3.7 seconds; the non-waiting command acknowledges in .2.
+                if slow_start:clock[0]+=3.7 if " -W " in command else .2
+                return "Status: ok"
+            if "__RUNTIME_" not in command:return "Status: ok"
+            final = "__RUNTIME_NPU__" not in command
+            if final and final_error=="raise":raise RuntimeError("simulated final snapshot failure")
+            if final and final_error=="malformed":return "wrong row\nPermission denied"
+            if fail_sample and not final:raise RuntimeError("simulated ADB read failure")
+            raw = ""
+            # Execute marker sections in their real shell order. Slow meminfo
+            # advances device/host time and consumes the finite presentation ring.
+            for label in re.findall(r"__RUNTIME_(\w+)__", command):
+                if label=="MEM" and not delayed_memory[0]:
+                    clock[0]+=memory_delay;delayed_memory[0]=True
+                updated = int(clock[0]//5)*5-(final_status_offset if final else 0)
+                events = [(100, "WAITING")] + ([(101, "INTERACTIVE")] if updated >= 105 else [])
+                values = {"SYSTEM": (f"cpu {int(clock[0]*20)} 0 0 {int(clock[0]*80)} 0 0 0 0\n"
+                            "MemAvailable: 512000 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n60000\n50@400\n1000000"),
+                          "NPU":"NPU load: 30%", "CLOCK":f"{clock[0]+100:.2f} 100.00",
+                          "MEM":"TOTAL PSS: 102400",
+                          "STATUS":json.dumps(status(updated,events,"INTERACTIVE" if updated>=105 else "WAITING")),
+                          "SURFACE":latency() if foreground[0] else ""}
+                raw+=f"\n__RUNTIME_{label}__\n"+values[label]
+            return raw.strip()
 
         with tempfile.TemporaryDirectory() as directory:
             args = argparse.Namespace(name="offline", input="replay", seconds=20, output_dir=Path(directory),
-                                      blackout_after=0, blackout_seconds=0, pause_at=5, pause_seconds=3)
+                                      blackout_after=0, blackout_seconds=0, pause_at=None if no_pause else 5, pause_seconds=3,
+                                      avatar_synchronous=synchronous)
             with patch.object(runtime, "adb", side_effect=fake_adb), \
                  patch.object(runtime.time, "monotonic", side_effect=lambda: clock[0]), \
                  patch.object(runtime.time, "sleep", side_effect=lambda seconds: clock.__setitem__(0, clock[0]+seconds)), \
@@ -211,12 +288,13 @@ class RuntimeMetricsTests(unittest.TestCase):
         stops = [call for call in calls if call[-1] == "am force-stop com.mirror.bench"]
         self.assertEqual(len(stops), 2, "Only initial and final stop; pause never force-stops the process")
         self.assertEqual(payload["host_actions"][-1]["action"], "final_force_stop")
-        self.assertEqual(result, 1 if fail_sample else 0)
-        self.assertEqual(payload["collection_status"], "failed" if fail_sample else "completed")
-        if fail_sample:
+        failed = fail_sample or final_error=="raise"
+        self.assertEqual(result, 1 if failed else 0)
+        self.assertEqual(payload["collection_status"], "failed" if failed else "completed")
+        if failed:
             self.assertFalse(payload["presentation"]["meets_30_fps"])
         else:
-            self.assertTrue(any("0x20020000" in call[-1] for call in calls))
+            if not no_pause:self.assertTrue(any("0x20020000" in call[-1] for call in calls))
             self.assertGreater(len(payload["samples"]), 10)
             self.assertGreater(len(payload["statuses"]), 1)
             self.assertLess(len(payload["statuses"]), len(payload["status_reads"]))

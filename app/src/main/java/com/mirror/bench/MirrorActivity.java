@@ -3,6 +3,7 @@ package com.mirror.bench;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -34,14 +35,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Visible, offline interaction entry point. The displayed mesh is explicitly a diagnostic character. */
+/** Visible, offline interaction entry point with the replaceable built-in GLB character. */
 public final class MirrorActivity extends Activity {
     private static final int CAMERA_PERMISSION = 42;
+    private static final int PANEL_CALIBRATION = 43;
     private static final int WIDTH = 640, HEIGHT = 480, CAPTURE_FPS = 25;
     private static final int[] RETRY_SECONDS = {1, 2, 4, 8, 30};
     // Also serializes native resources across Activity recreation; never acquired on the UI thread.
     private static final Semaphore HARDWARE_OWNER = new Semaphore(1);
     private static final Object STATUS_FILE_LOCK = new Object();
+    private static final RuntimeStatusOrder STATUS_ORDER = new RuntimeStatusOrder();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final InteractionController interaction = new InteractionController();
     private final ArrayDeque<JSONObject> events = new ArrayDeque<>();
@@ -51,7 +54,7 @@ public final class MirrorActivity extends Activity {
     private MirrorSettings settings;
     private InputOptions options;
     private RuntimeWorker worker;
-    private boolean resumed, maintenance, permissionPrompted, restarting;
+    private boolean resumed, maintenance, permissionPrompted, restarting, calibrationOpen;
     private volatile InteractionController.Snapshot snapshot;
     private volatile String runtimeError = "";
     private volatile boolean renderFault;
@@ -61,6 +64,7 @@ public final class MirrorActivity extends Activity {
     private String reportedPreflightError = "";
     private volatile long recoveries;
     private volatile Stats stats;
+    private volatile RuntimeStatusOrder.Epoch statusEpoch;
     private long lastUiTextNs;
     private InteractionController.State lastEventState;
 
@@ -90,7 +94,9 @@ public final class MirrorActivity extends Activity {
         renderer.setMultiview(true, false);
         renderer.setExplicitLod(true);
         renderer.setDiscardDepth(true, false);
-        renderer.setPanelParameters(10, .2777777f, "subpixels");
+        renderer.setRuntimeAvatar(getAssets());
+        renderer.setAvatarAsynchronous(!options.synchronousAvatar);
+        renderer.setPanelCalibration(settings.panel);
         surface = new GLSurfaceView(this);
         surface.setEGLContextClientVersion(3);
         surface.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
@@ -118,7 +124,9 @@ public final class MirrorActivity extends Activity {
     }
 
     @Override protected void onResume() {
-        super.onResume(); resumed = true; surface.onResume();
+        super.onResume(); resumed = true; renderer.resumeRuntimeAvatar();
+        beginStatusSession();
+        surface.onResume();
         main.removeCallbacks(tick); main.post(tick);
         startIfReady(true);
     }
@@ -131,7 +139,7 @@ public final class MirrorActivity extends Activity {
         super.onPause();
     }
     @Override protected void onDestroy() {
-        main.removeCallbacks(tick); cancelWorker(); super.onDestroy();
+        main.removeCallbacks(tick); cancelWorker(); renderer.closeRuntimeAvatar(); super.onDestroy();
     }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putBoolean("permission_prompted", permissionPrompted);
@@ -145,12 +153,45 @@ public final class MirrorActivity extends Activity {
             else { runtimeError = "摄像头未授权，请在维护页面重试"; interaction.setError(); }
         }
     }
+    @Override protected void onActivityResult(int requestCode,int resultCode,Intent data) {
+        super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==PANEL_CALIBRATION) {
+            calibrationOpen=false;
+            if(resultCode==RESULT_OK) {restarting=true;recreate();}
+        }
+    }
 
     private boolean hasCameraPermission() {
         return checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
     }
+    /** Register/prepare in memory on UI; filesystem publication is asynchronous and ordered. */
+    private void beginStatusSession() {
+        long now=SystemClock.elapsedRealtimeNanos();
+        statusEpoch=STATUS_ORDER.begin(now);
+        synchronized(events){events.clear();}
+        lastEventState=null;reportedPreflightError="";
+        synchronized(interaction) {
+            interaction.reset();
+            if(!configurationError.isEmpty())runtimeError=configurationError;
+            else if(options.needsCamera()&&!hasCameraPermission())runtimeError="摄像头未授权，请在维护页面重试";
+            else if(!renderFault&&progressFault==null)runtimeError="";
+            if(renderFault||progressFault!=null||!configurationError.isEmpty()
+                    ||(options.needsCamera()&&!hasCameraPermission()))interaction.setError();
+            snapshot=interaction.sample(SystemClock::elapsedRealtimeNanos);
+        }
+        lastEventState=snapshot.state();recordEvent(SystemClock.elapsedRealtimeNanos(),"state",snapshot.state().name());
+        RuntimeStatusOrder.Ticket ticket=statusTicket(statusEpoch);
+        try {
+            JSONObject initial=basicStatus(ticket).put("face_present",false)
+                    .put("runtime_stage",snapshot.state()==InteractionController.State.ERROR?"PRECHECK_FAILED":"WAITING_FOR_GL");
+            new Thread(()->{
+                try{atomicStatus(ticket,initial);}
+                catch(Exception failure){Log.e("MirrorRuntime","Cannot publish initial runtime status",failure);}
+            },"MirrorResumeStatus").start();
+        } catch(Exception failure){Log.e("MirrorRuntime","Cannot prepare initial runtime status",failure);}
+    }
     private void startIfReady(boolean mayPrompt) {
-        if (!resumed || maintenance || restarting || renderFault || progressFault != null || isFinishing() || isDestroyed()
+        if (!resumed || maintenance || calibrationOpen || restarting || renderFault || progressFault != null || isFinishing() || isDestroyed()
                 || worker != null) return;
         if (!configurationError.isEmpty()) {
             reportPreflightFault(configurationError);
@@ -164,8 +205,11 @@ public final class MirrorActivity extends Activity {
             }
             return;
         }
+        // Load/display the character before starting native inference. Until then the product is
+        // initializing, not interacting; this also avoids competing CPU-heavy startup work.
+        if (!renderer.hasRuntimeFrame()) return;
         reportedPreflightError = "";
-        worker = new RuntimeWorker();
+        worker = new RuntimeWorker(statusEpoch);
         worker.start();
     }
     private void reportPreflightFault(String error) {
@@ -173,7 +217,7 @@ public final class MirrorActivity extends Activity {
         if (error.equals(reportedPreflightError)) return;
         reportedPreflightError = error;
         // No input worker exists in these cases, so it cannot produce the usual status file.
-        new Thread(this::writeFaultStatus, "MirrorPreflightFaultReport").start();
+        queueFaultStatus("MirrorPreflightFaultReport");
     }
     private void cancelWorker() { if (worker != null) worker.cancel(); }
 
@@ -193,11 +237,12 @@ public final class MirrorActivity extends Activity {
                 if (fault != null) latchProgressFault(fault);
             }
             if (renderFault || progressFault != null) interaction.setError();
+            else startIfReady(false);
             snapshot = interaction.sample(SystemClock::elapsedRealtimeNanos);
             now = SystemClock.elapsedRealtimeNanos();
             boolean active = !maintenance && !renderFault && progressFault == null && worker != null && !worker.cancelled
                     && snapshot.state() == InteractionController.State.INTERACTIVE && snapshot.facePresent();
-            renderer.setInteractiveFace(snapshot.renderWeights(), snapshot.pose(), active);
+            renderer.setInteractiveSnapshot(snapshot, active);
             renderer.setTargetFps(!maintenance && !renderFault && progressFault == null && worker != null && !worker.cancelled
                     && (snapshot.state() == InteractionController.State.INTERACTIVE
                     || snapshot.state() == InteractionController.State.GRACE) ? 31 : 10);
@@ -208,8 +253,8 @@ public final class MirrorActivity extends Activity {
             if (updateText) {
                 lastUiTextNs = now;
                 String error = configurationError.isEmpty() ? runtimeError : configurationError;
-                String text = "诊断角色 · " + options.label() + "\n"
-                        + (maintenance ? "维护中" : stateLabel(snapshot.state()));
+                String text = "镜中向导 · " + options.label() + "\n"
+                        + (maintenance ? "维护中" : !renderFault&&!renderer.hasRuntimeFrame()?"正在加载角色":stateLabel(snapshot.state()));
                 if (worker != null && worker.cancelled) text += " · 停止中，等待资源释放";
                 else if (worker != null && worker.waitingForHardware) text += " · 等待上一运行释放设备";
                 if (!error.isEmpty()) text += " · " + error;
@@ -227,7 +272,7 @@ public final class MirrorActivity extends Activity {
         recordEvent(SystemClock.elapsedRealtimeNanos(), "render_fault", error);
         recordFaultState();
         // Native inference may be stuck: the fault report must not depend on that worker returning.
-        new Thread(this::writeFaultStatus, "MirrorRenderFaultReport").start();
+        queueFaultStatus("MirrorRenderFaultReport");
     }
 
     private void latchProgressFault(RuntimeProgressWatchdog.Fault fault) {
@@ -238,7 +283,7 @@ public final class MirrorActivity extends Activity {
         recordEvent(fault.observedNs(), "processing_timeout", fault.stage().name() + ": " + fault.stalledMs()
                 + " ms >= " + fault.timeoutMs() + " ms");
         recordFaultState();
-        new Thread(this::writeFaultStatus, "MirrorProgressFaultReport").start();
+        queueFaultStatus("MirrorProgressFaultReport");
     }
 
     private void recordFaultState() {
@@ -255,8 +300,9 @@ public final class MirrorActivity extends Activity {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL); panel.setPadding(dp(20), dp(8), dp(20), dp(8));
         TextView details = new TextView(this);
-        details.setText("当前为可交互诊断角色。20视点，原生竖屏输出。\n"
-                + "pitch=10（暂按子像素），tan=0.2777777；光学尚未校准。\n"
+        details.setText("当前为镜中向导原型。20视点，原生竖屏输出。\n"
+                + "pitch="+settings.panel.pitch()+" "+settings.panel.pitchUnits()+", tan="+settings.panel.tan()
+                + ", phase="+settings.panel.phaseCycles()+"；实屏光学未确认。\n"+settings.warning+"\n"
                 + "输入：" + options.label() + "\n" + maintenanceMetrics());
         panel.addView(details);
         panel.addView(label("互动面捕目标帧率"));
@@ -269,14 +315,18 @@ public final class MirrorActivity extends Activity {
         for (int i = 0; i < MirrorSettings.VIEW_PRESETS.length; i++)
             if (MirrorSettings.VIEW_PRESETS[i].equals(settings.viewPreset)) views.setSelection(i);
         panel.addView(views);
+        Button calibrationButton=new Button(this);calibrationButton.setText("屏幕校准 / 20视点测试图");panel.addView(calibrationButton);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("魔镜维护").setView(panel)
                 .setPositiveButton("保存并运行", (d, which) -> {
                     int fps = MirrorSettings.ANALYSIS_RATES[rates.getSelectedItemPosition()];
                     String preset = MirrorSettings.VIEW_PRESETS[views.getSelectedItemPosition()];
                     if (fps != settings.activeFps || !preset.equals(settings.viewPreset)) {
-                        MirrorSettings.save(this, fps, preset);
-                        restarting = true;
-                        recreate();
+                        try {
+                            MirrorSettings.save(this, fps, preset);
+                            restarting = true; recreate();
+                        } catch(RuntimeException invalid) {
+                            android.widget.Toast.makeText(this,"未保存："+invalid.getMessage(),android.widget.Toast.LENGTH_LONG).show();
+                        }
                     }
                 })
                 .setNegativeButton("返回", null)
@@ -296,7 +346,13 @@ public final class MirrorActivity extends Activity {
                     } else { runtimeError = ""; interaction.clearError(); }
                 }).create();
         dialog.setOnDismissListener(ignored -> { maintenance = false; startIfReady(false); });
+        calibrationButton.setOnClickListener(ignored -> {
+            calibrationOpen=true;
+            startActivityForResult(new Intent(this,CalibrationActivity.class),PANEL_CALIBRATION);
+            dialog.dismiss();
+        });
         dialog.show();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(settings.writable);
     }
     private String maintenanceMetrics() {
         try {
@@ -328,6 +384,7 @@ public final class MirrorActivity extends Activity {
     }
 
     private final class RuntimeWorker extends Thread {
+        private final RuntimeStatusOrder.Epoch ownerEpoch;
         private volatile boolean cancelled;
         private volatile boolean waitingForHardware = true;
         private volatile FrameInput sourceOwned;
@@ -335,7 +392,7 @@ public final class MirrorActivity extends Activity {
         private final CountDownLatch sourceCloseFinished = new CountDownLatch(1);
         private final RuntimeProgressWatchdog watchdog = new RuntimeProgressWatchdog();
         private long sequence, modelTimestamp;
-        RuntimeWorker() { super("MirrorRuntime"); }
+        RuntimeWorker(RuntimeStatusOrder.Epoch ownerEpoch) { super("MirrorRuntime");this.ownerEpoch=ownerEpoch; }
         void cancel() {
             cancelled = true; watchdog.cancel(); interrupt();
             closeCameraAsync();
@@ -367,8 +424,10 @@ public final class MirrorActivity extends Activity {
             boolean ownsHardware = false;
             try {
                 HARDWARE_OWNER.acquire(); ownsHardware = true; waitingForHardware = false;
-                if (cancelled) return;
-                interaction.reset();
+                synchronized(interaction) {
+                    if(cancelled||ownerEpoch!=statusEpoch)return;
+                    interaction.reset();
+                }
                 int failures = 0;
                 while (!cancelled) {
                     FrameInput source = null, reference = null;
@@ -390,8 +449,11 @@ public final class MirrorActivity extends Activity {
                         source.beginMeasurement();
                         if (reference != null) reference.beginMeasurement();
                         Stats attempt = new Stats(SystemClock.elapsedRealtimeNanos()); stats = attempt;
-                        runtimeError = ""; interaction.clearError();
-                        recordEvent(attempt.startedNs, "input_open", options.input);
+                        synchronized(interaction) {
+                            if(cancelled||ownerEpoch!=statusEpoch)break;
+                            runtimeError = ""; interaction.clearError();
+                        }
+                        recordEvent(ownerEpoch,attempt.startedNs, "input_open", options.input);
                         long reportAt = 0, stableStart = attempt.startedNs;
                         while (!cancelled) {
                             long started = SystemClock.elapsedRealtimeNanos();
@@ -418,7 +480,10 @@ public final class MirrorActivity extends Activity {
                                 long completed = SystemClock.elapsedRealtimeNanos();
                                 FaceFrame frame = detected == null ? FaceFrame.absent(frameSequence, frameReceived, completed)
                                         : FaceFrame.present(frameSequence, frameReceived, completed, detected.blendshapes(), detected.pose());
-                                interaction.accept(frame);
+                                synchronized(interaction) {
+                                    if(cancelled||ownerEpoch!=statusEpoch)return;
+                                    interaction.accept(frame);
+                                }
                                 attempt.completed(detected != null, (completed - frameReceived) / 1e6,
                                         (completed - inferenceStart) / 1e6, detected == null ? 0 : detected.landmarks().length / 3);
                             });
@@ -427,7 +492,7 @@ public final class MirrorActivity extends Activity {
                             if (now >= reportAt) {
                                 // summary drains the sole CPU job here, away from the UI and GL threads.
                                 progress(RuntimeProgressWatchdog.Stage.REPORTING);
-                                writeStatus(attempt, source, npu.summary(), blackout);
+                                writeStatus(ownerEpoch,attempt, source, npu.summary(), blackout);
                                 reportAt = now + 5_000_000_000L;
                             }
                             if (now - stableStart > 30_000_000_000L) failures = 0;
@@ -440,14 +505,20 @@ public final class MirrorActivity extends Activity {
                             if (rest > 0) Thread.sleep(rest / 1_000_000L, (int) (rest % 1_000_000L));
                         }
                     } catch (InterruptedException interrupted) {
-                        if (!cancelled) { runtimeError = "处理线程被中断"; interaction.setError(); }
+                        synchronized(interaction) {
+                            if(!cancelled&&ownerEpoch==statusEpoch){runtimeError="处理线程被中断";interaction.setError();}
+                        }
                         break;
                     } catch (Exception | LinkageError error) {
-                        if (!cancelled) {
-                            runtimeError = concise(error); interaction.setError(); recoveries++;
-                            recordEvent(SystemClock.elapsedRealtimeNanos(), "fault", runtimeError);
+                        boolean currentOwner;
+                        synchronized(interaction) {
+                            currentOwner=!cancelled&&ownerEpoch==statusEpoch;
+                            if(currentOwner){runtimeError=concise(error);interaction.setError();recoveries++;}
+                        }
+                        if (currentOwner) {
+                            recordEvent(ownerEpoch,SystemClock.elapsedRealtimeNanos(), "fault", runtimeError);
                             Log.e("MirrorRuntime", "Runtime input failed", error);
-                            writeFaultStatus();
+                            writeFaultStatus(statusTicket(ownerEpoch));
                         }
                     } finally {
                         // Every borrowed Image was closed by convert(); only this worker owns these resources.
@@ -458,7 +529,7 @@ public final class MirrorActivity extends Activity {
                     if (cancelled) break;
                     int delay = RETRY_SECONDS[Math.min(failures++, RETRY_SECONDS.length - 1)];
                     progress(RuntimeProgressWatchdog.Stage.RETRY_WAIT);
-                    recordEvent(SystemClock.elapsedRealtimeNanos(), "retry_wait_seconds", String.valueOf(delay));
+                    recordEvent(ownerEpoch,SystemClock.elapsedRealtimeNanos(), "retry_wait_seconds", String.valueOf(delay));
                     Thread.sleep(delay * 1000L);
                 }
             } catch (InterruptedException cancelledWhileWaiting) {
@@ -504,18 +575,30 @@ public final class MirrorActivity extends Activity {
         return text.length() > 160 ? text.substring(0, 160) : text;
     }
     private void recordEvent(long now, String event, String value) {
+        recordEvent(statusEpoch,now,event,value);
+    }
+    private void recordEvent(RuntimeStatusOrder.Epoch owner,long now,String event,String value) {
         try {
             JSONObject row = new JSONObject().put("elapsed_ns", now).put("monotonic_ns", System.nanoTime())
                     .put("event", event).put("value", value);
             if (event.equals("state")) row.put("state", value);
-            synchronized (events) { if (events.size() >= 64) events.removeFirst(); events.addLast(row); }
+            synchronized (events) {
+                if(owner==null||owner!=statusEpoch)return;
+                if (events.size() >= 64) events.removeFirst(); events.addLast(row);
+            }
         } catch (Exception ignored) { /* Numerical diagnostics must not interrupt interaction. */ }
     }
-    private JSONObject basicStatus() throws Exception {
+    private RuntimeStatusOrder.Ticket statusTicket(RuntimeStatusOrder.Epoch owner) {
+        return STATUS_ORDER.capture(owner,SystemClock.elapsedRealtimeNanos());
+    }
+    private JSONObject basicStatus(RuntimeStatusOrder.Ticket ticket) throws Exception {
         InteractionController.Snapshot current = snapshot;
         long elapsedNs = SystemClock.elapsedRealtimeNanos(), monotonicNs = System.nanoTime();
         JSONObject value = new JSONObject().put("schema_version", 1).put("input", options.input)
-                .put("input_description", options.label()).put("diagnostic_character", true)
+                .put("runtime_session_id",ticket.epoch().id()).put("runtime_epoch",ticket.epoch().number())
+                .put("session_started_elapsed_ns",ticket.epoch().startedNs()).put("status_sequence",ticket.sequence())
+                .put("status_capture_elapsed_ns",ticket.capturedNs())
+                .put("input_description", options.label()).put("diagnostic_character", false)
                 .put("updated_elapsed_ns", elapsedNs).put("updated_monotonic_ns", monotonicNs)
                 .put("state", current == null ? "WAITING" : current.state().name())
                 .put("result_age_ms", current == null ? -1 : current.resultAgeMs())
@@ -525,7 +608,11 @@ public final class MirrorActivity extends Activity {
                 .put("runtime_stage", worker == null ? "STOPPED" : worker.watchdog.stage().name())
                 .put("recoveries", recoveries).put("analysis_active_target_fps", settings.activeFps).put("analysis_idle_target_fps", 3)
                 .put("view_width", settings.viewWidth).put("view_height", settings.viewHeight).put("view_count", 20)
-                .put("optical_calibration", "pitch=10 subpixels assumed, tan=0.2777777; optical alignment unverified")
+                .put("optical_calibration", new JSONObject().put("pitch", settings.panel.pitch())
+                        .put("pitch_units", settings.panel.pitchUnits().name()).put("tan", settings.panel.tan())
+                        .put("phase_cycles", settings.panel.phaseCycles()).put("subpixel_order", settings.panel.subpixelOrder().name())
+                        .put("reverse_views", settings.panel.reverseViews()).put("y_origin", settings.panel.yOrigin().name())
+                        .put("optical_alignment_verified", false))
                 .put("renderer", renderer.runtimeStatus()).put("stored_face_images", false);
         synchronized (events) {
             value.put("events", new JSONArray(events));
@@ -535,23 +622,30 @@ public final class MirrorActivity extends Activity {
         }
         return value;
     }
-    private void writeStatus(Stats measurements, FrameInput source, JSONObject npu, boolean blackout) {
+    private void writeStatus(RuntimeStatusOrder.Epoch owner,Stats measurements, FrameInput source, JSONObject npu, boolean blackout) {
+        RuntimeStatusOrder.Ticket ticket=statusTicket(owner);
+        if(ticket==null)return;
         try {
             long now = SystemClock.elapsedRealtimeNanos();
-            JSONObject value = basicStatus().put("metrics", measurements.summary(now)).put("npu", npu)
+            JSONObject value = basicStatus(ticket).put("metrics", measurements.summary(now)).put("npu", npu)
                     .put("source", source.summary(Math.max(.001, (now - measurements.startedNs) / 1e9)))
                     .put("debug_blackout_active", blackout)
                     .put("inference_timing_scope", "submission includes NPU plus prior CPU backpressure; completion latency includes postprocessing");
-            atomicStatus(value);
+            atomicStatus(ticket,value);
         } catch (Exception error) { Log.e("MirrorRuntime", "Cannot save runtime status", error); }
     }
-    private void writeFaultStatus() {
-        try { atomicStatus(basicStatus().put("state", "ERROR").put("face_present", false)); }
+    private void queueFaultStatus(String name) {
+        RuntimeStatusOrder.Ticket ticket=statusTicket(statusEpoch);
+        if(ticket!=null)new Thread(()->writeFaultStatus(ticket),name).start();
+    }
+    private void writeFaultStatus(RuntimeStatusOrder.Ticket ticket) {
+        if(!STATUS_ORDER.mayPublish(ticket))return;
+        try { atomicStatus(ticket,basicStatus(ticket).put("state", "ERROR").put("face_present", false)); }
         catch (Exception error) { Log.e("MirrorRuntime", "Cannot save fault status", error); }
     }
-    private void atomicStatus(JSONObject data) throws Exception {
+    private void atomicStatus(RuntimeStatusOrder.Ticket ticket,JSONObject data) throws Exception {
         synchronized (STATUS_FILE_LOCK) {
-            if (isDestroyed()) return;
+            if (isDestroyed()||!STATUS_ORDER.mayPublish(ticket)) return;
             // A report prepared before the GL fault must not overwrite the latched diagnostic state.
             if (renderFault) data.put("state", "ERROR").put("face_present", false)
                     .put("render_fault", true).put("render_error", renderError);
@@ -562,7 +656,10 @@ public final class MirrorActivity extends Activity {
             try {
                 stream = destination.startWrite();
                 stream.write(data.toString(2).getBytes(StandardCharsets.UTF_8));
+                if(!STATUS_ORDER.mayPublish(ticket)){destination.failWrite(stream);stream=null;return;}
                 destination.finishWrite(stream);
+                stream=null;
+                STATUS_ORDER.published(ticket);
             } catch (Exception error) { if (stream != null) destination.failWrite(stream); throw error; }
         }
     }
@@ -607,11 +704,13 @@ public final class MirrorActivity extends Activity {
         final String input, recordId;
         final double replayFps;
         final long blackoutAfterNs, blackoutDurationNs;
-        private InputOptions(String input, String recordId, double replayFps, int after, int duration) {
+        final boolean synchronousAvatar;
+        private InputOptions(String input, String recordId, double replayFps, int after, int duration, boolean synchronousAvatar) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
+            this.synchronousAvatar=synchronousAvatar;
         }
-        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0); }
+        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false); }
         static InputOptions read(Bundle extras, boolean debug) {
             if (extras == null) return defaults();
             String input = text(extras, "runtime_input", "camera");
@@ -626,7 +725,9 @@ public final class MirrorActivity extends Activity {
                 throw new IllegalArgumentException("Invalid blackout interval");
             if ((after != 0 || duration != 0) && (!debug || input.equals("camera") || duration == 0))
                 throw new IllegalArgumentException("Blackout requires a debug replay input and positive duration");
-            return new InputOptions(input, record, fps, after, duration);
+            Object synchronous=value(extras,"test_avatar_synchronous");
+            if(synchronous!=null&&(!(synchronous instanceof Boolean)||!debug))throw new IllegalArgumentException("Synchronous avatar override requires debug Boolean");
+            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous));
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {

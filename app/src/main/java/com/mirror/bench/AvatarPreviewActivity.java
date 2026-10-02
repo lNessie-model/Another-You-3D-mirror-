@@ -1,0 +1,179 @@
+package com.mirror.bench;
+
+import android.app.Activity;
+import android.graphics.Bitmap;
+import android.opengl.GLES30;
+import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
+import android.os.Bundle;
+import android.os.SystemClock;
+import android.util.AtomicFile;
+import android.view.View;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.util.UUID;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
+/** Deterministic device GL renders of the actual loader/rig/deformer/material path; no face images. */
+public final class AvatarPreviewActivity extends Activity implements GLSurfaceView.Renderer {
+    private static final int W=480,H=768;
+    private GLSurfaceView surface;
+    private AvatarGpuScene scene;
+    private int width,height;
+    private volatile boolean cancelled;
+    private final float[] view=new float[16],projection=new float[16],vp=new float[16];
+    private String error="";
+    private String runId="";
+    private long startedNs;
+    private int contextGeneration;
+    private boolean verifyMultiview;
+    private TextView status;
+    @Override public void onCreate(Bundle state) {
+        super.onCreate(state);
+        verifyMultiview=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0
+                &&getIntent().getBooleanExtra("verify_multiview",false);
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        surface=new GLSurfaceView(this);surface.setEGLContextClientVersion(3);surface.setEGLConfigChooser(8,8,8,8,16,0);
+        surface.setRenderer(this);surface.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+        FrameLayout root=new FrameLayout(this);root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout controls=new LinearLayout(this);controls.setOrientation(LinearLayout.VERTICAL);controls.setBackgroundColor(0xb0000000);
+        status=new TextView(this);status.setText("准备生成角色动作截图；图像与表情效果仍需人工验收");status.setTextColor(0xffffffff);controls.addView(status);
+        Button back=new Button(this);back.setText("退出角色预览");back.setOnClickListener(v->finish());controls.addView(back);
+        root.addView(controls,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));setContentView(root);
+    }
+    @Override protected void onResume(){super.onResume();cancelled=false;surface.onResume();}
+    @Override protected void onPause(){cancelled=true;surface.onPause();super.onPause();}
+    @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
+        // Old GL names belong to the destroyed context; do not dispose them in this new context.
+        scene=null;error="";runId=UUID.randomUUID().toString();startedNs=SystemClock.elapsedRealtimeNanos();contextGeneration++;
+        try {
+            write(new JSONObject().put("running",true).put("passed",false));
+            if(verifyMultiview)writeArtifact("avatar-multiview-check.json",new JSONObject().put("running",true).put("passed",false));
+            scene=AvatarGpuScene.builtin(getAssets(),false);
+        }
+        catch(Throwable failure){reportFailure(failure);}
+    }
+    @Override public void onSurfaceChanged(GL10 gl,int width,int height) {
+        this.width=width;this.height=height;
+        if(scene==null)return;
+        try {
+            captureStates();
+            if(verifyMultiview&&!cancelled) {
+                show("正在核对69组动作的20个独立视点；可退出取消");
+                JSONObject result=AvatarMultiviewCheck.run(getAssets(),400,720,20,1200f/1920f,()->cancelled);
+                if(cancelled)result.put("passed",false).put("cancelled",true);
+                writeArtifact("avatar-multiview-check.json",result.put("running",false));
+                show(result.optBoolean("passed")?"69组动作、20视点像素核对通过；光学与美术体验仍需验收":"多视图核对未通过，请查看报告");
+            }
+        }catch(Throwable failure){reportFailure(failure);}
+    }
+    @Override public void onDrawFrame(GL10 gl) {
+        if(scene==null||!error.isEmpty())return;
+        try {GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);render(width,height,new float[52],new float[3]);checkGl("visible preview");}
+        catch(Throwable failure){reportFailure(failure);}
+    }
+    private void captureStates()throws Exception {
+        File directory=new File(getFilesDir(),"avatar-preview");if(!directory.isDirectory()&&!directory.mkdirs())throw new IllegalStateException("Cannot create avatar preview directory");
+        JSONObject report=new JSONObject().put("running",true).put("passed",false);write(report);
+        int[] fbo={0},texture={0},depth={0};
+        try {
+            GLES30.glGenFramebuffers(1,fbo,0);GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo[0]);
+            GLES30.glGenTextures(1,texture,0);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,texture[0]);
+            GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,1,GLES30.GL_RGBA8,W,H);
+            GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,GLES30.GL_TEXTURE_2D,texture[0],0);
+            GLES30.glGenRenderbuffers(1,depth,0);GLES30.glBindRenderbuffer(GLES30.GL_RENDERBUFFER,depth[0]);
+            GLES30.glRenderbufferStorage(GLES30.GL_RENDERBUFFER,GLES30.GL_DEPTH_COMPONENT16,W,H);
+            GLES30.glFramebufferRenderbuffer(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,GLES30.GL_RENDERBUFFER,depth[0]);
+            if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)throw new IllegalStateException("Avatar preview framebuffer incomplete");
+            String[] names={"neutral","blink-left","blink-right","jaw-open","smile","gaze-left","head-yaw","head-roll-left","head-roll-right","jaw-close-combination"};
+            JSONArray frames=new JSONArray();ByteBuffer pixels=ByteBuffer.allocateDirect(W*H*4).order(ByteOrder.nativeOrder());int[] argb=new int[W*H];
+            for(int state=0;state<names.length;state++) {
+                if(cancelled)throw new IllegalStateException("Avatar preview cancelled");
+                float[] weights=new float[52],angles=new float[3];
+                if(state==1)weights[9]=1;if(state==2)weights[10]=1;if(state==3)weights[25]=1;
+                if(state==4){weights[44]=1;weights[45]=1;}if(state==5){weights[15]=1;weights[14]=1;}
+                if(state==6)angles[1]=45;if(state==7)angles[2]=40;if(state==8)angles[2]=-40;
+                if(state==9){weights[25]=1;weights[27]=1;}
+                render(W,H,weights,angles);GLES30.glFinish();pixels.clear();
+                GLES30.glReadPixels(0,0,W,H,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,pixels);
+                int glError=GLES30.glGetError();if(glError!=GLES30.GL_NO_ERROR)throw new IllegalStateException("Avatar preview GL error "+glError);
+                int foreground=0;
+                for(int y=0;y<H;y++)for(int x=0;x<W;x++) {
+                    if(x==0&&cancelled)throw new InterruptedException("Avatar preview cancelled");
+                    int p=(y*W+x)*4,r=pixels.get(p)&255,g=pixels.get(p+1)&255,b=pixels.get(p+2)&255;
+                    argb[(H-1-y)*W+x]=0xff000000|(r<<16)|(g<<8)|b;
+                    if(r>20||g>20||b>25)foreground++;
+                }
+                if(foreground<1000)throw new IllegalStateException("Avatar frame contains no visible geometry");
+                File target=new File(directory,names[state]+".png");String hash=writePng(argb,target);
+                frames.put(new JSONObject().put("name",names[state]).put("foreground_pixels",foreground)
+                        .put("file","avatar-preview/"+target.getName()).put("sha256",hash).put("bytes",target.length()));
+            }
+            if(cancelled)throw new InterruptedException("Avatar preview cancelled before publication");
+            checkGl("completed avatar captures");
+            write(report.put("running",false).put("passed",true).put("renders",frames).put("avatar",scene.status())
+                    .put("artwork_validated",false).put("scope","GL compiled, ten deterministic actual-asset renders saved; geometry visibility only, actions/cross-state differences and visual acceptance separate"));
+            show("10张角色截图已生成；passed仅表示GL与可见几何，表情效果需查看图片验收");
+        } finally {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+            GLES30.glDeleteRenderbuffers(1,depth,0);GLES30.glDeleteTextures(1,texture,0);GLES30.glDeleteFramebuffers(1,fbo,0);
+        }
+    }
+    private void render(int width,int height,float[] weights,float[] angles) {
+        GLES30.glViewport(0,0,width,height);GLES30.glDisable(GLES30.GL_SCISSOR_TEST);
+        GLES30.glColorMask(true,true,true,true);GLES30.glDepthMask(true);GLES30.glClearColor(.035f,.045f,.06f,1);
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+        float aspect=width/(float)height;Matrix.setLookAtM(view,0,0,0,3,0,0,0,0,1,0);
+        Matrix.frustumM(projection,0,-.052f*aspect,.052f*aspect,-.052f,.052f,.1f,10);
+        Matrix.multiplyMM(vp,0,projection,0,view,0);scene.prepare(weights,angles);scene.draw(vp,1,aspect);
+    }
+    private void reportFailure(Throwable failure) {
+        error=failure.toString();android.util.Log.e("AvatarPreview",error,failure);
+        show("预览失败："+error);
+        try {
+            write(new JSONObject().put("running",false).put("passed",false).put("error",error));
+            if(verifyMultiview)writeArtifact("avatar-multiview-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error));
+        }
+        catch(Exception writeError){android.util.Log.e("AvatarPreview","Could not publish failure; do not use an older report",writeError);show("失败报告写入失败；不可使用旧报告："+writeError);}
+    }
+    private static void checkGl(String operation){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(operation+" GL error "+code);}
+    private void show(String message){runOnUiThread(()->{if(status!=null)status.setText(message);});}
+    private static String writePng(int[] argb,File target)throws Exception {
+        Bitmap bitmap=Bitmap.createBitmap(argb,W,H,Bitmap.Config.ARGB_8888);
+        AtomicFile atomic=new AtomicFile(target);FileOutputStream out=null;MessageDigest digest=MessageDigest.getInstance("SHA-256");
+        try {
+            out=atomic.startWrite();DigestOutputStream hashing=new DigestOutputStream(out,digest);
+            if(!bitmap.compress(Bitmap.CompressFormat.PNG,100,hashing))throw new IllegalStateException("PNG failed");
+            hashing.flush();atomic.finishWrite(out);out=null;
+            StringBuilder hex=new StringBuilder();for(byte b:digest.digest())hex.append(String.format(java.util.Locale.ROOT,"%02x",b&255));
+            return hex.toString();
+        } catch(Exception failure){if(out!=null)atomic.failWrite(out);throw failure;}
+        finally {bitmap.recycle();}
+    }
+    private void write(JSONObject report)throws Exception {
+        report.put("capture_width",W).put("capture_height",H).put("expected_state_count",10);
+        writeArtifact("avatar-preview-check.json",report);
+    }
+    private void writeArtifact(String filename,JSONObject report)throws Exception {
+        report.put("updated_elapsed_ns",SystemClock.elapsedRealtimeNanos()).put("started_elapsed_ns",startedNs)
+                .put("run_id",runId).put("context_generation",contextGeneration).put("cancelled",cancelled)
+                .put("artwork_validated",false);
+        if(cancelled)report.put("passed",false);
+        AtomicFile file=new AtomicFile(new File(getFilesDir(),filename));FileOutputStream out=null;
+        try{out=file.startWrite();out.write(report.toString(2).getBytes(StandardCharsets.UTF_8));file.finishWrite(out);}
+        catch(Exception failure){if(out!=null)file.failWrite(out);throw failure;}
+    }
+}

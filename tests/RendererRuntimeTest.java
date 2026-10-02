@@ -21,7 +21,23 @@ public final class RendererRuntimeTest {
         smoothPoseAndStaleFaceRecovery();
         stableWeightsPreservePreblendCache();
         runtimeConfigurationAndVisibility();
+        inferenceWaitsForSuccessfulRuntimeFrame();
         System.out.println("PASS: " + checks + " renderer assertions, including 1,000,000 runtime frames");
+    }
+    private static void inferenceWaitsForSuccessfulRuntimeFrame() throws Exception {
+        InterlaceRenderer renderer=renderer(true);
+        check(!renderer.hasRuntimeFrame(),"new runtime has no ready frame");
+        Method record=method("recordFrame",long.class,long.class,boolean.class,long.class);
+        record.invoke(renderer,1L,2L,false,1L);
+        check(renderer.hasRuntimeFrame(),"successful runtime submission releases input startup gate");
+        renderer.resumeRuntimeAvatar();
+        check(!renderer.hasRuntimeFrame(),"resume waits for its own first successful frame");
+        record.invoke(renderer,3L,4L,false,3L);
+        check(renderer.hasRuntimeFrame(),"resumed frame releases startup gate");
+        Field error=InterlaceRenderer.class.getDeclaredField("error");error.setAccessible(true);error.set(renderer,"GPU failed");
+        check(!renderer.hasRuntimeFrame(),"latched GL error cannot permit input startup");
+        InterlaceRenderer benchmark=renderer(false);record.invoke(benchmark,1L,2L,false,1L);
+        check(!benchmark.hasRuntimeFrame(),"legacy benchmark does not satisfy runtime gate");
     }
 
     private static void unlimitedRuntimeRetainsNoFrameSamples() throws Exception {

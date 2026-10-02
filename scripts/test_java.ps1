@@ -44,19 +44,29 @@ $sources = @(
     'app\src\main\java\com\mirror\bench\FaceFrame.java',
     'app\src\main\java\com\mirror\bench\InteractionController.java',
     'app\src\main\java\com\mirror\bench\RuntimeProgressWatchdog.java',
+    'app\src\main\java\com\mirror\bench\AvatarPoseProgressWatchdog.java',
     'app\src\main\java\com\mirror\bench\MultiviewGl.java',
+    'app\src\main\java\com\mirror\bench\PanelCalibration.java',
+    'app\src\main\java\com\mirror\bench\PanelTestImages.java',
+    'app\src\main\java\com\mirror\bench\MirrorSettings.java',
     'app\src\main\java\com\mirror\bench\InterlaceRenderer.java',
     'tests\YuvPackingTest.java',
     'tests\ResourceCleanupTest.java',
     'tests\InteractionControllerTest.java',
     'tests\RuntimeProgressWatchdogTest.java',
-    'tests\RendererRuntimeTest.java'
+    'tests\AvatarPoseProgressWatchdogTest.java',
+    'tests\RendererRuntimeTest.java',
+    'tests\PanelCalibrationTest.java',
+    'tests\PanelPhaseContractionTest.java',
+    'tests\PanelTestImagesTest.java',
+    'tests\PanelRendererConfigTest.java',
+    'tests\MirrorSettingsTest.java'
 ) | ForEach-Object { Join-Path $projectRoot $_ }
 & $javac --release 17 -encoding UTF-8 -cp "$androidJar;$androidClasses" -d $testClasses @sources
 if ($LASTEXITCODE -ne 0) { throw 'Host regression test compilation failed.' }
 
 $classpath = "$testClasses;$androidJar;$androidClasses"
-foreach ($test in @('YuvPackingTest', 'ResourceCleanupTest', 'InteractionControllerTest', 'RuntimeProgressWatchdogTest', 'RendererRuntimeTest')) {
+foreach ($test in @('YuvPackingTest', 'ResourceCleanupTest', 'InteractionControllerTest', 'RuntimeProgressWatchdogTest', 'AvatarPoseProgressWatchdogTest', 'RendererRuntimeTest', 'PanelCalibrationTest', 'PanelPhaseContractionTest', 'PanelTestImagesTest', 'PanelRendererConfigTest', 'MirrorSettingsTest')) {
     & $java -cp $classpath "com.mirror.bench.$test"
     if ($LASTEXITCODE -ne 0) { throw "$test failed." }
 }
