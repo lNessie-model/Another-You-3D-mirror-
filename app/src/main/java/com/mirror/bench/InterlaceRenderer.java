@@ -27,6 +27,13 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private int maxArrayLayers,maxMultiviewViews,windowDepthBits;
     private volatile String error="";
     private volatile float[] expressions={0,0,0,0};
+    private boolean runtimeMode,surfaceInitialized;
+    private volatile InteractiveFace interactiveFace=InteractiveFace.NEUTRAL;
+    private final float[] runtimeWeights=new float[4],runtimeAngles=new float[3];
+    private long runtimePoseTime,runtimeFrames,runtimeWindowStart;
+    private int runtimeWindowFrames;
+    private double runtimeWindowWorkMs,runtimeFps,runtimeWorkMeanMs;
+    private volatile boolean runtimeFaceActive;
     private boolean measuring;
     private long firstFrame,lastFrame;
     private final ArrayList<Double> workMs=new ArrayList<>(),intervalMs=new ArrayList<>();
@@ -65,7 +72,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private int lookupTexture,lookupProgram,lookupGenerator;
     private int lookupMismatch=-1;
     private float pitch=9.69f,tilt=.28f;
-    private int targetFps;
+    private volatile int targetFps;
+    private volatile Thread renderThread;
     private long renderDeadline;
     private String calibration="diagnostic constants; not a verified optical panel calibration";
     private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
@@ -76,8 +84,23 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         this.views=views; this.scale=scale; this.widthScale=scale; this.scene=scene;
     }
     void setExpressions(float[] values) { expressions=values; }
+    /** Configure before attaching the renderer. Runtime still uses the diagnostic four-morph mesh. */
+    synchronized void setRuntimeMode(boolean enabled) {
+        if(surfaceInitialized) throw new IllegalStateException("Runtime mode must be set before GL initialization");
+        runtimeMode=enabled;
+    }
+    /** Safe to call from inference/UI threads: caller-owned arrays never reach the GL thread. */
+    void setInteractiveFace(float[] fourWeights,float[] columnMajorPose,boolean active) {
+        interactiveFace=active?new InteractiveFace(fourWeights,columnMajorPose,SystemClock.elapsedRealtimeNanos())
+                :InteractiveFace.NEUTRAL;
+    }
     void setProfileStages(boolean enabled) { profileStages=enabled; }
-    void setTargetFps(int value) { if(value<0||value>60) throw new IllegalArgumentException("Invalid render target FPS"); targetFps=value; }
+    void setTargetFps(int value) {
+        if(value<0||value>60) throw new IllegalArgumentException("Invalid render target FPS");
+        targetFps=value;
+        Thread thread=renderThread;
+        if(thread!=null) java.util.concurrent.locks.LockSupport.unpark(thread);
+    }
     void setPipeline(boolean enabled) { pipeline=enabled; }
     void setLookup(boolean enabled,boolean verify) { lookup=enabled; verifyLookup=verify; }
     void setCull(boolean enabled,boolean verify) { cull=enabled; verifyCull=verify; }
@@ -109,13 +132,18 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 " horizontal pixels/vertical pixel; optical alignment unverified";
     }
     synchronized void beginMeasurement() {
-        measuring=true; firstFrame=0; lastFrame=0; workMs.clear(); intervalMs.clear();
+        measuring=!runtimeMode; firstFrame=0; lastFrame=0; workMs.clear(); intervalMs.clear();
         sceneStageMs.clear(); interlaceStageMs.clear();
+        runtimeFrames=0; runtimeWindowStart=0; runtimeWindowFrames=0;
+        runtimeWindowWorkMs=0; runtimeFps=0; runtimeWorkMeanMs=0;
         preblendUpdates=0;
         renderDeadline=0;
     }
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
+        synchronized(this) { surfaceInitialized=true; }
+        renderThread=Thread.currentThread();
+        runtimePoseTime=0;
         try {
             for(int i=0;i<fences.length;i++) fences[i]=0;
             fenceSlot=0;
@@ -223,23 +251,25 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     @Override public void onDrawFrame(GL10 ignored) {
         if(!error.isEmpty()||texture==0) return;
         try {
-            if(targetFps>0) {
-                long now=SystemClock.elapsedRealtimeNanos(),period=1_000_000_000L/targetFps;
+            int frameTargetFps=targetFps;
+            if(frameTargetFps>0) {
+                long now=SystemClock.elapsedRealtimeNanos(),period=1_000_000_000L/frameTargetFps;
                 if(renderDeadline==0||now-renderDeadline>period) renderDeadline=now;
-                while(now<renderDeadline) {
+                while(now<renderDeadline&&targetFps==frameTargetFps) {
                     java.util.concurrent.locks.LockSupport.parkNanos(renderDeadline-now);
                     now=SystemClock.elapsedRealtimeNanos();
                 }
-                renderDeadline+=period;
-            }
+                renderDeadline=targetFps==frameTargetFps?renderDeadline+period:0;
+            } else renderDeadline=0;
             long before=SystemClock.elapsedRealtimeNanos();
+            if(runtimeMode) updateInteractiveFace(before);
             if(pipeline&&fences[fenceSlot]!=0) {
                 int wait=GLES30.glClientWaitSync(fences[fenceSlot],GLES30.GL_SYNC_FLUSH_COMMANDS_BIT,1_000_000_000L);
                 if(wait==GLES30.GL_WAIT_FAILED||wait==GLES30.GL_TIMEOUT_EXPIRED)
                     throw new IllegalStateException("GPU fence did not complete: "+wait);
                 GLES30.glDeleteSync(fences[fenceSlot]); fences[fenceSlot]=0;
             }
-            boolean split=profileStages&&!pipeline&&measuring&&workMs.size()%30==0;
+            boolean split=!runtimeMode&&profileStages&&!pipeline&&measuring&&workMs.size()%30==0;
             if(scene) drawViews();
             long sceneEnd=before;
             if(split) { GLES30.glFinish(); sceneEnd=SystemClock.elapsedRealtimeNanos(); }
@@ -252,15 +282,92 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             } else GLES30.glFinish();
             checkGl();
             long after=SystemClock.elapsedRealtimeNanos();
-            synchronized(this) {
-                if(measuring) {
-                    if(firstFrame==0) firstFrame=before;
-                    if(lastFrame!=0) intervalMs.add((before-lastFrame)/1e6);
-                    lastFrame=before; workMs.add((after-before)/1e6);
-                    if(split) { sceneStageMs.add((sceneEnd-before)/1e6); interlaceStageMs.add((after-sceneEnd)/1e6); }
-                }
-            }
+            recordFrame(before,after,split,sceneEnd);
         } catch(Throwable problem) { fail(problem); }
+    }
+    private synchronized void recordFrame(long before,long after,boolean split,long sceneEnd) {
+        if(runtimeMode) recordRuntimeFrame(before,after);
+        else if(measuring) {
+            if(firstFrame==0) firstFrame=before;
+            if(lastFrame!=0) intervalMs.add((before-lastFrame)/1e6);
+            lastFrame=before; workMs.add((after-before)/1e6);
+            if(split) { sceneStageMs.add((sceneEnd-before)/1e6); interlaceStageMs.add((after-sceneEnd)/1e6); }
+        }
+    }
+    private void recordRuntimeFrame(long before,long after) {
+        // Constant-space aggregates replace the benchmark's per-frame arrays for an unlimited session.
+        runtimeFrames++;
+        if(runtimeWindowStart==0) runtimeWindowStart=before;
+        runtimeWindowFrames++; runtimeWindowWorkMs+=(after-before)/1e6;
+        long elapsed=after-runtimeWindowStart;
+        if(elapsed>=1_000_000_000L) {
+            runtimeFps=runtimeWindowFrames*1e9/elapsed;
+            runtimeWorkMeanMs=runtimeWindowWorkMs/runtimeWindowFrames;
+            runtimeWindowStart=after; runtimeWindowFrames=0; runtimeWindowWorkMs=0;
+        }
+    }
+    synchronized JSONObject runtimeStatus() throws Exception {
+        return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",true)
+                .put("frames",runtimeFrames).put("fps",runtimeFps).put("frame_work_mean_ms",runtimeWorkMeanMs)
+                .put("render_target_fps",targetFps).put("face_active",runtimeFaceActive).put("error",error)
+                .put("retained_frame_samples",workMs.size()+intervalMs.size()+sceneStageMs.size()+interlaceStageMs.size())
+                .put("timing_window","approximately one second; callback cadence includes EGL swap backpressure");
+    }
+    private void updateInteractiveFace(long now) {
+        InteractiveFace face=interactiveFace;
+        runtimeFaceActive=face!=InteractiveFace.NEUTRAL&&now-face.timestampNanos<1_000_000_000L;
+        if(!runtimeFaceActive) face=InteractiveFace.NEUTRAL;
+        double seconds=runtimePoseTime==0?1d/30:Math.max(0,(now-runtimePoseTime)/1e9);
+        runtimePoseTime=now;
+        float alpha=(float)(1-Math.exp(-seconds/(runtimeFaceActive?.10:.25)));
+        boolean changed=false;
+        for(int i=0;i<4;i++) {
+            // The interaction controller already smooths active expression weights.
+            float next=runtimeFaceActive?face.weights[i]:runtimeWeights[i]+alpha*(face.weights[i]-runtimeWeights[i]);
+            if(Math.abs(next-face.weights[i])<.0001f) next=face.weights[i];
+            changed|=next!=runtimeWeights[i]; runtimeWeights[i]=next;
+        }
+        // Preserve the preblend cache's reference-based change detection, including a settled idle pose.
+        if(changed) expressions=runtimeWeights.clone();
+        for(int i=0;i<3;i++) runtimeAngles[i]+=alpha*(face.angles[i]-runtimeAngles[i]);
+    }
+    private static final class InteractiveFace {
+        static final InteractiveFace NEUTRAL=new InteractiveFace();
+        final float[] weights=new float[4],angles=new float[3];
+        final long timestampNanos;
+        private InteractiveFace() { timestampNanos=0; }
+        InteractiveFace(float[] values,float[] pose,long timestamp) {
+            timestampNanos=timestamp;
+            if(values!=null&&values.length==4) for(int i=0;i<4;i++)
+                weights[i]=Float.isFinite(values[i])?Math.max(0,Math.min(1,values[i])):0;
+            readRotation(pose,angles);
+        }
+        private static void readRotation(float[] pose,float[] out) {
+            if(pose==null||pose.length!=16) return;
+            for(float value:pose) if(!Float.isFinite(value)) return;
+            if(Math.abs(pose[3])>.001f||Math.abs(pose[7])>.001f||Math.abs(pose[11])>.001f||Math.abs(pose[15]-1)>.001f) return;
+            // FaceGeometry packs Eigen columns: geometry_pipeline.cc -> MatrixDataProtoFromMatrix.
+            // https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/framework/formats/matrix_data.proto
+            // Discard translation and normalize each basis column; reject degenerate/reflected/sheared input.
+            double[] r=new double[9];
+            for(int column=0;column<3;column++) {
+                int p=column*4,c=column*3;
+                double x=pose[p],y=pose[p+1],z=pose[p+2],norm=Math.sqrt(x*x+y*y+z*z);
+                if(norm<1e-6||norm>1e6) return;
+                r[c]=x/norm; r[c+1]=y/norm; r[c+2]=z/norm;
+            }
+            for(int a=0;a<3;a++) for(int b=a+1;b<3;b++)
+                if(Math.abs(r[a*3]*r[b*3]+r[a*3+1]*r[b*3+1]+r[a*3+2]*r[b*3+2])>.05) return;
+            double determinant=r[0]*(r[4]*r[8]-r[7]*r[5])-r[3]*(r[1]*r[8]-r[7]*r[2])+r[6]*(r[1]*r[5]-r[4]*r[2]);
+            if(determinant<.9) return;
+            // R = Rz(roll) Ry(yaw) Rx(pitch), matching column-major OpenGL post-multiplication below.
+            out[0]=limitDegrees(Math.atan2(r[5],r[8]),45);
+            out[1]=limitDegrees(Math.asin(Math.max(-1,Math.min(1,-r[2]))),65);
+            out[2]=limitDegrees(Math.atan2(r[1],r[0]),40);
+        }
+        private static float limitDegrees(double radians,float limit) {
+            return (float)Math.max(-limit,Math.min(limit,Math.toDegrees(radians)));
+        }
     }
     private void phaseUniforms(int program) {
         GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uCount"),views);
@@ -375,8 +482,15 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,indexBuffer);
         float[] weights=expressions;
         GLES30.glUniform4fv(GLES30.glGetUniformLocation(activeProgram,"uWeights"),1,weights,0);
-        float angle=Float.isNaN(fixedAngle)?(SystemClock.uptimeMillis()%12000)/12000f*360:fixedAngle;
-        Matrix.setIdentityM(model,0); Matrix.rotateM(model,0,angle,0,1,0);
+        Matrix.setIdentityM(model,0);
+        if(runtimeMode&&Float.isNaN(fixedAngle)) {
+            Matrix.rotateM(model,0,runtimeAngles[2],0,0,1);
+            Matrix.rotateM(model,0,runtimeAngles[1],0,1,0);
+            Matrix.rotateM(model,0,runtimeAngles[0],1,0,0);
+        } else {
+            float angle=Float.isNaN(fixedAngle)?(SystemClock.uptimeMillis()%12000)/12000f*360:fixedAngle;
+            Matrix.rotateM(model,0,angle,0,1,0);
+        }
         float aspect=(float)viewWidth/viewHeight;
         int group=multiview?4:1;
         for(int v=0;v<views;v+=group) {
@@ -599,6 +713,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
     }
     synchronized JSONObject summary() throws Exception {
+        if(runtimeMode) return runtimeStatus();
         measuring=false;
         double seconds=lastFrame>firstFrame?(lastFrame-firstFrame)/1e9:0;
         return new JSONObject().put("mode",scene?"scene+interlace":"interlace_only")

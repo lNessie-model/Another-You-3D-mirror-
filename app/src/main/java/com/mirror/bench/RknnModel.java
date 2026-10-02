@@ -23,10 +23,17 @@ final class RknnModel implements AutoCloseable {
     static void crop(Bitmap image,ByteBuffer target,int size,float cx,float cy,float side,float rotation,float mean,float std) {
         cropNative(image,target,size,cx,cy,side,rotation,mean,std);
     }
+    static void cropOptimized(Bitmap image,ByteBuffer target,int size,float cx,float cy,float side,float rotation,float mean,float std) {
+        cropNative(image,target,size,cx,cy,side,rotation,mean,std);
+    }
+    static void cropReference(Bitmap image,ByteBuffer target,int size,float cx,float cy,float side,float rotation,float mean,float std) {
+        cropReferenceNative(image,target,size,cx,cy,side,rotation,mean,std);
+    }
     @Override public synchronized void close() { if(handle!=0) { closeNative(handle); handle=0; } }
     private static native long openNative(String path);
     private static native String infoNative(long handle);
     private static native float[][] runNative(long handle,ByteBuffer input);
     private static native void closeNative(long handle);
     private static native void cropNative(Bitmap image,ByteBuffer target,int size,float cx,float cy,float side,float rotation,float mean,float std);
+    private static native void cropReferenceNative(Bitmap image,ByteBuffer target,int size,float cx,float cy,float side,float rotation,float mean,float std);
 }

@@ -75,12 +75,15 @@ final class FacePostGraph implements AutoCloseable {
     }
     float[][] process(float[] xyz,int width,int height,long timestampMs) {
         weights=null; pose=null; filtered=null;
-        Packet lm=creator.createMatrix(1,xyz.length,xyz),size=creator.createInt32Pair(width,height);
-        try {
-            graph.addPacketToInputStream("coords",lm,timestampMs*1000);
-            graph.addPacketToInputStream("size",size,timestampMs*1000);
-            graph.waitUntilGraphIdle();
-        } finally { lm.release(); size.release(); }
+        Packet lm=creator.createMatrix(1,xyz.length,xyz);
+        try(ResourceCleanup.Release releaseLandmarks=lm::release) {
+            Packet size=creator.createInt32Pair(width,height);
+            try(ResourceCleanup.Release releaseSize=size::release) {
+                graph.addPacketToInputStream("coords",lm,timestampMs*1000);
+                graph.addPacketToInputStream("size",size,timestampMs*1000);
+                graph.waitUntilGraphIdle();
+            }
+        }
         if(weights==null||weights.length!=52||pose==null||pose.length!=16||filtered==null||filtered.length!=1434)
             throw new IllegalStateException("Incomplete CPU blendshape/pose outputs");
         return new float[][] {weights,pose,filtered};

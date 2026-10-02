@@ -95,15 +95,18 @@ public final class CameraBenchActivity extends Activity {
         boolean rga="rga".equals(getIntent().getStringExtra("conversion_backend"));
         boolean nativePacking=getIntent().getBooleanExtra("native_packing",false);
         boolean npuPipeline=getIntent().getBooleanExtra("npu_pipeline",false);
+        boolean referenceCrop=getIntent().getBooleanExtra("crop_reference",false);
         java.util.concurrent.atomic.AtomicInteger asyncFaces=new java.util.concurrent.atomic.AtomicInteger();
         FrameInput camera=null; YuvConverter converter=null; FaceLandmarker task=null; MPImage image=null;
         NpuFacePipeline npu=null; Bitmap inferenceBitmap=null;
         FrameInput referenceFrames=null; YuvConverter referenceConverter=null;
         ArrayList<Double> conversion=new ArrayList<>(),inferenceMs=new ArrayList<>(),queueAge=new ArrayList<>();
         ArrayList<Double> referenceConversion=new ArrayList<>();
+        Throwable failure=null;
         try {
             if(seconds<1||seconds>600||targetFps<0) throw new IllegalArgumentException("Invalid measurement duration/rate");
             if(npuPipeline&&!"RKNN".equals(delegate)) throw new IllegalArgumentException("NPU pipeline requires RKNN backend");
+            if(referenceCrop&&!"RKNN".equals(delegate)) throw new IllegalArgumentException("Reference crop requires RKNN backend");
             if(referenceFace&&(replay||!inference))
                 throw new IllegalArgumentException("Recorded face reference requires live camera plus inference");
             if(convert) {
@@ -135,6 +138,7 @@ public final class CameraBenchActivity extends Activity {
                 if("RKNN".equals(delegate)) {
                     if(rotation!=0) throw new IllegalArgumentException("RKNN benchmark currently requires rotation=0");
                     npu=new NpuFacePipeline(this);
+                    npu.setReferenceCrop(referenceCrop);
                 } else {
                 BaseOptions base=BaseOptions.builder().setModelAssetPath("face_landmarker.task")
                         .setDelegate(Delegate.valueOf(delegate)).build();
@@ -279,16 +283,31 @@ public final class CameraBenchActivity extends Activity {
             if(!result.getJSONObject(replay?"replay":"camera").getString("error").isEmpty()||consumed==0)
                 result.put("status","error").put("error","Camera input failed");
         } catch(Throwable error) {
+            failure=error;
             Log.e("MirrorBench","Camera benchmark failed",error);
             try { result.put("status","error").put("error",error.toString()); } catch(Exception ignored) {}
         } finally {
-            if(camera!=null) camera.close();
-            if(task!=null) task.close();
-            if(npu!=null) npu.close();
-            if(image!=null) image.close();
-            if(converter!=null) converter.close();
-            if(referenceFrames!=null) referenceFrames.close();
-            if(referenceConverter!=null) referenceConverter.close();
+            ResourceCleanup cleanup=new ResourceCleanup(failure);
+            cleanup.close("camera",camera==null?null:camera::close);
+            cleanup.close("face_landmarker",task==null?null:task::close);
+            cleanup.close("npu_pipeline",npu==null?null:npu::close);
+            cleanup.close("image",image==null?null:image::close);
+            cleanup.close("converter",converter==null?null:converter::close);
+            cleanup.close("reference_frames",referenceFrames==null?null:referenceFrames::close);
+            cleanup.close("reference_converter",referenceConverter==null?null:referenceConverter::close);
+            if(!cleanup.errors().isEmpty()) {
+                try {
+                    result.put("status","error");
+                    // Preserve both caught exceptions and previously reported camera/render errors.
+                    if(result.optString("error").isEmpty()) result.put("error",cleanup.failure().toString());
+                    JSONArray errors=new JSONArray();
+                    for(ResourceCleanup.Failure entry:cleanup.errors()) {
+                        errors.put(new JSONObject().put("resource",entry.resource()).put("error",entry.error().toString()));
+                        Log.e("MirrorBench","Cleanup failed: "+entry.resource(),entry.error());
+                    }
+                    result.put("cleanup_errors",errors);
+                } catch(Exception error) { Log.e("MirrorBench","Record cleanup errors failed",error); }
+            }
         }
         try {
             result.put("run_id",runId).put("delegate",delegate).put("analysis_target_fps",targetFps)
@@ -299,6 +318,15 @@ public final class CameraBenchActivity extends Activity {
             result.put("packing_backend",nativePacking?"native direct-plane packing; Java fallback for heap planes":"bulk Java plane rows");
             result.put("face_input",referenceFace?"recorded face video; live USB camera capture/conversion also running":portrait?"controlled official portrait fitted to camera dimensions":replay?"recorded camera frames":"real camera frames")
                     .put("condition",referenceFace?"Live USB acquisition, native MJPEG decode and conversion, plus separately converted recorded face video for complete moving-face load":portrait?"Real camera capture and conversion; independent fixed face for full-landmark load":replay?"Paced recorded face clip; excludes camera acquisition and decode":"Real camera input; inspect face_fraction for complete face load");
+        } catch(Exception error) {
+            Log.e("MirrorBench","Finalize camera result failed",error);
+            try {
+                result.put("status","error");
+                if(result.optString("error").isEmpty()) result.put("error",error.toString());
+            } catch(Exception ignored) {}
+        }
+        // Attempt persistence even if metadata or cleanup diagnostics failed.
+        try {
             save(runId,result);
             JSONObject compact=new JSONObject(result.toString()); compact.remove("inference_samples_ms"); compact.remove("conversion_samples_ms");
             compact.remove("reference_conversion_samples_ms");

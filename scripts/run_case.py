@@ -15,6 +15,7 @@ parser.add_argument('--analysis-fps',type=int,default=0)
 parser.add_argument('--render-fps',type=int,default=0)
 parser.add_argument('--ui-load',action='store_true')
 parser.add_argument('--npu-pipeline',action='store_true')
+parser.add_argument('--crop-reference',action='store_true',help='Use the original RKNN crop for same-APK comparison')
 parser.add_argument('--orientation',choices=['portrait','landscape'],default='portrait')
 parser.add_argument('--view-width',type=int)
 parser.add_argument('--view-height',type=int)
@@ -72,6 +73,8 @@ if args.view_width is not None or args.view_height is not None:
         parser.error('Explicit view dimensions require both positive camera/replay sizes <=4096')
 if args.orientation=='landscape' and args.input not in ('camera','replay'): parser.error('Landscape requires camera/replay activity')
 if (args.discard_depth or args.verify_discard_depth) and args.input not in ('camera','replay'): parser.error('Depth discard requires camera/replay activity')
+if args.crop_reference and (args.delegate!='RKNN' or args.input not in ('camera','replay')):
+    parser.error('Reference crop requires RKNN camera/replay backend')
 OUT=args.output_dir
 OUT.mkdir(parents=True,exist_ok=True)
 if not re.fullmatch('[a-zA-Z0-9_-]+',args.name): raise ValueError('Invalid run name')
@@ -110,6 +113,7 @@ if args.ui_load:
 if args.npu_pipeline:
     if args.delegate!='RKNN' or args.input not in ('camera','replay'): parser.error('NPU pipeline requires RKNN camera/replay backend')
     panel_extras+=' --ez npu_pipeline true'
+if args.crop_reference: panel_extras+=' --ez crop_reference true'
 if args.input in ('camera','replay'):
     panel_extras+=f' --es orientation {args.orientation} --ez discard_depth {str(args.discard_depth).lower()} --ez verify_discard_depth {str(args.verify_discard_depth).lower()}'
     panel_extras+=f' --ez shared_phase {str(args.shared_phase).lower()} --ez verify_shared_phase {str(args.verify_shared_phase).lower()}'

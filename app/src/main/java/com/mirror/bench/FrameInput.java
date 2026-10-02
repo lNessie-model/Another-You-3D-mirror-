@@ -9,12 +9,19 @@ interface FrameInput extends AutoCloseable {
         final Image image;
         final byte[] nv21;
         final long receivedNs;
-        Frame(Image image) { this(image,null,SystemClock.elapsedRealtimeNanos()); }
-        Frame(byte[] nv21,long receivedNs) { this(null,nv21,receivedNs); }
-        private Frame(Image image,byte[] nv21,long receivedNs) {
-            this.image=image; this.nv21=nv21; this.receivedNs=receivedNs;
+        private final Runnable afterClose;
+        private boolean closed;
+        Frame(Image image) { this(image,null); }
+        Frame(Image image,Runnable afterClose) { this(image,null,SystemClock.elapsedRealtimeNanos(),afterClose); }
+        Frame(byte[] nv21,long receivedNs) { this(null,nv21,receivedNs,null); }
+        private Frame(Image image,byte[] nv21,long receivedNs,Runnable afterClose) {
+            this.image=image; this.nv21=nv21; this.receivedNs=receivedNs; this.afterClose=afterClose;
         }
-        @Override public void close() { if(image!=null) image.close(); }
+        @Override public void close() {
+            synchronized(this) { if(closed) return; closed=true; }
+            try { if(image!=null) image.close(); }
+            finally { if(afterClose!=null) afterClose.run(); }
+        }
     }
     Frame take() throws Exception;
     void beginMeasurement();

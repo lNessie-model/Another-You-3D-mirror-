@@ -7,6 +7,7 @@
 #include <math.h>
 #include <dlfcn.h>
 #include "rknn_api.h"
+#include "face_crop.h"
 
 /* App-local runtime, persistent contexts. No driver or clock changes. */
 typedef struct {
@@ -108,10 +109,10 @@ JNIEXPORT void JNICALL Java_com_mirror_bench_RknnModel_closeNative(JNIEnv *e,jcl
     (void)e;(void)c; cleanup((Model*)(intptr_t)h);
 }
 
-/* MediaPipe OpenCV CPU crop convention: ROI corners map to (0,0),(size,size). */
-JNIEXPORT void JNICALL Java_com_mirror_bench_RknnModel_cropNative(JNIEnv *e,jclass c,jobject bitmap,jobject target,
+/* Shared validation/locking for both implementations; no model context is needed. */
+static void crop_bitmap(JNIEnv *e,jobject bitmap,jobject target,int reference,
         jint size,jfloat cx,jfloat cy,jfloat side,jfloat rotation,jfloat mean,jfloat std) {
-    (void)c; AndroidBitmapInfo info; void *pixels=NULL;
+    AndroidBitmapInfo info; void *pixels=NULL;
     float *out=(*e)->GetDirectBufferAddress(e,target);
     if(!out||size<1||size>1024||(*e)->GetDirectBufferCapacity(e,target)!=(jlong)size*size*3*4
             ||!isfinite(cx)||!isfinite(cy)||!isfinite(side)||side<=0||!isfinite(rotation)||!isfinite(mean)||!isfinite(std)||std<=0
@@ -119,20 +120,16 @@ JNIEXPORT void JNICALL Java_com_mirror_bench_RknnModel_cropNative(JNIEnv *e,jcla
         fail(e,"Invalid crop input"); return;
     }
     if(AndroidBitmap_lockPixels(e,bitmap,&pixels)) { fail(e,"Cannot lock crop bitmap"); return; }
-    float cs=cosf(rotation),sn=sinf(rotation);
-    for(int y=0;y<size;y++) for(int x=0;x<size;x++) {
-        float u=(x/(float)size-.5f)*side,v=(y/(float)size-.5f)*side;
-        float px=cx+cs*u-sn*v,py=cy+sn*u+cs*v;
-        int ix=(int)floorf(px),iy=(int)floorf(py); float dx=px-ix,dy=py-iy;
-        float rgb[3]={0};
-        for(int j=0;j<2;j++) for(int k=0;k<2;k++) {
-            int sx=ix+k,sy=iy+j;
-            if(sx<0||sy<0||sx>=(int)info.width||sy>=(int)info.height) continue;
-            uint8_t *p=(uint8_t*)pixels+sy*info.stride+sx*4;
-            float w=(k?dx:1-dx)*(j?dy:1-dy);
-            for(int ch=0;ch<3;ch++) rgb[ch]+=p[ch]*w;
-        }
-        for(int ch=0;ch<3;ch++) *out++=(roundf(rgb[ch])-mean)/std;
-    }
+    if(reference) mirror_crop_reference(pixels,(int)info.width,(int)info.height,(int)info.stride,out,size,cx,cy,side,rotation,mean,std);
+    else mirror_crop_optimized(pixels,(int)info.width,(int)info.height,(int)info.stride,out,size,cx,cy,side,rotation,mean,std);
     AndroidBitmap_unlockPixels(e,bitmap);
+}
+/* MediaPipe OpenCV CPU crop convention: ROI corners map to (0,0),(size,size). */
+JNIEXPORT void JNICALL Java_com_mirror_bench_RknnModel_cropNative(JNIEnv *e,jclass c,jobject bitmap,jobject target,
+        jint size,jfloat cx,jfloat cy,jfloat side,jfloat rotation,jfloat mean,jfloat std) {
+    (void)c; crop_bitmap(e,bitmap,target,0,size,cx,cy,side,rotation,mean,std);
+}
+JNIEXPORT void JNICALL Java_com_mirror_bench_RknnModel_cropReferenceNative(JNIEnv *e,jclass c,jobject bitmap,jobject target,
+        jint size,jfloat cx,jfloat cy,jfloat side,jfloat rotation,jfloat mean,jfloat std) {
+    (void)c; crop_bitmap(e,bitmap,target,1,size,cx,cy,side,rotation,mean,std);
 }

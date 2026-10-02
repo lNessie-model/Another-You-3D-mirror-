@@ -23,12 +23,17 @@ final class NpuFacePipeline implements AutoCloseable {
     private File modelDirectory;
     private final boolean smoothing;
     private boolean resetPost;
+    private boolean referenceCrop,processingStarted;
     private final ByteBuffer detectorInput=RknnModel.buffer(128*128*3),meshInput=RknnModel.buffer(256*256*3);
     private float[] roi;
     private int detections,meshCalls,postCalls;
     private double cropNs,detectorNs,meshNs,postNs,completionNs;
     private File dumpDirectory;
     void dumpTo(File directory) { dumpDirectory=directory; }
+    void setReferenceCrop(boolean enabled) {
+        if(processingStarted) throw new IllegalStateException("Choose crop implementation before processing frames");
+        referenceCrop=enabled;
+    }
     void beginMeasurement() { drain(); detections=0; meshCalls=0; postCalls=0; cropNs=0; detectorNs=0; meshNs=0; postNs=0; completionNs=0; }
     private void dump(String model,ByteBuffer input,float[][] output,JSONObject info) {
         if(dumpDirectory==null) return;
@@ -87,12 +92,13 @@ final class NpuFacePipeline implements AutoCloseable {
         } finally { pendingPost=null; if(interrupted) Thread.currentThread().interrupt(); }
     }
     private Raw detectRaw(Bitmap image,long timestamp,boolean tracking) {
+        processingStarted=true;
         long started=SystemClock.elapsedRealtimeNanos();
         int w=image.getWidth(),h=image.getHeight();
         if(!tracking) roi=null;
         if(roi==null) {
             float side=Math.max(w,h); long before=SystemClock.elapsedRealtimeNanos();
-            RknnModel.crop(image,detectorInput,128,w*.5f,h*.5f,side,0,127.5f,127.5f);
+            crop(image,detectorInput,128,w*.5f,h*.5f,side,0,127.5f,127.5f);
             cropNs+=SystemClock.elapsedRealtimeNanos()-before;
             before=SystemClock.elapsedRealtimeNanos(); float[][] output=detector.run(detectorInput);
             detectorNs+=SystemClock.elapsedRealtimeNanos()-before; detections++;
@@ -101,7 +107,7 @@ final class NpuFacePipeline implements AutoCloseable {
             if(roi==null) return null;
         }
         long before=SystemClock.elapsedRealtimeNanos();
-        RknnModel.crop(image,meshInput,256,roi[0],roi[1],roi[2],roi[3],0,255);
+        crop(image,meshInput,256,roi[0],roi[1],roi[2],roi[3],0,255);
         cropNs+=SystemClock.elapsedRealtimeNanos()-before;
         before=SystemClock.elapsedRealtimeNanos(); float[][] output=mesh.run(meshInput);
         meshNs+=SystemClock.elapsedRealtimeNanos()-before; meshCalls++;
@@ -127,6 +133,10 @@ final class NpuFacePipeline implements AutoCloseable {
         roi=nextRoi(xyz,w,h);
         boolean reset=resetPost; resetPost=false;
         return new Raw(xyz,w,h,timestamp,presence,reset,started);
+    }
+    private void crop(Bitmap image,ByteBuffer target,int size,float cx,float cy,float side,float rotation,float mean,float std) {
+        if(referenceCrop) RknnModel.cropReference(image,target,size,cx,cy,side,rotation,mean,std);
+        else RknnModel.crop(image,target,size,cx,cy,side,rotation,mean,std);
     }
     private Detection process(Raw raw) {
         long before=SystemClock.elapsedRealtimeNanos();
@@ -180,6 +190,7 @@ final class NpuFacePipeline implements AutoCloseable {
     JSONObject summary() throws Exception {
         drain();
         return new JSONObject().put("backend","RKNN 1.3 direct NPU detector + 478 landmarks; MediaPipe CPU 52 blendshapes + canonical pose")
+                .put("crop_implementation",referenceCrop?"scalar_reference":"precomputed_u_row_v_inbounds_unrolled")
                 .put("scheduling",pipelined?"NPU image network overlaps previous CPU post; one outstanding CPU job, immediate ordered callbacks":"Synchronous NPU then CPU post")
                 .put("max_pending_cpu_jobs",pipelined?1:0)
                 .put("detector",detector.info).put("mesh",mesh.info).put("detector_calls",detections).put("mesh_calls",meshCalls).put("post_calls",postCalls)
