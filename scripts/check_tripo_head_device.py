@@ -13,8 +13,14 @@ BASE_SHA='21ee8a3d11e94c0ac399740364f4ba235ceea8b54d177d9bfcda44b56b01b3da'
 parser=argparse.ArgumentParser(description='Reversible app-private head diagnostic; does not select a stored avatar')
 parser.add_argument('--head',type=Path,default=Path(r'E:\tripo\assets\mirror-models-20261003\heads-v1\geralt-rig-stage1'))
 parser.add_argument('--benchmark-seconds',type=int,default=0,choices=[0,60,90,180],help='Optional complete-face replay plus actual head interlacing, separate from diagnostic readbacks')
+parser.add_argument('--avatar-batched',action='store_true',help='Compare the existing opt-in packed draw backend in the optional benchmark')
+parser.add_argument('--active-target-fps',type=int,default=31,choices=[31,35],help='Existing debug frame-pacing override; never saves preferences')
 args=parser.parse_args();HEAD=args.head.resolve()
+if args.avatar_batched and not args.benchmark_seconds:parser.error('Batch experiment requires a runtime benchmark')
 assert (HEAD/'character.glb').is_file() and (HEAD/'avatar.json').is_file()
+HEAD_MANIFEST=json.loads((HEAD/'avatar.json').read_text('utf-8'))
+assert HEAD_MANIFEST['model']=='character.glb'
+assert HEAD_MANIFEST['modelSha256']==hashlib.sha256((HEAD/'character.glb').read_bytes()).hexdigest()
 OUT=ROOT/'app/build'/('v22-albedo-device-'+str(uuid.uuid4()));OUT.mkdir()
 PIN=Path(r'E:\tripo\output\mirror-program\20261004');PIN.mkdir(parents=True,exist_ok=True)
 CANDIDATE=PIN/('AvatarRuntime-v22-albedo-'+OUT.name[-36:]+'.apk')
@@ -22,6 +28,7 @@ shutil.copyfile(ROOT/'app/build/outputs/apk/debug/app-debug.apk',CANDIDATE)
 def sha(data):return hashlib.sha256(data).hexdigest()
 assert sha(BASE.read_bytes())==BASE_SHA
 commands=[];report={'started_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'candidate_apk':str(CANDIDATE),'candidate_sha256':sha(CANDIDATE.read_bytes()),'head_sha256':sha((HEAD/'character.glb').read_bytes()),'passed':False,'rollback_verified':False,'scope':'Actual-board preview and private-head 9-pose driver smoke gates; optional complete-face joint runtime benchmark reported separately. Artwork acceptance remains false.'}
+report.update(head_source=str(HEAD),manifest_sha256=sha((HEAD/'avatar.json').read_bytes()),normal_policy=HEAD_MANIFEST['normalPolicy'])
 def save():
     (OUT/'audit.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),'utf-8')
     (OUT/'commands.json').write_text(json.dumps(commands,ensure_ascii=False,indent=2),'utf-8')
@@ -90,7 +97,8 @@ try:
         report['passed']=False;save()
         runtime=OUT/'runtime';name='head16-npu-'+str(args.benchmark_seconds)+'s'
         argv=[sys.executable,'-X','utf8','-B',str(ROOT/'scripts/run_runtime_check.py'),'--name',name,'--input','replay','--seconds',str(args.benchmark_seconds),'--output-dir',str(runtime),
-              '--private-head','--npu-blendshapes','--view-count','16','--view-preset','400x640','--persistent-fbos','--active-target-fps','31']
+              '--private-head','--npu-blendshapes','--view-count','16','--view-preset','400x640','--persistent-fbos','--active-target-fps',str(args.active_target_fps)]
+        if args.avatar_batched:argv.append('--avatar-batched')
         (OUT/'runtime-command.json').write_text(json.dumps(argv,ensure_ascii=False,indent=2),'utf-8')
         with (OUT/'runtime-stdout.log').open('wb') as stdout,(OUT/'runtime-stderr.log').open('wb') as stderr:
             process=subprocess.run(argv,cwd=ROOT,stdout=stdout,stderr=stderr,timeout=args.benchmark_seconds+180)
@@ -103,9 +111,14 @@ try:
             renderer=value['renderer'];avatar=renderer['avatar']
             assert avatar['model_sha256']==report['head_sha256'],'Runtime rendered a different model'
             assert renderer['avatar_source']=='private_head_test','Runtime used stored/builtin fallback'
+            assert avatar['normal_policy']==HEAD_MANIFEST['normalPolicy'],'Runtime used a different normal policy'
+            assert renderer['avatar_batched_requested']==args.avatar_batched and avatar['draw_backend']==('batched' if args.avatar_batched else 'individual'),'Wrong draw backend'
+            assert renderer['render_target_fps']==args.active_target_fps,'Wrong frame-pacing experiment'
             assert value['view_count']==16 and value['metrics']['landmarks']==478 and value['metrics']['blendshapes']==52,'Incomplete runtime workload'
         assert active[-1]['status_sequence']>active[0]['status_sequence'],'Runtime did not advance'
-        report['runtime_measurement']=str(runtime/(name+'.json'));report['performance_measured']=True;report['passed']=True;save()
+        report['runtime_measurement']=str(runtime/(name+'.json'));report['performance_measured']=True
+        report['meets_30_fps']=measurement['presentation']['meets_30_fps'];report['draw_backend']='batched' if args.avatar_batched else 'individual'
+        report['passed']=True;save()
 except Exception as error:
     report['error']=str(error);save()
 finally:

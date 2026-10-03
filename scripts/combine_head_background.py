@@ -8,7 +8,7 @@ import argparse,copy,hashlib,json,struct
 import numpy as np
 from tripo_head_adapter import Glb,rotate_x_front
 
-def combine(head_dir,background,out):
+def combine(head_dir,background,out,background_mesh=None,static_fit=None):
     head_dir=Path(head_dir);background=Path(background);out=Path(out)
     if out.exists():raise FileExistsError('Preserve prior combined asset')
     h=Glb(head_dir/'character.glb');bg=Glb(background);doc=copy.deepcopy(h.doc)
@@ -16,11 +16,24 @@ def combine(head_dir,background,out):
     assert len(bg.doc['meshes'])==1 and len(bg.doc['meshes'][0]['primitives'])==1
     assert doc['nodes'][0]['name']=='Root' and doc['nodes'][1]['name']=='Head'
     pr=bg.doc['meshes'][0]['primitives'][0]
-    p=rotate_x_front(bg.read(pr['attributes']['POSITION'])).astype(float)
-    n=rotate_x_front(bg.read(pr['attributes']['NORMAL'])).astype(float)
+    if background_mesh:
+        data=np.load(background_mesh,allow_pickle=False)
+        assert str(data['source_sha256'])==hashlib.sha256(bg.raw).hexdigest(),'LOD is for a different source'
+        p=rotate_x_front(data['positions']).astype(float);n=rotate_x_front(data['normals']).astype(float)
+        colour=bg.sample_base_colour(data['uv'],pr['material']);ids=data['indices'].reshape(-1)
+    else:
+        p=rotate_x_front(bg.read(pr['attributes']['POSITION'])).astype(float)
+        n=rotate_x_front(bg.read(pr['attributes']['NORMAL'])).astype(float)
+        colour=bg.bake_base_colour(pr);ids=bg.read(pr['indices']).reshape(-1)
+    assert len(p)==len(n)==len(colour) and ids.max()<len(p) and np.isfinite(p).all() and np.isfinite(n).all()
     scale=.40/np.ptp(p[:,1]);p*=scale;p[:,0]-=(p[:,0].min()+p[:,0].max())/2;p[:,1]-=(p[:,1].min()+p[:,1].max())/2
     p[:,2]*=.28;p[:,2]-=.14;n[:,2]/=.28;n/=np.linalg.norm(n,axis=1)[:,None]
-    colour=bg.bake_base_colour(pr);ids=bg.read(pr['indices']).reshape(-1)
+    visibility=None
+    if static_fit:
+        from static_view_mesh import visible_subset
+        camera=json.loads(Path(static_fit).read_text('utf-8-sig'))
+        assert camera['displayAspect']==.625 and camera['cameraDistance']==3 and camera['maxEyeOffset']==.2
+        p,n,colour,ids,visibility=visible_subset(p,n,colour,ids,camera['fitMatrix'])
     original_vertices=sum(h.doc['accessors'][r['attributes']['POSITION']]['count'] for m in h.doc['meshes'] for r in m['primitives'])
     assert original_vertices+len(p)<=20000
     binary=bytearray(h.raw[h.start:h.start+doc['buffers'][0]['byteLength']])
@@ -44,9 +57,9 @@ def combine(head_dir,background,out):
     manifest=json.loads((head_dir/'avatar.json').read_text('utf-8'));manifest['id']+='-background';manifest['displayName']+='＋静态背景';manifest['modelSha256']=hashlib.sha256(raw).hexdigest()
     (out/'avatar.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),'utf-8')
     report={'head_source':str(head_dir),'head_sha256':hashlib.sha256(h.raw).hexdigest(),'background_source':str(background),'background_sha256':hashlib.sha256(bg.raw).hexdigest(),'sha256':manifest['modelSha256'],
-        'total_vertices':original_vertices+len(p),'background_vertices':len(p),'background_triangles':len(ids)//3,'background_height_m':.40,'background_depth_scale':.28,'background_z_offset_m':-.14,'head_binary_prefix_identical':True,'background_parent':'Root','new_textures':0,'artistAccepted':False,
+        'total_vertices':original_vertices+len(p),'background_vertices':len(p),'background_triangles':len(ids)//3,'background_mesh':str(background_mesh) if background_mesh else None,'static_visibility':visibility,'background_height_m':.40,'background_depth_scale':.28,'background_z_offset_m':-.14,'head_binary_prefix_identical':True,'background_parent':'Root','new_textures':0,'artistAccepted':False,
         'scope':'Static architecture vertex-colour candidate, source normals adjusted for depth compression. Head atlas and morph data retained byte-for-byte. Prop detail/visual framing and combined performance require separate device checks.'}
     (out/'combine-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),'utf-8');return report
 
 if __name__=='__main__':
-    a=argparse.ArgumentParser();a.add_argument('--head',required=True);a.add_argument('--background',required=True);a.add_argument('--out',required=True);v=a.parse_args();print(json.dumps(combine(v.head,v.background,v.out),ensure_ascii=False,indent=2))
+    a=argparse.ArgumentParser();a.add_argument('--head',required=True);a.add_argument('--background',required=True);a.add_argument('--out',required=True);a.add_argument('--background-mesh');a.add_argument('--static-fit');v=a.parse_args();print(json.dumps(combine(v.head,v.background,v.out,v.background_mesh,v.static_fit),ensure_ascii=False,indent=2))
