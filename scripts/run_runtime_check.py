@@ -5,6 +5,7 @@ confirmed INTERACTIVE intervals. Callback FPS and session counters are not subst
 """
 import argparse
 import json
+import math
 import re
 import shlex
 import time
@@ -16,6 +17,53 @@ PACKAGE = "com.mirror.bench"
 COMPONENT = PACKAGE + "/.MirrorActivity"
 STATUS_FILE = "files/mirror-runtime-status.json"
 BOUNDARY_NS = 34_000_000  # One 30 FPS frame, matching run_case's conservative boundary allowance.
+JOURNAL_RECORD_BYTES = 1 << 20
+JOURNAL_TOTAL_BYTES = 1024 << 20
+JOURNAL_RECORDS = 22000
+STATUS_STALE_SECONDS = 15  # App reports every 5s; allow the 2s poll cadence and ordinary report latency.
+
+
+class PollJournal:
+    """Exclusive, bounded raw collector journal; flush is not a power-loss guarantee."""
+    def __init__(self, path):
+        self.stream = path.open("xb")
+        self.bytes_written = self.records = 0
+
+    def append(self, row):
+        encoded = json.dumps(row, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8") + b"\n"
+        if (len(encoded) > JOURNAL_RECORD_BYTES or self.bytes_written + len(encoded) > JOURNAL_TOTAL_BYTES
+                or self.records >= JOURNAL_RECORDS):
+            raise ValueError("Collector journal size/record budget exceeded")
+        if self.stream.write(encoded) != len(encoded):
+            raise OSError("Short collector journal write")
+        self.stream.flush()
+        self.bytes_written += len(encoded)
+        self.records += 1
+
+    def close(self):
+        self.stream.close()
+
+
+def poll_progress(point, latest_status, device_clock, layer, history_present, expected_pause):
+    """Constant-size observations from this poll and latest accepted status; no online FPS verdict."""
+    def number(value):
+        return value if type(value) in (int, float) and abs(value) <= 1e15 and math.isfinite(value) else None
+
+    status = latest_status or {}
+    renderer = status.get("renderer", {})
+    source = status.get("source", {})
+    renderer = renderer if isinstance(renderer, dict) else {}
+    source = source if isinstance(source, dict) else {}
+    updated = status.get("updated_elapsed_ns")
+    delta = device_clock - updated if type(device_clock) is int and type(updated) is int else None
+    age = delta / 1e9 if delta is not None and abs(delta) <= 1e18 else None
+    return dict(status_age_seconds=number(age), status_clock_precedes_update=age is not None and age < 0,
+                status_stale_threshold_seconds=STATUS_STALE_SECONDS, clock_precision_seconds=.01,
+                status_sequence=number(status.get("status_sequence")), view_count=number(status.get("view_count")),
+                renderer_frames=number(renderer.get("frames")), source_received_images=number(source.get("received_images")),
+                source_received_fps=number(source.get("received_fps")), source_capture_fps=number(source.get("capture_fps")),
+                temperature_c=number(point.get("temperature_c")), latest_sample_host_monotonic_s=number(point.get("host_monotonic_s")),
+                surface_layer_present=bool(layer), surface_history_present=bool(history_present), expected_pause=bool(expected_pause))
 
 
 def surface_layer_candidates(text):
@@ -360,6 +408,8 @@ def arguments():
     parser.add_argument("--name", required=True)
     parser.add_argument("--input", choices=("camera", "replay", "camera_replay"), default="camera")
     parser.add_argument("--seconds", type=int, default=60)
+    parser.add_argument("--checkpoint-seconds", type=int, default=60,
+                        help="Full JSON checkpoint period 0..3600; 0 disables intermediate full saves and enables exclusive incremental .polls.jsonl")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--blackout-after", type=int, default=0)
     parser.add_argument("--blackout-seconds", type=int, default=0)
@@ -378,6 +428,8 @@ def arguments():
         parser.error("Invalid run name")
     if not 20 <= args.seconds <= 7200:
         parser.error("--seconds must be 20..7200")
+    if not 0 <= args.checkpoint_seconds <= 3600:
+        parser.error("--checkpoint-seconds must be 0..3600")
     if not 0 <= args.blackout_after <= 3600 or not 0 <= args.blackout_seconds <= 60:
         parser.error("Invalid blackout timing")
     if (args.blackout_after or args.blackout_seconds) and (args.input == "camera" or not args.blackout_seconds
@@ -398,10 +450,46 @@ def run(args):
                    status_reads=reads, collection_errors=failures, collection_status="starting")
     payload["collector_policy"] = "non-waiting launch; discover/query surface in same poll before resource dumps; final snapshot before independent force-stop"
     probes = payload["surface_probes"] = []
+    markers = payload["observation_markers"] = []
     authorized_device, started, layer = False, None, ""
     seen_status, launch_elapsed = set(), None
+    checkpoint_seconds = getattr(args, "checkpoint_seconds", 60)
+    journal = None
+    if checkpoint_seconds == 0:
+        journal_path = destination.with_suffix(".polls.jsonl")
+        try:
+            if destination.exists():
+                raise FileExistsError("Existing full report")
+            journal = PollJournal(journal_path)
+        except OSError as error:
+            print("FAILED journal creation", str(error), flush=True)
+            return 1  # No device authorization/actions; preserve all pre-existing evidence.
+        payload["poll_journal"] = dict(path=str(journal_path), schema_version=1, failed=False,
+                                       record_byte_limit=JOURNAL_RECORD_BYTES, total_byte_limit=JOURNAL_TOTAL_BYTES,
+                                       record_limit=JOURNAL_RECORDS, durability="flush; no fsync/power-loss guarantee")
+    deltas = dict(samples=samples, statuses=statuses, surface_windows=windows, host_actions=actions,
+                  status_reads=reads, surface_probes=probes, collection_errors=failures, observation_markers=markers)
+    cursors = {key: 0 for key in deltas}
+    journal_failed = False
+    latest_status, latest_point = None, {}
+
+    def emit(kind, **extra):
+        nonlocal journal_failed
+        if journal is None or journal_failed:
+            return
+        row = dict(kind=kind, host_epoch_s=time.time(), host_monotonic_s=time.monotonic(),
+                   collection_status=payload["collection_status"],
+                   delta={key: values[cursors[key]:] for key, values in deltas.items()}, **extra)
+        try:
+            journal.append(row)
+        except Exception:
+            journal_failed = payload["poll_journal"]["failed"] = True
+            raise
+        for key, values in deltas.items():
+            cursors[key] = len(values)
 
     def read_status(text, poll_start, reason):
+        nonlocal latest_status
         read = dict(host_monotonic_s=poll_start, reason=reason, raw=text)
         reads.append(read)
         try:
@@ -416,6 +504,8 @@ def run(args):
             else:
                 current["host_observed_monotonic_s"] = poll_start
                 statuses.append(current); seen_status.add(stamp); read["result"] = "new"
+            if read["result"] in ("new", "duplicate") and statuses:
+                latest_status = statuses[-1]
         except (json.JSONDecodeError, AttributeError) as error:
             read["result"], read["error"] = "unavailable", str(error)
         return read
@@ -437,6 +527,7 @@ def run(args):
             raise
         finally:
             probe["host_end_monotonic_s"] = time.monotonic()
+            emit("surface_discovery")
 
     def final_snapshot():
         # Discovery/history/status reads may fail; the caller always executes the
@@ -461,6 +552,7 @@ def run(args):
                             raw=parts.get("SURFACE", ""), raw_snapshot=raw))
         if not stamps or clock is None or read["result"] not in ("new", "duplicate"):
             failures.append(dict(scope="final_snapshot", error="Incomplete final status/surface/clock snapshot", raw=raw))
+        emit("final_snapshot", raw_poll=raw, command="; ".join(commands))
 
     def save():
         payload.update(analyze_run(samples, statuses, windows, actions))
@@ -522,6 +614,7 @@ def run(args):
         finally:
             row["host_end_monotonic_s"] = time.monotonic()
             print(name.upper(), row.get("output", row.get("error", "")), flush=True)
+            emit("action")
 
     extras = (f" --es runtime_input {args.input} --ei test_blackout_after_s {args.blackout_after}"
               f" --ei test_blackout_duration_s {args.blackout_seconds}")
@@ -542,14 +635,21 @@ def run(args):
     if args.active_target_fps is not None:
         extras += " --ei test_active_target_fps " + str(args.active_target_fps)
     try:
-        if adb("get-serialno") != SERIAL:
+        emit("header", metadata={key: payload[key] for key in ("schema_version", "serial", "arguments", "collector_policy", "poll_journal") if key in payload})
+        actual_serial = adb("get-serialno")
+        emit("serial_read", raw=actual_serial, command=["get-serialno"])
+        if actual_serial != SERIAL:
             raise RuntimeError("Wrong device serial")
         authorized_device = True
-        paths = adb("shell", "pm path " + PACKAGE).splitlines()
+        raw_paths = adb("shell", "pm path " + PACKAGE)
+        emit("package_path_read", raw=raw_paths, command=["shell", "pm path " + PACKAGE])
+        paths = raw_paths.splitlines()
         package_path = next((line.split(":", 1)[1] for line in paths if line.startswith("package:")), None)
         if not package_path:
             raise RuntimeError("Mirror APK is not installed")
-        checksum = adb("shell", "sha256sum " + shlex.quote(package_path)).split()[0]
+        raw_checksum = adb("shell", "sha256sum " + shlex.quote(package_path))
+        emit("apk_checksum_read", raw=raw_checksum, command=["shell", "sha256sum " + shlex.quote(package_path)])
+        checksum = raw_checksum.split()[0]
         if not re.fullmatch(r"[a-fA-F0-9]{64}", checksum):
             raise RuntimeError("Cannot read installed APK checksum")
         payload["apk_sha256"], payload["apk_path"] = checksum.lower(), package_path
@@ -557,6 +657,7 @@ def run(args):
         # Android 11 can accept a requested speed compile but use quicken for a
         # debuggable package. Preserve the actual package state, not the request.
         payload["app_package_state_before_run"] = adb("shell", "dumpsys package " + PACKAGE, check=False)
+        emit("identity", metadata={key: payload[key] for key in ("apk_sha256", "apk_path", "app_package_state_before_run")})
         action("initial_force_stop", "am force-stop " + PACKAGE)
         action("clear_known_status", f"run-as {PACKAGE} rm -f {STATUS_FILE}")
         # -W waits for the Activity's first drawn window. Capture real startup
@@ -565,7 +666,9 @@ def run(args):
         started = time.monotonic()
         payload["collection_start_host_monotonic_s"] = started
         payload["collection_status"] = "running"
-        last_memory = last_status = last_layers = last_checkpoint = -float("inf")
+        emit("start", metadata=dict(collection_start_host_monotonic_s=started))
+        last_memory = last_status = last_layers = last_checkpoint = last_progress = -float("inf")
+        last_observation = ((), False)
         did_pause, did_resume = False, False
         paused_host = None
         launch_elapsed = actions[-1].get("device_elapsed_before_ns", 0)
@@ -614,8 +717,10 @@ def run(args):
                     if match := re.search(r"TOTAL PSS:\s+(\d+)", point["raw_app_meminfo"]):
                         point["app_pss_kib"] = int(match[1])
                 samples.append(point)
+                latest_point = point
             except (AttributeError, IndexError, KeyError, ValueError) as error:
                 failures.append(dict(host_monotonic_s=poll_start, scope="system_sample", error=str(error), raw=raw))
+            stamps = []
             if queried_layer:
                 refresh, stamps = parse_surface_latency(parts.get("SURFACE", ""))
                 windows.append(dict(layer=queried_layer, host_monotonic_s=poll_start, device_elapsed_ns=device_elapsed,
@@ -623,8 +728,37 @@ def run(args):
             if status_due:
                 read_status(parts.get("STATUS", ""), poll_start, "poll")
                 last_status = poll_start
+            progress = poll_progress(latest_point, latest_status, device_elapsed, queried_layer, bool(stamps), did_pause and not did_resume)
+            warnings = []
+            if elapsed >= 5:
+                if not queried_layer or not stamps:
+                    warnings.append("missing_surface_history")
+                if latest_status is None:
+                    if elapsed >= STATUS_STALE_SECONDS:
+                        warnings.append("status_unavailable")
+                elif progress["status_age_seconds"] is None:
+                    warnings.append("status_clock_unavailable")
+                elif progress["status_age_seconds"] > STATUS_STALE_SECONDS:
+                    warnings.append("stale_status")
+            observation = (tuple(warnings), progress["expected_pause"])
+            if observation != last_observation:
+                marker = dict(host_monotonic_s=poll_start, device_elapsed_ns=device_elapsed,
+                              warnings=warnings, expected_pause=progress["expected_pause"],
+                              unexpected=bool(warnings) and not progress["expected_pause"],
+                              status_age_seconds=progress["status_age_seconds"],
+                              surface_layer_present=bool(queried_layer), surface_history_present=bool(stamps))
+                markers.append(marker)
+                print("OBSERVATION " + json.dumps(marker, separators=(",", ":")), flush=True)
+                last_observation = observation
+            if poll_start - last_progress >= 60:
+                print("PROGRESS " + json.dumps(dict(host_monotonic_s=poll_start, elapsed_seconds=elapsed,
+                      samples=len(samples), accepted_statuses=len(statuses), status_reads=len(reads), warnings=warnings,
+                      **progress), separators=(",", ":")), flush=True)
+                last_progress = poll_start
+            emit("poll", raw_poll=raw, command="; ".join(commands), host_poll_start_s=poll_start,
+                 host_poll_end_s=time.monotonic(), observation=progress)
             # Avoid rewriting an increasingly large two-hour trace every two seconds.
-            if poll_start-last_checkpoint >= 60:
+            if checkpoint_seconds and poll_start-last_checkpoint >= checkpoint_seconds:
                 save()
                 last_checkpoint = poll_start
             if memory_due:
@@ -655,6 +789,21 @@ def run(args):
                     payload["collection_status"] = "failed"
         payload["collection_end_host_monotonic_s"] = time.monotonic()
         payload["actual_collection_seconds"] = time.monotonic()-started if started is not None else 0
+        if journal is not None:
+            try:
+                emit("end", metadata=dict(collection_end_host_monotonic_s=payload["collection_end_host_monotonic_s"],
+                     actual_collection_seconds=payload["actual_collection_seconds"],
+                     phase="after_final_stop_before_full_report_save"))
+            except Exception as error:
+                failures.append(dict(scope="journal_finalize", error=str(error)))
+                payload["collection_status"] = "failed"
+            try:
+                journal.close()
+            except Exception as error:
+                failures.append(dict(scope="journal_close", error=str(error)))
+                payload["collection_status"] = "failed"
+                payload["poll_journal"]["failed"] = True
+            payload["poll_journal"].update(records=journal.records, bytes_written=journal.bytes_written)
         save()
         print(json.dumps(dict(output=str(destination), status=payload["collection_status"],
                               presentation=payload["presentation"], system=payload["system"]), ensure_ascii=False), flush=True)
