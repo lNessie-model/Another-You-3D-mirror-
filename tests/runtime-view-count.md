@@ -1,6 +1,6 @@
 # 16 视点调试档与独立验收入口
 
-主机验证及 SDK 35 javac 检查已完成，**v16 真机角色像素、全屏交织像素及联合负载性能均待执行**。默认仍为 20 视点；这是用户要求“至少 16 视点”的另一工作量档位，16 层比 20 层少 20% 视点工作，不是相同工作量优化，也不能证明 20 视点达到 30 FPS。没有降低模型、关闭面捕、重复中间相机、修改光学参数或把视点数写入用户偏好。
+主机验证及 SDK 35 javac 检查已完成。**v16 真机 69×16 角色层严格 RGBA 零差异、6×4 全屏交织严格 RGB 零差异均通过；legacy/per-frame 的 320×576 和 400×720 两次 90 秒联合测试，完整已确认互动区间分别为 30.457170 / 30.400758 FPS。热态长期验收待执行。** 原始证据、APK/hash、完整计数和尾段限制见 [实机验收](../docs/runtime-view-count-device-validation.md)。默认仍为 20 视点；这是用户要求“至少 16 视点”的另一工作量档位，16 层比 20 层少 20% 视点工作，不是相同工作量优化，也不能证明 20 视点达到 30 FPS。没有降低模型、关闭面捕、重复中间相机、修改光学参数或把视点数写入用户偏好。
 
 ## 运行配置与校准传播
 
@@ -34,7 +34,7 @@ python -m unittest discover -s tests -p test_runtime_metrics.py
 
 ## 真机门 1：真实角色 69×16 层，严格 RGBA 零差异
 
-以下命令由设备负责人顺序执行，本切片未执行。先绑定正确 serial 和本次 APK/hash，保留新 `run_id`，不要读取上次结果作为本次通过证据。
+以下命令已由设备负责人在 v16 APK 执行，独立审查者离线核验完整原始结果通过。复测仍须绑定正确 serial 和本次 APK/hash，保留新 `run_id`，不要读取上次结果作为本次通过证据。
 
 ```powershell
 adb -s <serial> shell am start -n com.mirror.bench/.AvatarPreviewActivity --ez verify_multiview_16 true
@@ -55,6 +55,8 @@ adb -s <serial> exec-out run-as com.mirror.bench cat files/avatar-multiview16-ch
 
 ## 真机门 2：16 视点全屏 CPU/GPU 交织 oracle
 
+已完成 1200×1920 真机检查：24 行、每行 6,912,000 RGB 分量、全部 16 视点覆盖，总 165,888,000 RGB bytes 严格零差异。下面保留复测命令。
+
 ```powershell
 adb -s <serial> shell am start -n com.mirror.bench/.PanelPreviewActivity --ei test_view_count 16 --ez verify true
 adb -s <serial> exec-out run-as com.mirror.bench cat files/panel-pixel16-check.json
@@ -64,18 +66,18 @@ adb -s <serial> exec-out run-as com.mirror.bench cat files/panel-pixel16-check.j
 
 新增每行 `oracle_view_component_counts` 长度必须 16、每项 >0、总和等于 `width*height*3`，`oracle_all_views_reached=true`。总 passed 同时要求所有 24 行均到达全部视点且所有 RGB byte 完全一致，不能只测某个子集而通过。结果每次写入均带实际 `view_count=16`，运行阶段/错误也带 count。20 档仍用 `panel-pixel-check.json`。检查新 run_id/context generation、实际物理宽高、running false、无取消/错误和全部 24 行，不把旧文件或中间阶段当结果。
 
-另沿真实 UI 走维护→校准→预览，确认数字/颜色为 01–16，并在取消返回后主 runtime 仍是 16。保存/默认仍只影响原有校准参数，不产生 view-count 偏好。软件像素门检查的是给定参数的实现，**不会自动证明 pitch/tan/phase 与实屏光学对齐**。
+另需沿真实 UI 走维护→校准→预览，确认数字/颜色为 01–16，并在取消返回后主 runtime 仍是 16；本次直接启动预览的结果不代替该点击流程。保存/默认仍只影响原有校准参数，不产生 view-count 偏好。软件像素门检查的是给定参数的实现，**不会自动证明 pitch/tan/phase 与实屏光学对齐**。
 
 ## 联合负载性能与功能边界
 
 例（由设备负责人执行，所有档位比较必须使用同 APK 与相同其他 flags）：
 
 ```powershell
-python scripts/run_runtime_check.py --name avatar-v16-16views-90s --input camera_replay --seconds 90 --output-dir E:/tripo/output/mirror-program/20261003 --view-count 16 --view-preset 320x576 --active-target-fps 31 --persistent-fbos --cached-camera-vp
+python scripts/run_runtime_check.py --name avatar-v16-16views-90s --input camera_replay --seconds 90 --output-dir E:/tripo/output/mirror-program/20261003 --view-count 16 --view-preset 320x576 --active-target-fps 31
 ```
 
-20 档对照只把 `--view-count` 改为 20；400×720 质量基线只把 `--view-preset` 改为 `400x720`，单独标注，不能混作 320×576 同工作量 FPS。HOME 功能检查可追加 `--pause-at 20 --pause-seconds 8`，必须核实恢复命令/新输入 session、实际 count=16、persistent groups=4、缓存 key/实际模式、帧计数及面捕继续增长。恢复不是强制主 EGL context 丢失证据，本轮没有新增 context-loss 开关。
+以上为已测 legacy/per-frame 配置。20 档对照只把 `--view-count` 改为 20；400×720 质量基线只把 `--view-preset` 改为 `400x720`，单独标注，不能混作 320×576 同工作量 FPS。`--persistent-fbos --cached-camera-vp` 是另行候选，其 16 档组合像素/性能不能沿用本次通过结论。HOME 功能检查可追加 `--pause-at 20 --pause-seconds 8`，必须核实恢复命令/新输入 session、实际 count=16、请求与实际模式、帧计数及面捕继续增长；若明确另测 persistent/cache，再核 groups=4、缓存 key。恢复不是强制主 EGL context 丢失证据，本轮没有新增 context-loss 开关。
 
 报告真实 SurfaceFlinger 呈现，以完整确认的 INTERACTIVE 区间为准；缺状态历史、SF gap 或未确认尾段不得冒称整段持续达标。仍保留完整 USB + 回放面捕、NPU 推理/CPU 表情、52 输入/真实 GLB、相同材质法线与 UI 状态。分别检查 CPU/GPU/NPU、温度/频率、PSS、面捕 fps/新鲜度和所有 errors。target31 桶的 callback 墙钟/细分统计不等同 INTERACTIVE 时间窗，更不是 GPU 独占计时。
 
-90 秒结果只用于筛选；达到短测门后再至少 5 分钟热态，随后真实模型 30 分钟稳定性验证。此前 20 档 v15 均值偶尔超过 30，但首个完整互动区间仍低于 30，且热状态/顺序有影响，不能作为 16 档长期通过证据。
+90 秒结果只用于筛选。追加同 APK 的 16×400×720 / legacy/per-frame / 完整 camera_replay 5 分钟筛查已完成：确认互动 289.910194 秒、30.466463 FPS，9 段全部 ≥30（最低 30.137387），最高温 80.555°C、已有 CPU 降频；3.945310 秒尾段未确认。完整证据见实机验收文档。30 分钟稳定性仍待验证。此前 20 档 v15 均值偶尔超过 30，但首个完整互动区间仍低于 30，且热状态/顺序有影响，不能作为 16 档长期通过证据。
