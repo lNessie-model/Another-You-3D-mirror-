@@ -34,8 +34,17 @@ static const uint32_t tap_elements[TAP_COUNT]={6208,97,97,6208,52};
 static const uint32_t tap_ranks[TAP_COUNT]={4,4,4,4,1};
 static const uint32_t tap_dims[TAP_COUNT][4]={{1,64,1,97},{1,1,1,97},{1,1,1,97},{1,1,97,64},{52,0,0,0}};
 static const unsigned tap_terminal_singleton[TAP_COUNT]={0,0,0,0,0};
+#elif MIRROR_TAP_PROFILE == 3
+#define TAP_TOTAL 24884u
+#define TAP_KIND "fixed_first_layernorm_scale_five_tap_diagnostic"
+static const char *const tap_labels[TAP_COUNT]={"gamma_conv","restore_scale","x_scaled","negative_mean_scaled","final52"};
+static const char *const tap_names[TAP_COUNT]={"diagnostic_scale_gamma","diagnostic_scale_restored","diagnostic_scale_x","diagnostic_scale_negmean","StatefulPartitionedCall:0"};
+static const uint32_t tap_elements[TAP_COUNT]={6208,6208,6208,6208,52};
+static const uint32_t tap_ranks[TAP_COUNT]={4,4,4,4,1};
+static const uint32_t tap_dims[TAP_COUNT][4]={{1,64,97,1},{1,1,97,64},{1,1,97,64},{1,1,97,64},{52,0,0,0}};
+static const unsigned tap_terminal_singleton[TAP_COUNT]={0,0,0,0,0};
 #else
-#error Only fixed front (0), stem (1) and first-LN (2) diagnostic profiles are supported
+#error Only fixed front (0), stem (1), first-LN (2) and scale (3) diagnostic profiles are supported
 #endif
 static int tap_name_is(const rknn_tensor_attr *a,const char *expected){
     return memchr(a->name,0,sizeof(a->name))&&strcmp(a->name,expected)==0;

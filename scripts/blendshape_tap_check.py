@@ -51,10 +51,15 @@ LN_PROFILE=TapProfile('fixed_first_layernorm_five_tap_diagnostic',
     ('diagnostic_ln_token','diagnostic_ln_mean','diagnostic_ln_invstd','diagnostic_ln_affine','StatefulPartitionedCall:0'),
     (6208,97,97,6208,52),([[1,64,1,97]],[[1,1,1,97]],[[1,1,1,97]],[[1,1,97,64]],[[52]]),
     'ln-taps.rknn','ln-taps.onnx',False)
+SCALE_PROFILE=TapProfile('fixed_first_layernorm_scale_five_tap_diagnostic',
+    ('gamma_conv','restore_scale','x_scaled','negative_mean_scaled','final52'),
+    ('diagnostic_scale_gamma','diagnostic_scale_restored','diagnostic_scale_x','diagnostic_scale_negmean','StatefulPartitionedCall:0'),
+    (6208,6208,6208,6208,52),([[1,64,97,1]],[[1,1,97,64]],[[1,1,97,64]],[[1,1,97,64]],[[52]]),
+    'scale-taps.rknn','scale-taps.onnx',False)
 
 
 def profile_for_kind(kind):
-    for profile in (FRONT_PROFILE,STEM_PROFILE,LN_PROFILE):
+    for profile in (FRONT_PROFILE,STEM_PROFILE,LN_PROFILE,SCALE_PROFILE):
         if kind==profile.kind:return profile
     raise ValueError('Unknown fixed tap profile')
 
@@ -66,7 +71,7 @@ def fixed_contract(profile=FRONT_PROFILE):
         outputs=[dict(index=i,label=label,name=profile.names[i],elements=profile.elements[i],
             allowed_runtime_names=[profile.names[i]],allowed_runtime_shapes=[list(s) for s in profile.shapes[i]],allowed_runtime_types=[1],
             want_float=1,returned_bytes=profile.elements[i]*4,device_output_file=f'output-{label}.f32') for i,label in enumerate(profile.labels)])
-    if profile is STEM_PROFILE or profile is LN_PROFILE:
+    if profile in (STEM_PROFILE,LN_PROFILE,SCALE_PROFILE):
         result['output_elements_per_case']=profile.total
         for output in result['outputs']:output['allowed_runtime_formats']=[0,1,3]
     return result
@@ -75,7 +80,7 @@ def fixed_contract(profile=FRONT_PROFILE):
 def validate_contract(c):
     profile=profile_for_kind(c.get('kind'));expected=fixed_contract(profile)
     for key in ('schema_version','kind','case_count','warmup'): require(c.get(key)==expected[key],f'Unknown contract {key}')
-    if profile is STEM_PROFILE or profile is LN_PROFILE:
+    if profile in (STEM_PROFILE,LN_PROFILE,SCALE_PROFILE):
         require(c.get('output_elements_per_case')==profile.total,'Wrong fixed profile capacity')
     for key,value in expected['input'].items(): require(c.get('input',{}).get(key)==value,f'Input contract {key}')
     require(len(c.get('outputs',[]))==5,'Expected exactly five tap outputs')
@@ -133,9 +138,9 @@ def prepare_bundle(source, compilation, compiler_log, validation, model, helper,
     require(errors(load_floats(source/'reference-final52.f32',52),original)['max_absolute_error']<=1e-5,'Diagnostic ONNX failed original FP32 gate')
     require(helper.read_bytes().startswith(b'\x7fELF'),'Helper must be compiled ELF')
     provenance_paths=[contract_path,source/'diagnostic.json',compilation,compiler_log,validation,model,helper,source/profile.graph]
-    if profile is STEM_PROFILE or profile is LN_PROFILE:
+    if profile in (STEM_PROFILE,LN_PROFILE,SCALE_PROFILE):
         metadata_path=helper.parent/'build.json';metadata=read_json(metadata_path)
-        build_profile='stem' if profile is STEM_PROFILE else 'ln'
+        build_profile='stem' if profile is STEM_PROFILE else 'ln' if profile is LN_PROFILE else 'scale'
         require(metadata.get('profile')==build_profile and metadata.get('helper_sha256')==file_sha(helper) and metadata.get('bytes')==helper.stat().st_size,'Requires matching fixed '+build_profile+' helper build metadata')
         provenance_paths.append(metadata_path)
     payload={profile.model:model.read_bytes(),'rknn_tap_probe':helper.read_bytes()}
@@ -259,6 +264,8 @@ def compare_bundle(bundle,evidence,baseline_output=None):
     echo_result=dict(available=False,scope='No input echo in this fixed stem profile; no echo correctness claim')
     if profile is LN_PROFILE:
         echo_result['scope']='No input echo in this fixed first-LN profile; no echo correctness claim'
+    if profile is SCALE_PROFILE:
+        echo_result['scope']='No input echo in this fixed first-LN scale profile; no echo correctness claim'
     if profile.echo:
         echo=inputs.astype('<f2').astype('<f4')
         echo_result=dict(bitwise_equal=actual[0].tobytes()==echo.tobytes(),mismatched_values=int((actual[0].view('<u4')!=echo.view('<u4')).sum()),expected='F32 input -> F16 -> F16 output -> F32, no permutation',metrics=metrics(actual[0],echo))

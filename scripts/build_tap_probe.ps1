@@ -1,11 +1,11 @@
-param([Parameter(Mandatory=$true)][string]$OutputDirectory,[string]$NdkRoot='E:\tripo\native-tools\android-ndk-r25c',[ValidateSet('front','stem','ln')][string]$Profile='front')
+param([Parameter(Mandatory=$true)][string]$OutputDirectory,[string]$NdkRoot='E:\tripo\native-tools\android-ndk-r25c',[ValidateSet('front','stem','ln','scale')][string]$Profile='front')
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path $PSScriptRoot -Parent
 $clang=Join-Path $NdkRoot 'toolchains\llvm\prebuilt\windows-x86_64\bin\clang.exe'
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $binary=Join-Path $OutputDirectory 'rknn_tap_probe'
 if(Test-Path -LiteralPath $binary){throw 'Choose a new isolated helper directory; existing binaries are immutable.'}
-$profileId=switch($Profile){'front'{0};'stem'{1};'ln'{2}}
+$profileId=switch($Profile){'front'{0};'stem'{1};'ln'{2};'scale'{3}}
 & $clang --target=aarch64-linux-android30 -O2 -Wall -Wextra -Werror -fPIE -pie "-DMIRROR_TAP_PROFILE=$profileId" `
  -I (Join-Path $projectRoot 'native\vendor\rknn') (Join-Path $projectRoot 'native\rknn_tap_probe.c') -o $binary -ldl -lm
 if($LASTEXITCODE){throw 'Five tap helper compilation failed.'}

@@ -27,4 +27,12 @@ if errorlevel 1 exit /b 1
 cl /nologo /std:c11 /W3 /DMIRROR_TAP_PROFILE=2 /I native\vendor\rknn tests\rknn_tap_iteration_test.c /Fo:app\build\tap-contract-tests\ln-iteration.obj /Fe:app\build\tap-contract-tests\ln-iteration.exe
 if errorlevel 1 exit /b 1
 app\build\tap-contract-tests\ln-iteration.exe
+if errorlevel 1 exit /b 1
+cl /nologo /std:c11 /W3 /I native\vendor\rknn tests\rknn_scale_contract_test.c /Fo:app\build\tap-contract-tests\scale.obj /Fe:app\build\tap-contract-tests\scale.exe
+if errorlevel 1 exit /b 1
+app\build\tap-contract-tests\scale.exe
+if errorlevel 1 exit /b 1
+cl /nologo /std:c11 /W3 /DMIRROR_TAP_PROFILE=3 /I native\vendor\rknn tests\rknn_tap_iteration_test.c /Fo:app\build\tap-contract-tests\scale-iteration.obj /Fe:app\build\tap-contract-tests\scale-iteration.exe
+if errorlevel 1 exit /b 1
+app\build\tap-contract-tests\scale-iteration.exe
 exit /b %errorlevel%
