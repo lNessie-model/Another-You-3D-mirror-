@@ -15,13 +15,37 @@ final class NpuFacePipeline implements AutoCloseable {
                 (blendshapes[44]+blendshapes[45])*.5f,blendshapes[3]}; }
     }
     private RknnModel detector,mesh;
-    private FacePostGraph post;
+    private interface PostProcessor extends AutoCloseable {
+        float[][] process(float[] xyz,int width,int height,long timestamp);
+        JSONObject summary() throws Exception;
+        @Override void close();
+    }
+    // Allocate the adapter before its graph acquires native resources.
+    private static final class CpuPost implements PostProcessor {
+        private final FacePostGraph graph;
+        CpuPost(String model,String metadata,boolean smoothing){graph=new FacePostGraph(model,metadata,smoothing);}
+        public float[][] process(float[] xyz,int width,int height,long timestamp){return graph.process(xyz,width,height,timestamp);}
+        public JSONObject summary()throws Exception{return new JSONObject().put("backend","MediaPipe CPU 52 blendshapes + canonical pose");}
+        public void close(){graph.close();}
+    }
+    private static final class CandidatePost implements PostProcessor {
+        private final NpuExpressionPostGraph graph;
+        CandidatePost(String model,String apk,String metadata,boolean smoothing)throws java.io.IOException{
+            graph=new NpuExpressionPostGraph(model,apk,metadata,smoothing);
+        }
+        public float[][] process(float[] xyz,int width,int height,long timestamp){return graph.process(xyz,width,height,timestamp);}
+        public JSONObject summary()throws Exception{return graph.summary();}
+        public void close(){graph.close();}
+    }
+    private PostProcessor post;
     private java.util.concurrent.ExecutorService postWorker;
     private java.util.concurrent.Future<?> pendingPost;
     private boolean pipelined;
     private record Raw(float[] xyz,int width,int height,long timestamp,float presence,boolean reset,long startedNs) {}
     private File modelDirectory;
     private final boolean smoothing;
+    private final boolean npuExpressions;
+    private final String applicationApkPath;
     private boolean resetPost;
     private boolean referenceCrop,processingStarted;
     private final ByteBuffer detectorInput=RknnModel.buffer(128*128*3),meshInput=RknnModel.buffer(256*256*3);
@@ -49,12 +73,19 @@ final class NpuFacePipeline implements AutoCloseable {
         } catch(Exception error) { throw new IllegalStateException("Cannot save numerical validation fixture",error); }
     }
     NpuFacePipeline(Context context) throws Exception { this(context,true); }
-    NpuFacePipeline(Context context,boolean smoothing) throws Exception {
+    NpuFacePipeline(Context context,boolean smoothing) throws Exception { this(context,smoothing,false); }
+    NpuFacePipeline(Context context,boolean smoothing,boolean npuExpressions) throws Exception {
         this.smoothing=smoothing;
+        this.npuExpressions=npuExpressions;
+        applicationApkPath=context.getApplicationInfo().sourceDir;
         File dir=new File(context.getFilesDir(),"npu-face"); dir.mkdirs();
         modelDirectory=dir;
         try {
             for(String name:new String[]{"face_detector.rknn","face_landmarks_detector.rknn","face_blendshapes.tflite","geometry_pipeline_metadata_landmarks.binarypb"}) {
+                try(var in=context.getAssets().open(name)) { Files.copy(in,new File(dir,name).toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
+            }
+            if(npuExpressions) {
+                String name="face_blendshapes_normalized_suffix.rknn";
                 try(var in=context.getAssets().open(name)) { Files.copy(in,new File(dir,name).toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
             }
             detector=new RknnModel(new File(dir,"face_detector.rknn").getPath());
@@ -146,7 +177,14 @@ final class NpuFacePipeline implements AutoCloseable {
         completionNs+=SystemClock.elapsedRealtimeNanos()-raw.startedNs;
         return new Detection(extras[2],extras[0],extras[1],raw.presence);
     }
-    private FacePostGraph createPost() { return new FacePostGraph(new File(modelDirectory,"face_blendshapes.tflite").getPath(),new File(modelDirectory,"geometry_pipeline_metadata_landmarks.binarypb").getPath(),smoothing); }
+    private PostProcessor createPost() {
+        String metadata=new File(modelDirectory,"geometry_pipeline_metadata_landmarks.binarypb").getPath();
+        if(npuExpressions) {
+            try { return new CandidatePost(new File(modelDirectory,"face_blendshapes_normalized_suffix.rknn").getPath(),applicationApkPath,metadata,smoothing); }
+            catch(Exception error) { throw new IllegalStateException("Cannot initialize experimental expression postprocessor",error); }
+        }
+        return new CpuPost(new File(modelDirectory,"face_blendshapes.tflite").getPath(),metadata,smoothing);
+    }
     private static float[] decodeDetector(float[][] output,int w,int h,float side) {
         float[] boxes=null,scores=null;
         for(float[] row:output) { if(row.length==896*16) boxes=row; if(row.length==896) scores=row; }
@@ -189,9 +227,13 @@ final class NpuFacePipeline implements AutoCloseable {
     }
     JSONObject summary() throws Exception {
         drain();
-        return new JSONObject().put("backend","RKNN 1.3 direct NPU detector + 478 landmarks; MediaPipe CPU 52 blendshapes + canonical pose")
+        return new JSONObject().put("backend",npuExpressions?
+                "RKNN detector + 478 landmarks; CPU FP32 normalization + mixed CPU/NPU 52 suffix; CPU canonical pose":
+                "RKNN 1.3 direct NPU detector + 478 landmarks; MediaPipe CPU 52 blendshapes + canonical pose")
+                .put("expression_backend",npuExpressions?"normalized_rknn_experimental":"mediapipe_cpu")
+                .put("expression_post",post.summary())
                 .put("crop_implementation",referenceCrop?"scalar_reference":"precomputed_u_row_v_inbounds_unrolled")
-                .put("scheduling",pipelined?"NPU image network overlaps previous CPU post; one outstanding CPU job, immediate ordered callbacks":"Synchronous NPU then CPU post")
+                .put("scheduling",pipelined?"NPU image network overlaps previous post; one outstanding post job, immediate ordered callbacks":"Synchronous NPU then post")
                 .put("max_pending_cpu_jobs",pipelined?1:0)
                 .put("detector",detector.info).put("mesh",mesh.info).put("detector_calls",detections).put("mesh_calls",meshCalls).put("post_calls",postCalls)
                 .put("temporal_smoothing",smoothing?"MediaPipe OneEuro: min_cutoff .05, beta 80, derivative cutoff 1; reset after lost face":"Disabled for independent IMAGE comparison")

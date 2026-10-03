@@ -353,11 +353,26 @@ class RuntimeMetricsTests(unittest.TestCase):
             # Legacy fixture has no generation identity; it must never certify context recovery.
             self.assertFalse(payload["gl_context_recovery"]["verified"])
 
+    def test_expression_cli_requires_explicit_opt_in(self):
+        required=["run_runtime_check.py","--name","offline","--output-dir","."]
+        with patch.object(sys,"argv",required):
+            self.assertIs(runtime.arguments().npu_blendshapes,False)
+        with patch.object(sys,"argv",required+["--npu-blendshapes"]):
+            self.assertIs(runtime.arguments().npu_blendshapes,True)
+
+    def test_expression_flag_reaches_start_and_resume_only_when_requested(self):
+        for enabled in (False,True):
+            payload,calls=self.offline_collection(False,npu_blendshapes=enabled)
+            launches=[c[-1] for c in calls if c[-1].startswith("am start -n "+runtime.COMPONENT)]
+            self.assertEqual(len(launches),2)
+            self.assertTrue(all(c.count("--ez test_npu_blendshapes true")==int(enabled) for c in launches))
+            self.assertIs(payload["arguments"]["npu_blendshapes"],enabled)
+
     def offline_collection(self, fail_sample, empty_pre_home=False, synchronous=False,
                            slow_start=False, memory_delay=0, presentation_delay=0, no_pause=False,
                            final_error=None, final_status_offset=0, batched=False, view_preset=None,
                            active_target_fps=None, persistent_fbos=False, cached_camera_vp=False, view_count=None,
-                           release_gl_on_pause=False):
+                           release_gl_on_pause=False,npu_blendshapes=False):
         clock = [100.0]
         calls = []
         foreground = [True]
@@ -418,7 +433,7 @@ class RuntimeMetricsTests(unittest.TestCase):
                                       blackout_after=0, blackout_seconds=0, pause_at=None if no_pause else 5, pause_seconds=3,
                                       avatar_synchronous=synchronous, avatar_batched=batched, view_preset=view_preset,
                                       active_target_fps=active_target_fps, persistent_fbos=persistent_fbos, cached_camera_vp=cached_camera_vp,
-                                      view_count=view_count,release_gl_on_pause=release_gl_on_pause)
+                                      view_count=view_count,release_gl_on_pause=release_gl_on_pause,npu_blendshapes=npu_blendshapes)
             with patch.object(runtime, "adb", side_effect=fake_adb), \
                  patch.object(runtime.time, "monotonic", side_effect=lambda: clock[0]), \
                  patch.object(runtime.time, "sleep", side_effect=lambda seconds: clock.__setitem__(0, clock[0]+seconds)), \

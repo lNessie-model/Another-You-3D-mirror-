@@ -608,7 +608,7 @@ public final class MirrorActivity extends Activity {
                             reference = replay();
                             referenceConverter = new YuvConverter(MirrorActivity.this, WIDTH, HEIGHT, true, false);
                         }
-                        npu = new NpuFacePipeline(MirrorActivity.this);
+                        npu = new NpuFacePipeline(MirrorActivity.this,true,options.npuBlendshapes);
                         if (cancelled) break;
                         source.beginMeasurement();
                         if (reference != null) reference.beginMeasurement();
@@ -793,6 +793,7 @@ public final class MirrorActivity extends Activity {
                 .put("control_rejected_frames",current==null?0:current.calibrationRejectedFrames())
                 .put("view_width", runtimeViewWidth).put("view_height", runtimeViewHeight).put("view_count", options.viewCount)
                 .put("configured_view_count",settings.viewCount)
+                .put("debug_npu_blendshapes",options.npuBlendshapes)
                 .put("debug_render_overrides",new JSONObject().put("synchronous",options.synchronousAvatar)
                         .put("persistent_fbos",options.persistentFbos)
                         .put("cached_camera_vp",options.cachedCameraVp)
@@ -907,11 +908,11 @@ public final class MirrorActivity extends Activity {
         final String input, recordId;
         final double replayFps;
         final long blackoutAfterNs, blackoutDurationNs;
-        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause;
+        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause,npuBlendshapes;
         final String viewPreset;
         final int activeTargetFps,viewCount;
         private InputOptions(String input, String recordId, double replayFps, int after, int duration,
-                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause) {
+                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause,boolean npuBlendshapes) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
@@ -921,9 +922,10 @@ public final class MirrorActivity extends Activity {
             this.cachedCameraVp=cachedCameraVp;
             this.viewCount=viewCount;
             this.releaseGlOnPause=releaseGlOnPause;
+            this.npuBlendshapes=npuBlendshapes;
         }
         static InputOptions defaults() { return defaults(20); }
-        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false,false,RuntimeViewCount.read(null,false,savedViews),false); }
+        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false,false,RuntimeViewCount.read(null,false,savedViews),false,false); }
         static InputOptions read(Bundle extras, boolean debug) { return read(extras,debug,20); }
         static InputOptions read(Bundle extras, boolean debug,int savedViews) {
             if (extras == null) return defaults(savedViews);
@@ -957,7 +959,7 @@ public final class MirrorActivity extends Activity {
             if(value(extras,"test_active_target_fps")!=null&&(!debug||(target!=31&&target!=35)))
                 throw new IllegalArgumentException("Frame pacing override requires debug Integer 31 or 35");
             int views=RuntimeViewCount.read(extras,debug,savedViews);
-            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug));
+            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug),RuntimeExpressionBackend.read(extras,debug));
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {
