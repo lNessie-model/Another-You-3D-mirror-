@@ -29,6 +29,7 @@ final class AvatarGpuScene {
     private Program program, multiviewProgram;
     private AvatarBatchGpu batch;
     private final DrawMode drawMode;
+    private final AvatarDrawPartition drawPartition;
     private final List<Integer> allocatedBuffers=new ArrayList<>();
     private final float[] world=new float[16], fittedWorld=new float[16], fit=new float[16], inverse=new float[16], normal=new float[9];
     private AvatarFraming framing;
@@ -95,6 +96,7 @@ final class AvatarGpuScene {
     @SuppressWarnings("unchecked")
     private AvatarGpuScene(AvatarAsset asset,AvatarRig rig,String hash,boolean multiview,DrawMode drawMode) {
         this.asset=asset;this.rig=rig;sha256=hash;this.drawMode=drawMode;
+        drawPartition=new AvatarDrawPartition(asset,rig);
         displayedWorlds=new float[asset.nodes().size()*16];
         deformer=new AvatarDeformer(asset,rig.normalPolicy().equals("authored")?AvatarDeformer.NormalPolicy.AUTHORED:AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
         weights=new float[asset.meshes().size()][];primitives=new List[weights.length];
@@ -209,6 +211,19 @@ final class AvatarGpuScene {
     }
     /** viewProjections contain one or four independent off-axis camera matrices, without model transform. */
     void draw(float[] viewProjections,int viewCount,float aspect) {
+        drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.ALL);
+    }
+    boolean hasCacheableStaticBackground(){return drawMode==DrawMode.INDIVIDUAL&&drawPartition.canCacheTrailingBackground();}
+    /** Preparatory entry points only; the renderer does not enable a cache yet. */
+    void drawStaticBackground(float[] viewProjections,int viewCount,float aspect) {
+        drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.STATIC);
+    }
+    void drawDynamic(float[] viewProjections,int viewCount,float aspect) {
+        drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.DYNAMIC);
+    }
+    private void drawPass(float[] viewProjections,int viewCount,float aspect,AvatarDrawPartition.Pass pass) {
+        if(pass!=AvatarDrawPartition.Pass.ALL&&!hasCacheableStaticBackground())
+            throw new IllegalStateException("Static/dynamic split requires eligible trailing unlit props and individual draw mode");
         if(drawMode==DrawMode.BATCHED){drawBatched(viewProjections,viewCount,aspect);return;}
         if((viewCount!=1&&viewCount!=4)||viewProjections.length<viewCount*16)throw new IllegalArgumentException("Invalid avatar view group");
         Program active=viewCount==4?multiviewProgram:program;
@@ -222,7 +237,7 @@ final class AvatarGpuScene {
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glFrontFace(GLES30.GL_CCW);GLES30.glCullFace(GLES30.GL_BACK);
         GLES30.glDisable(GLES30.GL_BLEND);
-        for(int n=0;n<asset.nodes().size();n++)if(rig.activeNode(n)) {
+        for(int n=0;n<asset.nodes().size();n++)if(drawPartition.matchesNode(n,pass)) {
             int mesh=asset.nodes().get(n).meshIndex();if(mesh<0)continue;
             Matrix.multiplyMM(fittedWorld,0,fit,0,displayedWorlds,n*16);
             if(!Matrix.invertM(inverse,0,fittedWorld,0))throw new IllegalStateException("Singular avatar node transform");

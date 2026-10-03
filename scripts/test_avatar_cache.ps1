@@ -11,7 +11,7 @@ New-Item -ItemType Directory -Path $classes,$hostClasses | Out-Null
 Write-Output "Current-source run: $run"
 $source=Join-Path $repo 'app\src\main\java\com\mirror\bench'
 $names=@('AvatarAsset','AvatarBatchGpu','AvatarBatchLayout','AvatarDeformer','AvatarFraming','AvatarGeometryBounds',
- 'AvatarGlbLoader','AvatarGpuScene','AvatarManagementGate','AvatarPoseProgressWatchdog','AvatarPoseWorker','AvatarRig',
+ 'AvatarGlbLoader','AvatarGpuScene','AvatarDrawPartition','AvatarManagementGate','AvatarPoseProgressWatchdog','AvatarPoseWorker','AvatarRig',
  'BlendshapeSchema','AvatarPackageStore','AvatarManagementActivity')
 $production=@($names|ForEach-Object{Join-Path $source ($_+'.java')})
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp $AndroidJar -d $classes @production
