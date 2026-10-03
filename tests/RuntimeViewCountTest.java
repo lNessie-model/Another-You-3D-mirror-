@@ -21,6 +21,39 @@ public final class RuntimeViewCountTest {
         Class<?> type=Class.forName("com.mirror.bench.MirrorActivity$InputOptions");
         read=type.getDeclaredMethod("read",Bundle.class,boolean.class);read.setAccessible(true);
         count=type.getDeclaredField("viewCount");count.setAccessible(true);
+        Method configuredRead=type.getDeclaredMethod("read",Bundle.class,boolean.class,int.class);configuredRead.setAccessible(true);
+        for(int saved:new int[]{16,20}) {
+            check(count.getInt(configuredRead.invoke(null,null,false,saved))==saved);
+            check(count.getInt(configuredRead.invoke(null,new Bundle(),true,saved))==saved);
+            for(int override:new int[]{16,20}) {
+                Bundle changed=new Bundle();changed.putInt("test_view_count",override);
+                check(count.getInt(configuredRead.invoke(null,changed,true,saved))==override);
+                try{configuredRead.invoke(null,changed,false,saved);throw new AssertionError("release debug override");}
+                catch(InvocationTargetException expected){check(expected.getCause() instanceof IllegalArgumentException);}
+            }
+        }
+
+        // The calibration transport cannot override the main release settings.
+        Bundle internal=new Bundle();internal.putInt("runtime_view_count",16);
+        check(count.getInt(configuredRead.invoke(null,internal,false,20))==20);
+        check(RuntimeViewCount.read(internal,false)==20);
+        check(RuntimeViewCount.readConfigured(null,false,16)==16);
+        check(RuntimeViewCount.readConfigured(null,false,20)==20);
+        for(Object bad:new Object[]{17,0,24,"16",16L,16f,true,null}) {
+            Bundle wrong=new Bundle();
+            if(bad instanceof Integer)wrong.putInt("runtime_view_count",(Integer)bad);
+            else if(bad instanceof Long)wrong.putLong("runtime_view_count",(Long)bad);
+            else if(bad instanceof Float)wrong.putFloat("runtime_view_count",(Float)bad);
+            else if(bad instanceof Boolean)wrong.putBoolean("runtime_view_count",(Boolean)bad);
+            else wrong.putString("runtime_view_count",(String)bad);
+            for(boolean debug:new boolean[]{false,true}) {
+                try{RuntimeViewCount.readConfigured(wrong,debug,20);throw new AssertionError("invalid calibration count");}
+                catch(IllegalArgumentException expected){checks++;}
+            }
+        }
+        internal.putInt("test_view_count",20);
+        try{RuntimeViewCount.readConfigured(internal,true,16);throw new AssertionError("ambiguous count");}
+        catch(IllegalArgumentException expected){checks++;}
         check(parsed(null,true)==20);check(parsed(null,false)==20);check(parsed(new Bundle(),true)==20);
         Bundle bundle=new Bundle();
         for(int value:new int[]{16,20}){bundle.putInt("test_view_count",value);check(parsed(bundle,true)==value);rejected(bundle,false);}
@@ -110,14 +143,14 @@ public final class RuntimeViewCountTest {
             Method panelFile=PanelPreviewActivity.class.getDeclaredMethod("verificationFile");panelFile.setAccessible(true);
             check(panelFile.invoke(panelPreview).equals(value==16?"panel-pixel16-check.json":"panel-pixel-check.json"));
         }
-        check(CalibrationActivity.intent(null,20,false).getExtras()==null);
+        check(CalibrationActivity.intent(null,20,false).getExtras().get("runtime_view_count").equals(20));
         android.content.Intent releasePanel=PanelPreviewActivity.intent(null,panel,20,false);
         check(releasePanel.getExtras().get("test_view_count")==null);
         check(RuntimeViewCount.read(releasePanel.getExtras(),false)==20);
-        try{CalibrationActivity.intent(null,16,false);throw new AssertionError("release outgoing 16");}
-        catch(IllegalArgumentException expected){checks++;}
-        try{PanelPreviewActivity.intent(null,panel,16,false);throw new AssertionError("release outgoing panel16");}
-        catch(IllegalArgumentException expected){checks++;}
+        check(CalibrationActivity.intent(null,16,false).getExtras().get("runtime_view_count").equals(16));
+        android.content.Intent configuredPanel=PanelPreviewActivity.intent(null,panel,16,false);
+        check(configuredPanel.getExtras().get("test_view_count")==null);
+        check(RuntimeViewCount.read(configuredPanel.getExtras(),false,16)==16);
         try{CalibrationActivity.intent(null,17,true);throw new AssertionError("invalid outgoing17");}
         catch(IllegalArgumentException expected){checks++;}
         // Each of the diagnostic's six optical configurations selects every view; codes/cards distinguish them.

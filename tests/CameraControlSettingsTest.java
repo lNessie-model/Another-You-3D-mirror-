@@ -34,7 +34,7 @@ public final class CameraControlSettingsTest {
         }
         MirrorSettings v2=MirrorSettings.decode(panelFixture());
         Map<String,Object> v3=v2.withCamera(camera).toMap();
-        check(v3.get("schema_version").equals(3)&&v3.get("camera_revision").equals(23L),"v3 and long revision written exactly");
+        check(v3.get("schema_version").equals(4)&&v3.get("camera_revision").equals(23L),"schema4 and long revision written exactly");
         MirrorSettings recovered=MirrorSettings.decode(v3);
         sameCamera(camera,recovered.camera);
         check(recovered.panel.pitch()==12.5f&&recovered.panel.phaseCycles()==.875f&&recovered.panel.subpixelOrder()==PanelCalibration.SubpixelOrder.BGR&&recovered.panel.yOrigin()==PanelCalibration.YOrigin.TOP,"v2 custom optical data fully retained");
@@ -45,7 +45,7 @@ public final class CameraControlSettingsTest {
             Map<String,Object> bad=new HashMap<>(v3);bad.put(field,"bad");var decoded=MirrorSettings.decode(bad);
             check(decoded.camera==CameraControlSettings.DEFAULT&&!decoded.warning.isEmpty()&&decoded.panel.pitch()==12.5f,"corrupt camera isolated: "+field);
         }
-        Map<String,Object> future=new HashMap<>(v3);future.put("schema_version",4);var protectedSettings=MirrorSettings.decode(future);
+        Map<String,Object> future=new HashMap<>(v3);future.put("schema_version",5);var protectedSettings=MirrorSettings.decode(future);
         check(!protectedSettings.writable,"future schema not writable");
         rejects(()->protectedSettings.withCamera(camera),"future camera save");
         rejects(()->protectedSettings.withProfile(17,"320x576"),"future profile save");

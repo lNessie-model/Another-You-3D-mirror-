@@ -32,7 +32,7 @@ public final class PanelPreviewActivity extends Activity {
         return intent(context,panel,20,false);
     }
     static Intent intent(Context context,PanelCalibration panel,int views,boolean debug) {
-        return RuntimeViewCount.forward(new Intent(context,PanelPreviewActivity.class).putExtra("pitch",panel.pitch()).putExtra("tan",panel.tan())
+        return RuntimeViewCount.forwardConfigured(new Intent(context,PanelPreviewActivity.class).putExtra("pitch",panel.pitch()).putExtra("tan",panel.tan())
                 .putExtra("units",panel.pitchUnits().name()).putExtra("phase",panel.phaseCycles())
                 .putExtra("order",panel.subpixelOrder().name()).putExtra("reverse",panel.reverseViews()).putExtra("origin",panel.yOrigin().name()),views,debug);
     }
@@ -44,10 +44,12 @@ public final class PanelPreviewActivity extends Activity {
                 |View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
         try {
             Intent i=getIntent();verify=i.getBooleanExtra("verify",false);
-            viewCount=RuntimeViewCount.read(i.getExtras(),
-                    (getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
+            MirrorSettings settings=MirrorSettings.load(this);
+            viewCount=RuntimeViewCount.readConfigured(i.getExtras(),
+                    (getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,
+                    verify?20:settings.viewCount);
             if(verify)write(new JSONObject().put("running",true).put("passed",false).put("stage","activity_start"));
-            PanelCalibration fallback=MirrorSettings.load(this).panel;
+            PanelCalibration fallback=settings.panel;
             PanelCalibration panel=new PanelCalibration(i.getFloatExtra("pitch",fallback.pitch()),i.getFloatExtra("tan",fallback.tan()),
                     PanelCalibration.PitchUnits.valueOf(i.hasExtra("units")?i.getStringExtra("units"):fallback.pitchUnits().name()),
                     i.getFloatExtra("phase",fallback.phaseCycles()),

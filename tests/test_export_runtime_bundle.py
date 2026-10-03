@@ -220,6 +220,25 @@ class ExportBundleTest(unittest.TestCase):
         self.assertEqual(self.out.read_bytes(), b"keep-existing")
         self.assertFalse(self.trace.exists())
 
+    def test_schema4_count_settings_real_orchestration_and_strict_boundaries(self):
+        data='<map><int name="schema_version" value="4"/><int name="view_count" value="16"/><string name="view_preset">400x640</string><string name="raw_face">private canary</string></map>'
+        self.export({"files":{"shared_prefs/mirror-runtime.xml":data},"status":{"view_count":20,"configured_view_count":16}})
+        settings=json.loads(self.read()["settings.json"])
+        self.assertEqual(settings,dict(schema_version=4,view_count=16,view_preset="400x640"))
+        self.assertEqual(json.loads(self.read()["status-after.json"])["configured_view_count"],16)
+        self.assertEqual(json.loads(self.read()["status-after.json"])["view_count"],20)
+        self.out.unlink()
+        self.export({"files":{"shared_prefs/mirror-runtime.xml":data.replace('name="view_count" value="16"','name="view_count" value="20"')}})
+        self.assertEqual(json.loads(self.read()["settings.json"])["view_count"],20)
+        for bad in ('<int name="view_count" value="17"/>','<string name="view_count">16</string>','<boolean name="view_count" value="true"/>','<long name="view_count" value="16"/>'):
+            with self.subTest(bad=bad):
+                self.out.unlink(missing_ok=True)
+                self.fails_cleanly({"files":{"shared_prefs/mirror-runtime.xml":'<map><int name="schema_version" value="4"/>'+bad+'</map>'}})
+        self.out.unlink(missing_ok=True)
+        self.fails_cleanly({"files":{"shared_prefs/mirror-runtime.xml":'<map><int name="schema_version" value="4"/></map>'}})
+        self.out.unlink(missing_ok=True)
+        self.fails_cleanly({"files":{"shared_prefs/mirror-runtime.xml":'<map><int name="schema_version" value="5"/><int name="view_count" value="16"/></map>'}})
+
     def test_new_legal_400640_settings_are_exported_without_defaulting_old_values(self):
         data=b'<map><int name="schema_version" value="3"/><string name="view_preset">400x640</string></map>'
         self.export({"files":{"shared_prefs/mirror-runtime.xml":data.decode()}})

@@ -15,18 +15,18 @@ public final class CalibrationActivity extends Activity {
     private CheckBox reverse;
     private TextView error;
     static Intent intent(Context context,int views,boolean debug) {
-        return RuntimeViewCount.forward(new Intent(context,CalibrationActivity.class),views,debug);
+        return RuntimeViewCount.forwardConfigured(new Intent(context,CalibrationActivity.class),views,debug);
     }
     static String previewLabel(int views) {return "预览"+views+"视点测试图";}
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         final boolean debug=(getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0;
+        MirrorSettings settings=MirrorSettings.load(this);
         final int viewCount;
-        try {viewCount=RuntimeViewCount.read(getIntent().getExtras(),debug);}
+        try {viewCount=RuntimeViewCount.readConfigured(getIntent().getExtras(),debug,settings.viewCount);}
         catch(RuntimeException bad) {
             TextView message=new TextView(this);message.setText("校准配置错误："+bad.getMessage());setContentView(message);return;
         }
-        MirrorSettings settings=MirrorSettings.load(this);
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(24,12,24,16);
         ScrollView scroll=new ScrollView(this); scroll.addView(form); setContentView(scroll);
         text(form,"屏幕交织校准 · 未经实屏光学确认\n保存的是交织参数，软件像素核对通过也不代表光学对齐。\n预览中是"+viewCount+"张不同颜色和01–"+viewCount+"数字的视点图。");

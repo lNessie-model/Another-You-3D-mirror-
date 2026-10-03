@@ -281,7 +281,7 @@ def status_summary(data, clock_before, clock_after, max_age):
         if name in value:
             result[name] = boolean(value[name])
     for name in ("result_age_ms", "recoveries", "analysis_active_target_fps", "analysis_idle_target_fps",
-                 "view_width", "view_height", "view_count", "control_revision", "control_rejected_frames"):
+                 "view_width", "view_height", "view_count", "configured_view_count", "control_revision", "control_rejected_frames"):
         if name in value:
             result[name] = number(value[name])
     for section, names in {
@@ -313,7 +313,8 @@ def settings_summary(data):
     require(root.tag == "map", "Saved settings must be an Android preferences map")
     integer = lambda v: number(v, integer=True, minimum=0)
     validators = {
-        "schema_version": lambda v: number(v, integer=True, minimum=0, maximum=3),
+        "schema_version": lambda v: number(v, integer=True, minimum=0, maximum=4),
+        "view_count": lambda v: v if type(v) is int and v in (16, 20) else enum(v, ()),
         "active_fps": lambda v: v if type(v) is int and v in (10, 17, 20) else enum(v, ()),
         "view_preset": lambda v: enum(v, ("240x720", "320x576", "400x720", "400x640")),
         "panel_pitch": lambda v: number(v, minimum=1, maximum=4096),
@@ -330,7 +331,7 @@ def settings_summary(data):
     }
     result = {}
     expected_tags = {name: "string" for name in validators}
-    for name in ("schema_version", "active_fps", "camera_width", "camera_height", "camera_rotation_degrees"):
+    for name in ("schema_version", "active_fps", "view_count", "camera_width", "camera_height", "camera_rotation_degrees"):
         expected_tags[name] = "int"
     expected_tags["camera_revision"] = "long"
     for name in ("panel_pitch", "panel_tan", "panel_phase"):
@@ -357,6 +358,8 @@ def settings_summary(data):
         except (ValueError, TypeError):
             raise ExportError("Saved setting value is invalid") from None
         result[name] = validators[name](raw)
+    require(result.get("schema_version") != 4 or "view_count" in result,
+            "Schema 4 saved settings require an explicit view count")
     return result
 
 

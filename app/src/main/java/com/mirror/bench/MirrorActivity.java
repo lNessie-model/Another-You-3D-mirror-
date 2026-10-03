@@ -83,10 +83,10 @@ public final class MirrorActivity extends Activity {
         requestedCamera=settings.camera;
         permissionPrompted = savedState != null && savedState.getBoolean("permission_prompted", false);
         try { options = InputOptions.read(getIntent().getExtras(),
-                (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0); }
+                (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0,settings.viewCount); }
         catch (IllegalArgumentException error) {
             configurationError = error.getMessage();
-            options = InputOptions.defaults();
+            options = InputOptions.defaults(settings.viewCount);
             interaction.setError();
         }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -94,15 +94,7 @@ public final class MirrorActivity extends Activity {
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-        renderer = new InterlaceRenderer(options.viewCount, .3f, true);
-        renderer.setRuntimeMode(true);
-        renderer.setTargetFps(options.activeTargetFps);
-        if(options.viewPreset==null) {runtimeViewWidth=settings.viewWidth;runtimeViewHeight=settings.viewHeight;}
-        else {
-            String[] size=options.viewPreset.split("x");
-            runtimeViewWidth=Integer.parseInt(size[0]);runtimeViewHeight=Integer.parseInt(size[1]);
-        }
-        renderer.setViewSize(runtimeViewWidth,runtimeViewHeight);
+        renderer = createRuntimeRenderer();
         renderer.setPipeline(true);
         renderer.setCull(true, false);
         renderer.setPreblend(true, false);
@@ -114,7 +106,6 @@ public final class MirrorActivity extends Activity {
         renderer.setAvatarBatched(options.batchedAvatar);
         renderer.setPersistentMultiviewFbos(options.persistentFbos);
         renderer.setCachedCameraVp(options.cachedCameraVp);
-        renderer.setPanelCalibration(settings.panel);
         surface = new GLSurfaceView(this);
         surface.setEGLContextClientVersion(3);
         surface.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
@@ -140,6 +131,26 @@ public final class MirrorActivity extends Activity {
         FrameLayout.LayoutParams position = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
         root.addView(bar, position);
         setContentView(root);
+    }
+
+    private InterlaceRenderer createRuntimeRenderer() {
+        InterlaceRenderer configured = new InterlaceRenderer(options.viewCount, .3f, true);
+        configured.setRuntimeMode(true);
+        configured.setTargetFps(options.activeTargetFps);
+        if(options.viewPreset==null) {runtimeViewWidth=settings.viewWidth;runtimeViewHeight=settings.viewHeight;}
+        else {
+            String[] size=options.viewPreset.split("x");
+            runtimeViewWidth=Integer.parseInt(size[0]);runtimeViewHeight=Integer.parseInt(size[1]);
+        }
+        configured.setViewSize(runtimeViewWidth,runtimeViewHeight);
+        configured.setPanelCalibration(settings.panel);
+        return configured;
+    }
+    private void saveRuntimeProfile(int fps,String preset,int views) {
+        boolean changed=fps!=settings.activeFps||!preset.equals(settings.viewPreset)||views!=settings.viewCount;
+        MirrorSettings.save(this,fps,preset,views);
+        // Leave the current settings/options/renderer intact until recreation after successful commit.
+        if(changed){restarting=true;recreate();}
     }
 
     @Override protected void onResume() {
@@ -353,13 +364,18 @@ public final class MirrorActivity extends Activity {
         for (int i = 0; i < MirrorSettings.VIEW_PRESETS.length; i++)
             if (MirrorSettings.VIEW_PRESETS[i].equals(settings.viewPreset)) views.setSelection(i);
         panel.addView(views);
+        panel.addView(label("运行视点数（保存后重启生效）"));
+        Spinner counts=spinner(new String[]{"16 视点","20 视点"});
+        for(int i=0;i<MirrorSettings.VIEW_COUNTS.length;i++)if(MirrorSettings.VIEW_COUNTS[i]==settings.viewCount)counts.setSelection(i);
+        panel.addView(counts);
         Button defaultsButton=new Button(this);defaultsButton.setText("恢复运行默认（仅修改草稿）");panel.addView(defaultsButton);
         defaultsButton.setOnClickListener(v->{
             try {
                 MirrorSettings draft=settings.withDefaultProfile();
                 for(int i=0;i<MirrorSettings.ANALYSIS_RATES.length;i++)if(MirrorSettings.ANALYSIS_RATES[i]==draft.activeFps)rates.setSelection(i);
                 for(int i=0;i<MirrorSettings.VIEW_PRESETS.length;i++)if(MirrorSettings.VIEW_PRESETS[i].equals(draft.viewPreset))views.setSelection(i);
-                android.widget.Toast.makeText(this,"草稿为17 FPS / 400×640；保存后生效",android.widget.Toast.LENGTH_SHORT).show();
+                for(int i=0;i<MirrorSettings.VIEW_COUNTS.length;i++)if(MirrorSettings.VIEW_COUNTS[i]==draft.viewCount)counts.setSelection(i);
+                android.widget.Toast.makeText(this,"草稿为16视点 / 17 FPS / 400×640；保存后生效",android.widget.Toast.LENGTH_SHORT).show();
             } catch(RuntimeException invalid) {
                 android.widget.Toast.makeText(this,"未修改草稿："+invalid.getMessage(),android.widget.Toast.LENGTH_LONG).show();
             }
@@ -371,13 +387,10 @@ public final class MirrorActivity extends Activity {
                 .setPositiveButton("保存并运行", (d, which) -> {
                     int fps = MirrorSettings.ANALYSIS_RATES[rates.getSelectedItemPosition()];
                     String preset = MirrorSettings.VIEW_PRESETS[views.getSelectedItemPosition()];
-                    if (fps != settings.activeFps || !preset.equals(settings.viewPreset)) {
-                        try {
-                            MirrorSettings.save(this, fps, preset);
-                            restarting = true; recreate();
-                        } catch(RuntimeException invalid) {
-                            android.widget.Toast.makeText(this,"未保存："+invalid.getMessage(),android.widget.Toast.LENGTH_LONG).show();
-                        }
+                    int count=MirrorSettings.VIEW_COUNTS[counts.getSelectedItemPosition()];
+                    try {saveRuntimeProfile(fps,preset,count);}
+                    catch(RuntimeException invalid) {
+                        android.widget.Toast.makeText(this,"未保存："+invalid.getMessage(),android.widget.Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton("返回", null)
@@ -455,7 +468,9 @@ public final class MirrorActivity extends Activity {
                 synchronized(interaction){
                     if(!resumed||cameraPanel!=owner||expected==null||expected!=cameraInput||worker==null||worker.cancelled)
                         throw new IllegalStateException("相机输入已改变，请重新检查方向和动作");
-                    MirrorSettings.saveCamera(MirrorActivity.this,controls);settings=MirrorSettings.load(MirrorActivity.this);requestedCamera=settings.camera;
+                    MirrorSettings.saveCamera(MirrorActivity.this,controls);
+                    // Camera edits do not activate another runtime profile from the preferences map.
+                    settings=settings.withCamera(controls);requestedCamera=settings.camera;
                 }
             }
             @Override public void closed(CameraCalibrationPanel panel,boolean saved,boolean inputChanged){
@@ -777,6 +792,7 @@ public final class MirrorActivity extends Activity {
                 .put("control_error",current==null?"":current.calibrationError())
                 .put("control_rejected_frames",current==null?0:current.calibrationRejectedFrames())
                 .put("view_width", runtimeViewWidth).put("view_height", runtimeViewHeight).put("view_count", options.viewCount)
+                .put("configured_view_count",settings.viewCount)
                 .put("debug_render_overrides",new JSONObject().put("synchronous",options.synchronousAvatar)
                         .put("persistent_fbos",options.persistentFbos)
                         .put("cached_camera_vp",options.cachedCameraVp)
@@ -906,9 +922,11 @@ public final class MirrorActivity extends Activity {
             this.viewCount=viewCount;
             this.releaseGlOnPause=releaseGlOnPause;
         }
-        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false,false,20,false); }
-        static InputOptions read(Bundle extras, boolean debug) {
-            if (extras == null) return defaults();
+        static InputOptions defaults() { return defaults(20); }
+        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false,false,RuntimeViewCount.read(null,false,savedViews),false); }
+        static InputOptions read(Bundle extras, boolean debug) { return read(extras,debug,20); }
+        static InputOptions read(Bundle extras, boolean debug,int savedViews) {
+            if (extras == null) return defaults(savedViews);
             String input = text(extras, "runtime_input", "camera");
             if (!input.equals("camera") && !input.equals("replay") && !input.equals("camera_replay"))
                 throw new IllegalArgumentException("runtime_input must be camera, replay, or camera_replay");
@@ -938,7 +956,7 @@ public final class MirrorActivity extends Activity {
             int target=integer(extras,"test_active_target_fps",31);
             if(value(extras,"test_active_target_fps")!=null&&(!debug||(target!=31&&target!=35)))
                 throw new IllegalArgumentException("Frame pacing override requires debug Integer 31 or 35");
-            int views=RuntimeViewCount.read(extras,debug);
+            int views=RuntimeViewCount.read(extras,debug,savedViews);
             return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug));
         }
         boolean needsCamera() { return !input.equals("replay"); }
