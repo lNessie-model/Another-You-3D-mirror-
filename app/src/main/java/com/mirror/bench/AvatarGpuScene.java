@@ -30,6 +30,7 @@ final class AvatarGpuScene {
     private AvatarBatchGpu batch;
     private final DrawMode drawMode;
     private final AvatarDrawPartition drawPartition;
+    private final int[] staticBackgroundNodes;
     private final List<Integer> allocatedBuffers=new ArrayList<>();
     private final float[] world=new float[16], fittedWorld=new float[16], fit=new float[16], inverse=new float[16], normal=new float[9];
     private AvatarFraming framing;
@@ -97,6 +98,7 @@ final class AvatarGpuScene {
     private AvatarGpuScene(AvatarAsset asset,AvatarRig rig,String hash,boolean multiview,DrawMode drawMode) {
         this.asset=asset;this.rig=rig;sha256=hash;this.drawMode=drawMode;
         drawPartition=new AvatarDrawPartition(asset,rig);
+        staticBackgroundNodes=drawPartition.staticNodes();
         displayedWorlds=new float[asset.nodes().size()*16];
         deformer=new AvatarDeformer(asset,rig.normalPolicy().equals("authored")?AvatarDeformer.NormalPolicy.AUTHORED:AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
         weights=new float[asset.meshes().size()][];primitives=new List[weights.length];
@@ -214,7 +216,16 @@ final class AvatarGpuScene {
         drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.ALL);
     }
     boolean hasCacheableStaticBackground(){return drawMode==DrawMode.INDIVIDUAL&&drawPartition.canCacheTrailingBackground();}
-    /** Preparatory entry points only; the renderer does not enable a cache yet. */
+    String modelSha256(){return sha256;}
+    int staticBackgroundStateFloats(){return 16*(1+staticBackgroundNodes.length);}
+    /** Exact current fit and static world matrices, excluding the independently animated head. */
+    void copyStaticBackgroundState(float aspect,float[] destination){
+        if(!hasCacheableStaticBackground()||destination==null||destination.length!=staticBackgroundStateFloats())
+            throw new IllegalArgumentException("Eligible background and complete key destination required");
+        framing.copyFitMatrix(aspect,fit);System.arraycopy(fit,0,destination,0,16);
+        for(int i=0;i<staticBackgroundNodes.length;i++)System.arraycopy(displayedWorlds,staticBackgroundNodes[i]*16,destination,(i+1)*16,16);
+    }
+    /** Same shaders, matrices and geometry as the ordinary selected-node drawing path. */
     void drawStaticBackground(float[] viewProjections,int viewCount,float aspect) {
         drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.STATIC);
     }

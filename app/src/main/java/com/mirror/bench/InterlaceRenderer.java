@@ -73,6 +73,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private boolean cachedCameraVpRequested;
     private volatile String cameraVpActual="uninitialized";
     private final AvatarCameraProjectionCache cameraVpCache=new AvatarCameraProjectionCache();
+    private boolean staticBackgroundCacheRequested;
+    private AvatarBackgroundCache backgroundCache;
+    private AvatarGpuScene backgroundCacheScene;
+    private float[] backgroundCacheState,backgroundCacheVp;
+    private volatile String backgroundCacheActual="uninitialized",backgroundCacheWarning="";
+    private volatile long backgroundCacheBytes,backgroundCacheBuilds;
     private JSONObject multiviewVerification;
     private final float[] multiviewMatrices=new float[64];
     private boolean preblend,verifyPreblend;
@@ -210,6 +216,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(surfaceInitialized)throw new IllegalStateException("Camera matrix mode must be configured before GL initialization");
         cachedCameraVpRequested=enabled;
     }
+    synchronized void setStaticBackgroundCache(boolean enabled) {
+        if(surfaceInitialized)throw new IllegalStateException("Background cache must be configured before GL initialization");
+        staticBackgroundCacheRequested=enabled;
+    }
     void setPreblend(boolean enabled,boolean verify) { preblend=enabled; verifyPreblend=verify; }
     void setExplicitLod(boolean enabled) { explicitLod=enabled; }
     void setVerifyCombined(boolean enabled) { verifyCombined=enabled; }
@@ -275,6 +285,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         // EGL owns destruction of the lost context: never delete/reuse its numeric framebuffer names.
         persistentFbos=null;persistentFboCount=0;multiviewFboActual="uninitialized";
         cameraVpCache.invalidate();cameraVpActual="uninitialized";
+        // A new EGL context destroys its predecessor's objects; numeric names must never be deleted here.
+        backgroundCache=null;backgroundCacheScene=null;backgroundCacheState=null;backgroundCacheVp=null;
+        backgroundCacheActual=staticBackgroundCacheRequested?"uninitialized":"disabled";backgroundCacheWarning="";backgroundCacheBytes=0;backgroundCacheBuilds=0;
         synchronized(this) {
             surfaceInitialized=true;
             framePacing.reset();pacingMeasurementGeneration++;pacingEpoch++;
@@ -282,6 +295,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         renderThread=Thread.currentThread();
         runtimePoseTime=0;
         try {
+            if(staticBackgroundCacheRequested&&(!runtimeMode||privateHeadFiles==null||avatarBatched||atlas||verifyMultiview||verifyCombined))
+                throw new IllegalArgumentException("Background cache experiment requires private-head runtime individual array rendering");
             if(cachedCameraVpRequested&&(!runtimeMode||avatarAssets==null))
                 throw new IllegalArgumentException("Cached camera matrices require runtime avatar rendering");
             if(persistentFbosRequested&&(!runtimeMode||avatarAssets==null||!multiview||verifyMultiview||atlas))
@@ -353,6 +368,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         try {
             if(cachedCameraVpRequested)cameraVpCache.prepare(views,width,height);
             cameraVpActual=cachedCameraVpRequested?"cached":"per_frame";
+            releaseBackgroundCache();backgroundCacheActual=staticBackgroundCacheRequested?"uninitialized":"disabled";backgroundCacheWarning="";
             releasePersistentFbos();multiviewFboActual="uninitialized";
             int[] ids=new int[1];
             if(texture!=0) GLES30.glDeleteTextures(1,new int[]{texture},0);
@@ -507,6 +523,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
                 .put("multiview_fbo_actual",multiviewFboActual).put("persistent_fbo_count",persistentFboCount)
                 .put("camera_vp_requested",cachedCameraVpRequested?"cached":"per_frame").put("camera_vp_actual",cameraVpActual)
+                .put("static_background_cache_requested",staticBackgroundCacheRequested)
+                .put("static_background_cache_actual",backgroundCacheActual).put("static_background_cache_warning",backgroundCacheWarning)
+                .put("static_background_cache_bytes",backgroundCacheBytes).put("static_background_cache_builds",backgroundCacheBuilds)
+                .put("static_background_cache_qualified",false)
                 .put("avatar_load_warning",avatarLoadWarning).put("avatar_batched_requested",avatarBatched)
                 .put("avatar_source",avatarSourceKind).put("avatar_package_id",avatarPackageId)
                 .put("avatar",avatarScene==null?JSONObject.NULL:avatarScene.status())
@@ -559,7 +579,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("stage_overlap","fence_wait is CPU wall time inside glClientWaitSync, already included in pre_views and callback_work; background worker rig/morph/copy are separate concurrent applied-pose metrics, not callback stages")
                 .put("stage_no_pose_policy","callbacks with no new worker result still contribute prepare wall time; no avatar means zero prepare")
                 .put("view_detail_scope","runtime avatar callbacks only; setup + all groups' attach_clear/camera_matrices/scene_draw/invalidate + tail exactly cover view_submission; means use callback count, not group count; unavailable/legacy/non-avatar callbacks are missing, not zero samples")
-                .put("view_detail_boundaries","setup: after prepare through framebuffer/viewport setup; attach_clear: attachment rebinding (legacy) or fixed-FBO bind (persistent), then clear per group; camera_matrices: original lookAt/frustum/multiply/copy or cached group copy; scene_draw: complete AvatarGpuScene.draw CPU call; invalidate: depth invalidation per group; tail: loop exit, optional atlas work and return; control/timer overhead belongs to its enclosing segment")
+                .put("view_detail_boundaries","setup: after pose prepare through framebuffer/viewport setup, including experimental background cache key/capture; attach_clear: attachment rebinding (legacy) or fixed-FBO bind (persistent), then clear per group; camera_matrices: original lookAt/frustum/multiply/copy or cached group copy; scene_draw: ordinary avatar draw or dynamic avatar draw plus cached background restore; invalidate: depth invalidation per group; tail: loop exit, optional atlas work and return; control/timer overhead belongs to its enclosing segment")
                 .put("gap_scope","previous measured work end to next callback entry: publication, EGL swap, framework and OS scheduling; not isolated swap or GPU time")
                 .put("boundary_policy","first/context/resume/resize/target-change/transition boundaries exclude gap, interval and deadline debt")
                 .put("physical_presentation_fps",false);
@@ -912,6 +932,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             runtimeViewTiming.begin(runtimePrepareEnd,views/(multiview?4:1));
         }
         boolean drawAtlas=atlas&&!atlasCopy;
+        boolean useBackgroundCache=staticBackgroundCacheRequested&&prepareStaticBackgroundCache();
         if(persistentFbosRequested) {
             if(persistentFbos==null)throw new IllegalStateException("Persistent framebuffer groups are not initialized");
             persistentFbos.bind(0,glContextGeneration);
@@ -939,7 +960,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
             }
             if(runtimeMode)runtimeViewTiming.attachmentsComplete(SystemClock.elapsedRealtimeNanos());
-            if(cachedCameraVpRequested)cameraVpCache.copyGroup(views,width,height,v,group,multiviewMatrices);
+            if(useBackgroundCache)System.arraycopy(backgroundCacheVp,v*16,multiviewMatrices,0,group*16);
+            else if(cachedCameraVpRequested)cameraVpCache.copyGroup(views,width,height,v,group,multiviewMatrices);
             else for(int relative=0;relative<group;relative++) {
                 float eye=views==1?0:((v+relative)/(float)(views-1)-.5f)*.4f;
                 Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
@@ -949,7 +971,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 System.arraycopy(mvp,0,multiviewMatrices,relative*16,16);
             }
             if(runtimeMode)runtimeViewTiming.cameraComplete(SystemClock.elapsedRealtimeNanos());
-            avatarScene.draw(multiviewMatrices,group,aspect);
+            if(useBackgroundCache){
+                avatarScene.drawDynamic(multiviewMatrices,group,aspect);
+                // Props were originally trailing draws: restore after the head with the original LESS rule.
+                backgroundCache.restoreGroup(glContextGeneration,v);
+            } else avatarScene.draw(multiviewMatrices,group,aspect);
             if(runtimeMode)runtimeViewTiming.sceneComplete(SystemClock.elapsedRealtimeNanos());
             if(discardDepth&&!drawAtlas)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
             if(runtimeMode)runtimeViewTiming.groupComplete(SystemClock.elapsedRealtimeNanos());
@@ -960,6 +986,47 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             for(int v=0;v<views;v++)GLES32.glCopyImageSubData(texture,GLES30.GL_TEXTURE_2D_ARRAY,0,0,0,v,
                     atlasTexture,GLES30.GL_TEXTURE_2D,0,v%atlasColumns*viewWidth,v/atlasColumns*viewHeight,0,viewWidth,viewHeight,1);
         }
+    }
+    /** GL-owner only. Failure disables this experiment until resize/context recreation, with an explicit warning. */
+    private boolean prepareStaticBackgroundCache(){
+        if(!staticBackgroundCacheRequested){backgroundCacheActual="disabled";return false;}
+        if(backgroundCacheActual.equals("fallback"))return false;
+        AvatarGpuScene current=avatarScene;
+        if(current==null||!current.hasCacheableStaticBackground()){
+            releaseBackgroundCache();backgroundCacheActual="ineligible_scene";
+            cameraVpActual=cachedCameraVpRequested?"cached":"per_frame";return false;
+        }
+        // Do not reinterpret an error from the ordinary pose/upload path as a cache allocation failure.
+        checkGl();
+        try{
+            if(backgroundCache==null||backgroundCacheScene!=current){
+                releaseBackgroundCache();backgroundCacheScene=current;
+                backgroundCacheState=new float[current.staticBackgroundStateFloats()];backgroundCacheVp=new float[views*16];
+                backgroundCache=new AvatarBackgroundCache(new AvatarBackgroundGl(current),glContextGeneration,viewWidth,viewHeight,views,multiview?4:1);
+            }
+            cameraVpCache.prepare(views,width,height);
+            int group=multiview?4:1;
+            for(int base=0;base<views;base+=group){
+                cameraVpCache.copyGroup(views,width,height,base,group,multiviewMatrices);
+                System.arraycopy(multiviewMatrices,0,backgroundCacheVp,base*16,group*16);
+            }
+            float aspect=(float)width/height;current.copyStaticBackgroundState(aspect,backgroundCacheState);
+            backgroundCache.prepare(glContextGeneration,current,current.modelSha256(),aspect,backgroundCacheState,backgroundCacheVp);
+            backgroundCacheBytes=backgroundCache.storageBytes();backgroundCacheBuilds=backgroundCache.builds();
+            cameraVpActual=cachedCameraVpRequested?"cached":"background_cache_fixed_camera";
+            backgroundCacheActual="cached_unverified";return true;
+        }catch(RuntimeException failure){
+            try{releaseBackgroundCache();}catch(RuntimeException cleanup){failure.addSuppressed(cleanup);}
+            backgroundCacheActual="fallback";backgroundCacheWarning=failure.toString();
+            cameraVpActual=cachedCameraVpRequested?"cached":"per_frame";
+            if(backgroundCacheWarning.length()>240)backgroundCacheWarning=backgroundCacheWarning.substring(0,240);
+            Log.w("MirrorRuntime","Experimental background cache unavailable; ordinary drawing retained",failure);return false;
+        }
+    }
+    private void releaseBackgroundCache(){
+        AvatarBackgroundCache previous=backgroundCache;backgroundCache=null;backgroundCacheScene=null;
+        backgroundCacheState=null;backgroundCacheVp=null;backgroundCacheBytes=0;backgroundCacheBuilds=0;
+        if(previous!=null)previous.close(glContextGeneration);
     }
     private void makeAtlas() {
         atlasColumns=(int)Math.ceil(Math.sqrt(views)); atlasRows=(views+atlasColumns-1)/atlasColumns;

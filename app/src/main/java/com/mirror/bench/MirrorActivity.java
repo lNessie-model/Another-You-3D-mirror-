@@ -107,6 +107,7 @@ public final class MirrorActivity extends Activity {
         renderer.setAvatarBatched(options.batchedAvatar);
         renderer.setPersistentMultiviewFbos(options.persistentFbos);
         renderer.setCachedCameraVp(options.cachedCameraVp);
+        renderer.setStaticBackgroundCache(options.staticBackgroundCache);
         surface = new GLSurfaceView(this);
         surface.setEGLContextClientVersion(3);
         surface.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
@@ -800,6 +801,7 @@ public final class MirrorActivity extends Activity {
                 .put("debug_render_overrides",new JSONObject().put("synchronous",options.synchronousAvatar)
                         .put("persistent_fbos",options.persistentFbos)
                         .put("cached_camera_vp",options.cachedCameraVp)
+                        .put("static_background_cache",options.staticBackgroundCache)
                         .put("release_gl_on_pause",options.releaseGlOnPause)
                         .put("batched",options.batchedAvatar).put("view_preset",options.viewPreset==null?JSONObject.NULL:options.viewPreset)
                         .put("active_target_fps",options.activeTargetFps).put("view_count",options.viewCount))
@@ -911,11 +913,11 @@ public final class MirrorActivity extends Activity {
         final String input, recordId;
         final double replayFps;
         final long blackoutAfterNs, blackoutDurationNs;
-        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause,npuBlendshapes,privateHead;
+        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause,npuBlendshapes,privateHead,staticBackgroundCache;
         final String viewPreset;
         final int activeTargetFps,viewCount;
         private InputOptions(String input, String recordId, double replayFps, int after, int duration,
-                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause,boolean npuBlendshapes,boolean privateHead) {
+                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause,boolean npuBlendshapes,boolean privateHead,boolean staticBackgroundCache) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
@@ -927,16 +929,17 @@ public final class MirrorActivity extends Activity {
             this.releaseGlOnPause=releaseGlOnPause;
             this.npuBlendshapes=npuBlendshapes;
             this.privateHead=privateHead;
+            this.staticBackgroundCache=staticBackgroundCache;
         }
         static InputOptions defaults() { return defaults(20); }
-        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,true,false,RuntimeViewCount.read(null,false,savedViews),false,true,false); }
+        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,true,false,RuntimeViewCount.read(null,false,savedViews),false,true,false,false); }
         static InputOptions read(Bundle extras, boolean debug) { return read(extras,debug,20); }
         static InputOptions read(Bundle extras, boolean debug,int savedViews) {
             if (extras == null) return defaults(savedViews);
             // Only these existing Mirror test options are overrides. Presence (including null)
             // is different from absence; ordinary extras keep the same product defaults.
             for(String key:new String[]{"test_avatar_synchronous","test_avatar_batched","test_persistent_fbos",
-                    "test_cached_camera_vp","test_release_gl_on_pause","test_npu_blendshapes","test_private_head","test_view_preset",
+                    "test_cached_camera_vp","test_static_background_cache","test_release_gl_on_pause","test_npu_blendshapes","test_private_head","test_view_preset",
                     "test_view_count","test_active_target_fps","test_blackout_after_s","test_blackout_duration_s"})
                 if(extras.containsKey(key)&&(!debug||value(extras,key)==null))
                     throw new IllegalArgumentException("Explicit test option requires a non-null debug value: "+key);
@@ -960,6 +963,11 @@ public final class MirrorActivity extends Activity {
             if(persistent!=null&&(!(persistent instanceof Boolean)||!debug))throw new IllegalArgumentException("Persistent FBO override requires debug Boolean");
             Object cachedVp=value(extras,"test_cached_camera_vp");
             if(cachedVp!=null&&(!(cachedVp instanceof Boolean)||!debug))throw new IllegalArgumentException("Camera VP cache override requires debug Boolean");
+            Object background=value(extras,"test_static_background_cache");
+            if(background!=null&&(!(background instanceof Boolean)||!debug))throw new IllegalArgumentException("Background cache override requires debug Boolean");
+            boolean privateHead=RuntimeExpressionBackend.readPrivateHead(extras,debug);
+            if(Boolean.TRUE.equals(background)&&(!privateHead||Boolean.TRUE.equals(batched)))
+                throw new IllegalArgumentException("Background cache requires private-head individual debug rendering");
             String preset=null;
             if(value(extras,"test_view_preset")!=null) {
                 preset=text(extras,"test_view_preset","");
@@ -972,7 +980,7 @@ public final class MirrorActivity extends Activity {
             int views=RuntimeViewCount.read(extras,debug,savedViews);
             return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,
                     persistent==null||Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug),
-                    !extras.containsKey("test_npu_blendshapes")||RuntimeExpressionBackend.read(extras,debug),RuntimeExpressionBackend.readPrivateHead(extras,debug));
+                    !extras.containsKey("test_npu_blendshapes")||RuntimeExpressionBackend.read(extras,debug),privateHead,Boolean.TRUE.equals(background));
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {

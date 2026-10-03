@@ -42,6 +42,8 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     private boolean verifyMultiview,verifyBatch,verifyPersistentFbos,verifyCachedCameraVp,verifyMultiview16;
     private boolean privateHead;
     private boolean verifyPrivateHead;
+    private boolean verifyBackgroundCache;
+    private int backgroundVerificationViews=20;
     private int verificationViewCount=20;
     private int verificationViewHeight=720;
     private boolean verificationConfigurationError;
@@ -77,6 +79,14 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         try {
             write(new JSONObject().put("running",true).put("passed",false));
             readVerificationConfiguration(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
+            verifyBackgroundCache=readBackgroundVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,privateHead);
+            if(verifyBackgroundCache){
+                backgroundVerificationViews=RuntimeViewCount.read(getIntent().getExtras(),true);
+                AvatarMultiviewCheck.backgroundProfile(backgroundVerificationViews);
+                if(verifyPrivateHead||verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)
+                    throw new IllegalArgumentException("Select only the private background-cache verification");
+                writeArtifact(backgroundVerificationFile(),new JSONObject().put("running",true).put("passed",false));
+            }
             if((verifyMultiview?1:0)+(verifyBatch?1:0)+(verifyPersistentFbos?1:0)+(verifyCachedCameraVp?1:0)+(verifyMultiview16?1:0)>1)throw new IllegalArgumentException("Select one avatar verification per run");
             if(privateHead&&(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16))throw new IllegalArgumentException("Private head requires its own verification flag");
             if(verifyPrivateHead)writeArtifact("tripo-head-multiview-check.json",new JSONObject().put("running",true).put("passed",false));
@@ -90,6 +100,10 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         if(scene==null)return;
         try {
             captureStates();
+            if(verifyBackgroundCache&&!cancelled){
+                JSONObject report=AvatarMultiviewCheck.runPrivateBackground(getFilesDir(),backgroundVerificationViews,()->cancelled);
+                writeArtifact(backgroundVerificationFile(),report.put("running",false));
+            }
             if(verifyPrivateHead&&!cancelled){
                 JSONObject serial=AvatarMultiviewCheck.runPrivateHead(getFilesDir(),()->cancelled,false);
                 JSONObject batch=serial.optBoolean("passed")?AvatarMultiviewCheck.runPrivateHead(getFilesDir(),()->cancelled,true):new JSONObject().put("passed",false).put("skipped","serial-vs-OVR gate failed");
@@ -168,11 +182,21 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         try {
             write(new JSONObject().put("running",false).put("passed",false).put("error",error));
             if(verifyPrivateHead)writeArtifact("tripo-head-multiview-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error));
+            if(verifyBackgroundCache)writeArtifact(backgroundVerificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
         }
         catch(Exception writeError){android.util.Log.e("AvatarPreview","Could not publish failure; do not use an older report",writeError);show("失败报告写入失败；不可使用旧报告："+writeError);}
     }
     private static void checkGl(String operation){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(operation+" GL error "+code);}
+    private String backgroundVerificationFile(){return "tripo-head-background-cache-"+backgroundVerificationViews+"-check.json";}
+    @SuppressWarnings("deprecation") static boolean readBackgroundVerification(Bundle extras,boolean debug,boolean privateHead){
+        String key="verify_private_background_cache";
+        if(extras==null||!extras.containsKey(key))return false;
+        Object value=extras.get(key);
+        if(!debug||!(value instanceof Boolean))throw new IllegalArgumentException("Background verification requires a non-null debug Boolean");
+        if(Boolean.TRUE.equals(value)&&!privateHead)throw new IllegalArgumentException("Background verification requires a private head scene");
+        return Boolean.TRUE.equals(value);
+    }
     private void readVerificationViewCount(Bundle extras,boolean debug){
         verificationViewCount=(verifyPersistentFbos||verifyCachedCameraVp)?RuntimeViewCount.read(extras,debug):20;
     }

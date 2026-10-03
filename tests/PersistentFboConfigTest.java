@@ -11,7 +11,10 @@ public final class PersistentFboConfigTest {
         Class<?> type=Class.forName("com.mirror.bench.MirrorActivity$InputOptions");
         Method read=type.getDeclaredMethod("read",Bundle.class,boolean.class);read.setAccessible(true);
         Field enabled=type.getDeclaredField("persistentFbos");enabled.setAccessible(true);
-        check(!enabled.getBoolean(read.invoke(null,null,true)));
+        // Product defaults were already persistent before the background-cache experiment (669287b).
+        check(enabled.getBoolean(read.invoke(null,null,true)));
+        check(enabled.getBoolean(read.invoke(null,null,false)));
+        check(enabled.getBoolean(read.invoke(null,new Bundle(),false)));
         Bundle extras=new Bundle();extras.putBoolean("test_persistent_fbos",true);check(enabled.getBoolean(read.invoke(null,extras,true)));
         try{read.invoke(null,extras,false);throw new AssertionError("Release accepted override");}catch(InvocationTargetException e){check(e.getCause() instanceof IllegalArgumentException);}
         extras.putBoolean("test_persistent_fbos",false);check(!enabled.getBoolean(read.invoke(null,extras,true)));
