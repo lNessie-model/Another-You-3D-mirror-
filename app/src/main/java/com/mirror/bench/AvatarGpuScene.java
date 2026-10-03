@@ -359,7 +359,8 @@ final class AvatarGpuScene {
     }
     static String atlasVertex(String source){return source.replace("layout(location=2) in vec4 aColor;","layout(location=2) in vec4 aColor;\nlayout(location=4) in vec2 aUV;\nout vec2 vUV;").replace("void main(){","void main(){vUV=aUV;");}
     static String atlasFragment(String source){return source.replace("in vec3 vNormal;","in vec2 vUV;uniform sampler2D uAtlas;uniform float uUseTexture;\nin vec3 vNormal;")
-            .replace("vec3 base=clamp(uColor.rgb*vColor.rgb,0.0,1.0);","vec3 albedo=uUseTexture>0.5?texture(uAtlas,vUV).rgb:vec3(1.0);\nvec3 base=clamp(uColor.rgb*vColor.rgb*albedo,0.0,1.0);");}
+            .replace("vec3 base=clamp(uColor.rgb*vColor.rgb,0.0,1.0);","vec3 albedo=uUseTexture>0.5?texture(uAtlas,vUV).rgb:vec3(1.0);\nvec3 base=clamp(uColor.rgb*vColor.rgb*albedo,0.0,1.0);\n"
+                    +"if(uUnlit>0.5){color=vec4(pow(clamp(base,0.0,1.0),vec3(1.0/2.2)),1.0);return;}");}
     static int shader(int kind,String source){int id=GLES30.glCreateShader(kind);try{GLES30.glShaderSource(id,source);GLES30.glCompileShader(id);int[] ok=new int[1];GLES30.glGetShaderiv(id,GLES30.GL_COMPILE_STATUS,ok,0);if(ok[0]==0)throw new IllegalStateException("Avatar shader: "+GLES30.glGetShaderInfoLog(id));return id;}catch(RuntimeException|Error failure){GLES30.glDeleteShader(id);throw failure;}}
     private static void checkGl(String label){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(label+" GL error "+code);}
     private static IntBuffer directInts(IntBuffer input){IntBuffer b=ByteBuffer.allocateDirect(input.remaining()*4).order(ByteOrder.nativeOrder()).asIntBuffer();b.put(input);b.flip();return b;}

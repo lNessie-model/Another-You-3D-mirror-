@@ -14,7 +14,8 @@ public final class TripoHeadAssetCheck {
                 .put("facialRigChecked",false).put("artistAcceptance",false);
         if(args.length>1) {
             AvatarRig rig=new AvatarRig(asset,Files.readString(Path.of(args[1])));
-            AvatarDeformer deformer=new AvatarDeformer(asset,AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
+            AvatarDeformer deformer=new AvatarDeformer(asset,rig.normalPolicy().equals("authored")
+                    ?AvatarDeformer.NormalPolicy.AUTHORED:AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
             long[] staticRevisions=new long[asset.meshes().size()];int staticMeshes=0;
             for(int m=0;m<staticRevisions.length;m++)if(asset.meshes().get(m).targetCount()==0) {
                 staticRevisions[m]=deformer.primitives(m).get(0).revision();staticMeshes++;
