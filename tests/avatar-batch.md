@@ -267,5 +267,8 @@ stage move has not changed any captured fixture output on this device.
 Diagnostic elapsed time is 361,021.388 ms and is not runtime FPS evidence.
 The report still declares `performance_evidence=false` and
 `artwork_validated=false`; it does not certify asynchronous scheduling,
-physical panel optics or all expression artwork. v9 same-APK reverse-order
-B/A performance is pending and must retain identical workload/settings.
+physical panel optics or all expression artwork. v9 same-APK reverse-order B/A performance completed at 27.0074 / 29.3386
+actual FPS with identical 20×320×576 and full face workload. Both retain
+complete confirmed active histories and neither sustains 30 FPS. This single
+ordered pair does not isolate thermal or scheduling effects; individual stays
+the default. See [runtime evidence](../docs/avatar-runtime-validation.md).

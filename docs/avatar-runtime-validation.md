@@ -12,6 +12,7 @@
 | AvatarRuntime-v4-check.apk | `0e8f129ade4001f4fdb3927137267a3ee0c47897f19ee02b23c4bcf9ef7322eb` | 加入真实角色逐视点核对入口，渲染/模型与 v3 相同 |
 | AvatarRuntime-v6-bulk-copy.apk | `b0c4588f8bfdbaa1616fff1efce463e31f0625ccad36119d0e3692376c9931b9` | 批量槽复制、首帧加载门控、恢复会话状态隔离 |
 | AvatarRuntime-v7-heap-cache.apk | `89642634988ba93f68477df90ba3147e1fc822116f6429d7d214b876c6a552f8` | 只增加构造期源数组缓存，模型和画质不变 |
+| AvatarRuntime-v8-import-batch.apk | `5f38fe6cb60f14f4249cae1122f96a1c8217950ee82821358edb540789a65af9` | 本地角色管理与调试合并绘制；真机发现空间查询兼容问题，尚不可作为导入交付版 |
 
 生产模型 `character.glb` SHA256：`8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407`。15,085 顶点、29,482 三角形、7 primitive，解码资产 5,890,656 字节。43 个原始形变加 9 个组合目标，8 个视线来源控制刚性眼球；几何目标数不等同于独立动作数。坐标、绑定和限制见包内 README 及 `docs/avatar-runtime-design.md`。
 
@@ -83,5 +84,68 @@
 报告 `avatar-v7-sync-a-90s.json` SHA256 `1834740bb7c8aacba80e16855f674c8e175f64a063697ba4bb465fe5f492d724`；`avatar-v7-async-b-90s.json` SHA256 `e9962308e2d25be49822f4f2eb4e1701ea1d963364f3c1ee53b987e281a7741d`。确认互动历史完整，未确认尾段分别 0.3029 / 0.5291 秒。v6→v7 同步形变约降低 56.5%，异步约降低 54.5%；不同先后/温度的单次测试不是等温统计实验，但数值一致的缓存获得明确设备收益。异步末段 15.17 秒达到 30.2000 FPS，**全组仍为 29.2387，不能宣称持续 30 FPS**。
 
 另测 `avatar-v7-async-speed-c-90s.json`：仅对该应用执行 `cmd package compile -m speed -f com.mirror.bench`，命令返回 Success，但 `dumpsys package` 从 run-from-apk 变成的是 **quicken**。因此文件名 speed 仅记录请求，实际不是 speed/AOT。确认互动为 29.3865 FPS，未达 30；这约 0.15 FPS 差异不足以单次归因。原始状态在 `avatar-v7-dexopt-before.txt` / `avatar-v7-dexopt-after.txt`。Android 11 的 debuggable 应用会把 speed 转成 safe-mode quicken，不能通过成功返回值推断模式；依据 [PackageDexOptimizer](https://android.googlesource.com/platform/frameworks/base/+/android-11.0.0_r1/services/core/java/com/android/server/pm/PackageDexOptimizer.java) 和 [ART compiler filter](https://android.googlesource.com/platform/art/+/android-11.0.0_r1/runtime/compiler_filter.cc)。后续收集器保存完整应用编译状态，避免仅凭 APK hash 混合不同执行模式。
+
+## v8 合并绘制核对与联合性能
+
+`avatar-v8-batch.json` SHA256 `c7eae1b2b1c26b303a6ea8b36f7a3529a312efb5d2b8e27546cafb2700c55293`，run `1ccb18fd-6909-49db-ac1a-3d76bba3e52c`。69 姿态 × 20 个独立全局视点、每视点 400×720，原串行路径与 OVR4 合并路径共 1,380 对全部通过预先规定的容差。1,379 对完全一致；mouthFrownLeft 的第 16 图层有一个 RGB 字节差 1，alpha 差异为 0。结论是容差等价，不是逐位相同；约 360 秒同步诊断读回不是性能测试。
+
+同 v8 APK、同内置模型、同 USB 采集＋录像完整面捕＋原生 UI、异步形变、20×320×576 的 90 秒顺序 A/B：
+
+| 指标（确认互动区间） | 原 individual | 调试 batched |
+| --- | ---: | ---: |
+| 实际呈现 FPS | 29.3158 | 27.8562 |
+| CPU 全机 / GPU / NPU 均值 | 87.529 / 87.481 / 45.886% | 86.767 / 93.772 / 45.848% |
+| 完整有效面捕 FPS | 15.0571 | 14.974 |
+| VBO 上传均值 | 0.426 ms | 1.092 ms |
+| 已应用姿态年龄均值 | 33.74 ms | 36.10 ms |
+| 温度范围 | 62.777–71.666°C | 64.444–75.0°C |
+
+两轮确认互动历史完整、无状态/呈现缺口或运行错误；未确认尾段分别 0.6307 / 0.2869 秒。原始文件为 `avatar-v8-individual-a-90s.json` 与 `avatar-v8-batched-b-90s.json`。合并每帧 35→5 次绘制提交没有带来此轮性能收益，实际帧率低约 4.98%，均未达到 30 FPS。B 在后、温度较高；两轮采样 CPU0/GPU 均为 1.8 GHz/800 MHz，但不能排除温度或顺序影响，不能把单次差异直接归因为 shader。默认保持 individual。该轮后的候选把材质选择从片段阶段移到顶点阶段；v9 对照见下，代码与数值契约见 `tests/avatar-batch.md`。
+
+## v9 顶点材质选择与反向顺序对照
+
+两份原始报告均为 `collection_status=completed`。同 APK SHA256 `8ab4674ca965c199697a1e91ff058b2df247e5f472f090be825a1c8cb157a24e`，ART 实际状态均为 `run-from-apk`；本轮顺序是 **B：batched 先测，A：individual 后测**，每次请求 90 秒。实际已加载状态确认 B 的 `draw_backend=batched`、`material_selection_stage=vertex_flat`，A 为 `individual`，不只依赖启动参数判断后端。
+
+两组都是内置模型 SHA `8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407`，15,085 顶点、29,482 三角形；`camera_replay` 同时运行 USB 采集、录像完整面捕、原生 UI、`bounded_cpu_worker` 异步角色形变及 **20×320×576** 视图交织，输出 1200×1920。RKNN 执行检测/478 点网络，MediaPipe CPU 执行 52 表情及 canonical pose。本轮不是刚导入的 A/B 角色切换测试；此处 A/B 仅指两种绘制路径。
+
+下表严格使用两份报告的确认 INTERACTIVE 区间：实际呈现来自 SurfaceFlinger，资源来自 `interactive_system`；CPU 为全机占用，不是应用进程百分比。
+
+| 指标（确认互动区间） | B：vertex_flat batched，先测 | A：individual，后测 |
+| --- | ---: | ---: |
+| 实际呈现 FPS | 27.0074 | 29.3386 |
+| 确认互动时长 | 84.8245 s | 84.5468 s |
+| CPU 全机 / GPU / NPU 均值 | 87.880 / 93.675 / 38.063% | 87.764 / 89.238 / 37.050% |
+| PSS 峰值 | 460.126 MiB | 452.983 MiB |
+| 温度范围 | 62.777–72.222°C | 61.666–71.111°C |
+| 未确认尾段（不计入上述结论） | 0.8000 s | 0.7650 s |
+
+两组各有 80 个互动区间资源采样和 16 个 PSS 采样，采样时 CPU0/GPU 分别为 1.8 GHz/800 MHz。确认状态历史及实际呈现历史无缺口、无歧义区间，采集和运行错误均为空。FPS 已按各段真实帧间隔独立重算，与原报告一致；启动、ACQUIRING、短暂 GRACE 及未确认尾段均不混入。A 最后约 15.10 秒的确认段为 30.1020 FPS，整轮仍是 29.3386，**两组都未达持续 30 FPS**。
+
+面捕及角色阶段耗时没有逐帧记录可用于重新裁剪到互动区间，以下保留各自原始范围，两列采用相同定义比较：
+
+| 指标 | B：先测 | A：后测 | 原始范围 |
+| --- | ---: | ---: | --- |
+| 完整有效面捕 FPS | 14.9267 | 15.5904 | 末次输入 session，含 acquisition/idle |
+| 有效人脸结果 / 完成推理帧 | 1,279 / 1,281 | 1,334 / 1,336 | 同上，输出 478 点、52 表情 |
+| 推理完成延迟均值 | 99.918 ms | 95.715 ms | 同上，含后处理 |
+| 接收帧至完成均值 | 127.043 ms | 119.736 ms | 同上，非最终上屏延迟 |
+| NPU mesh / CPU post 均值 | 39.712 / 47.502 ms | 37.918 / 45.270 ms | 各输入 session 的调用均值 |
+| morph 计算均值 | 12.141 ms | 10.075 ms | 已应用姿态，自 GL 场景创建，含初始中性姿态 |
+| 槽复制 / VBO 上传均值 | 0.689 / 1.171 ms | 0.614 / 0.429 ms | 同上 |
+| 已应用姿态年龄均值 / 峰值 | 37.093 / 123.512 ms | 33.914 / 126.458 ms | 同上，不能直接当作摄像头至屏幕延迟 |
+
+此轮 B 的实际 FPS 比 A 低约 7.95%，没有显示合并路径的性能收益，默认保持 individual。B 先、A 后且温度不同，各只有一次测量；不能把差异直接归因为材质阶段、合并本身或热状态，也不能用 v8→v9 的单次跨版本变化推导因果。相同瞬时频率不足以消除顺序、温度和调度影响。
+
+原始证据与离线审计：
+
+- [avatar-v9-batched-first-90s.json](E:/tripo/output/mirror-program/20261003/avatar-v9-batched-first-90s.json)，SHA256 `5d640f023e598520f71968fa340b5e9e8c2cab749f2728b562be8fbaf2139f41`。
+- [avatar-v9-individual-second-90s.json](E:/tripo/output/mirror-program/20261003/avatar-v9-individual-second-90s.json)，SHA256 `7c5c8b5250c9183fa495f2770b307a9e02f80079b50aefd8e6013e18a2eb06e4`。
+- [avatar-v9-performance-audit.json](E:/tripo/output/mirror-program/20261003/avatar-v9-performance-audit.json) 保留实际模型/后端/ART 身份、帧率重算、各指标原始统计范围及报告哈希，不改写原始数据。
+
+## 角色管理与权限验收边界
+
+v8 管理页已在设备显示真实模型，中性/闭眼/张口/头转截图与取消文件选择证据保存在 `manager-*`。系统选择器的 ADB `input tap` 对条目无反应，键盘 DPAD/Enter 能正常选择并返回；没有因此扩大文件权限或修改 MIME 合同。选择 ZIP 后实际失败于 `SecurityException: getFileStore`，在内容验证之前，因此不能把该结果当成“无效包验证成功”；原截图 `manager-28-invalid-detail.png` 保留。v9 已用 StatFs 修复，并完成有效包导入、候选不自动启用、明确启用、真正无效 ZIP 保留当前、上一版回退、重开后读取及恢复内置的局部实机验证，详见 [avatar-management-validation.md](E:/tripo/device-lab/docs/avatar-management-validation.md)。管理验证中的 USB 约 24.4 FPS 且零采集失败，但没有人脸；完整面捕性能只能引用上面的专项报告。实际阻塞 IO/提交与 HOME 竞态、同一 Manager EGL 恢复和切换资源稳定期仍未覆盖。
+
+摄像头拒绝授权分支仍未验收：本机两次 `pm revoke com.mirror.bench android.permission.CAMERA` 返回无错误，但立即查询仍为 `granted=true`，没有制造出真实拒绝状态；没有改系统权限策略。`permission-01-request.xml` 是早期辅助脚本在 uiautomator 无法等到空闲后误读的旧 XML，**不得作为权限证据**。辅助脚本已改为先删除固定临时 XML，且仅在明确 dump 成功后读取，避免旧界面误判。
 
 尚未完成：真实角色持续 30 FPS 的长时证据、400×720 联合运行性能、2 小时耐久、导入失败/角色切换资源回收、摄像头权限拒绝实测、相机方向/镜像/中性校准及最终安装光学/散热验收。保持原目标，继续按实际瓶颈迭代。

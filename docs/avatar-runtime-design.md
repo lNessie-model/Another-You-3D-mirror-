@@ -1,6 +1,6 @@
 # 可替换角色与完整面捕接入设计
 
-状态（2026-10-03）：标准 GLB 内置角色、受限 loader、完整 52 项快照、schema v2 rig、CPU 形变及真实 GLES 绘制已接入主程序；正式资产 SHA-256 为 `8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407`。已有 v3 十状态设备截图和同步/异步联合对照、v4 串行/OVR 图层核对。角色仍是美术原型，尚未完成正式用户文件导入、全部组合美术验收、持续 30 FPS 或 2 小时耐久。以下同时保留完整交付要求和未完成约束，不把局部通过等同于项目完成。
+状态（2026-10-03）：标准 GLB 内置角色、受限 loader、完整 52 项快照、schema v2 rig、CPU 形变及真实 GLES 绘制已接入主程序；生产原型资产 SHA-256 为 `8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407`。v9 的 `AvatarPackageStore`、`AvatarManagementActivity` 及主程序角色管理入口已完成两包 SAF 导入、预览后显式启用、无效 ZIP 拒绝、上一版回退、重启持久选择和恢复内置的设备验证，具体证据及未测生命周期见第 9 节与[角色管理验收记录](avatar-management-validation.md)。v8 合并绘制的 1,380 层 GPU 比较在预设容差内通过，但 90 秒呈现为原路径 29.3158 FPS、合并路径 27.8562 FPS，默认继续使用原逐 primitive 路径；v9 shader 的独立像素核对亦通过，但反向顺序合并/原路径仍只有 27.0074/29.3386 FPS，未达持续30 FPS。角色仍是美术原型；完整 texture/skin、导出、全部组合美术验收、真实角色持续 30 FPS 及 30 分钟/2 小时耐久尚未完成。以下同时保留完整交付要求和未完成约束，不把局部通过等同于项目完成。
 
 ## 1. 交付目标与当前差距
 
@@ -12,7 +12,8 @@
 - 内置 `builtin-guide/character.glb` 已走 `AvatarGlbLoader`、`AvatarRig`、`AvatarDeformer` 和 `AvatarGpuScene` 的正式读取/绘制路径。当前为 15,085 顶点、29,482 三角形、7 个真实 primitive；具有头/颈肩、独立眼球眼睑和嘴唇口腔牙舌。52 个几何目标由 43 个直接目标和 9 个组合 corrective 构成，另有 8 个刚性视线动作；不是“52 个表情全部美术完成”。
 - 正式角色每个动画快照只变形一次并重算法线，各视点共享结果；同步 GL 线程与有界 CPU worker 均有同 APK 对照入口。真实 primitive 按各自材质/节点绘制。旧椭球、固定四属性和等分索引路径仍是诊断基线，不用于宣称真实角色验收。
 - 纹理数组、四视点一批的 `OVR_multiview2`、独立投影与最终交织继续使用；`AvatarFraming`/`AvatarGeometryBounds` 根据已验证资产包络处理竖屏取景。v4 的 69 姿态×20 图层核对通过，具体范围见第 9 节。
-- v3 GLES 截图已人工检查独立闭眼及张颌闭唇，但组合美术仍为 prototype。当前没有正式用户文件选择/导入事务/热切换交付；texture/skin 支持、权限拒绝实机分支、完整长时验收仍未完成。
+- 本地 ZIP 的有界导入事务、真实单视点预览、精确包激活/上一版回退/内置回退及主程序重新读取选择已实现；v9 已实测两份不同 GLB SHA 的测试包通过 SAF 导入、预览和切换，以及无效包保留当前、回退及重启持久化。尚未实测实际阻塞提供方、IO/提交期间 HOME 或同一管理页 EGL 恢复，也不是原场景内无缝热切换。具体入口与生命周期见[角色管理说明](avatar-management.md)。
+- v3 GLES 截图已人工检查独立闭眼及张颌闭唇，但组合美术仍为 prototype。texture/skin、导出、相机权限拒绝实机分支、真实角色 30 分钟/2 小时完整长时验收及最终光学校准仍未完成。
 
 ## 2. 首个内置角色：完整的风格化头部半身像
 
@@ -36,7 +37,7 @@
 
 生成顺序是：有眼口边界的前脸拓扑 → 鼻/颊/下颌塑形 → 连接头壳与颈肩 → 眼睑/嘴唇 → 眼球/口腔/牙舌/眉毛 → 刚性头/颌附件/眼节点 → 逐个命名 shape key → 配色和基础材质 → GLB 导出。首里程碑不需要 skin：脸部下颌由 morph 形变，下牙/舌头用独立刚性节点同步，头部与肩部分开；颈部过渡通过衣领/头部下缘的重叠结构保证转头不露缝。完整混合蒙皮是后续明确的扩展，不阻塞第一套真实角色。可以使用官方 canonical face OBJ 作前脸点位/拓扑参考，但它不是完整头部，更没有现成口腔、眼球或完整表情资产；若实际采用其数据，保存来源版本、SHA 和许可证。
 
-当前已提交的源文件/资产位置如下；小型合法/非法 fixture 由主机测试构建，用户导入事务 fixture 仍需补齐：
+当前源文件/资产位置如下。小型合法/非法 fixture 及用户导入事务 fixture 已由主机测试构建：真实 ZIP/文件系统/GLB 检查 139 项、管理生命周期门控 24 项、截止时间 42 项、坏摘要适配 6 项通过。生产源码先用真实 Android SDK 35 编译，主机测试另以唯一 `StatFs` 边界替身运行实际 Store/parser；这些测试不替代系统文件选择器和 GPU 的设备行为：
 
 ```text
 app/src/main/assets/avatars/builtin-guide/
@@ -53,6 +54,10 @@ tests/
   AvatarGlbLoaderTest.java
   AvatarDeformerTest.java
   AvatarRigV2Test.java
+  AvatarPackageStoreTest.java
+  AvatarManagementGateTest.java
+  AvatarManagementDeadlineTest.java
+  AvatarManagementCatalogTest.java
 ```
 
 先做可辨识几何和最关键表情的内置 GLB，立刻经正式 loader 显示；随后在同一个资产里补全表情，不能先写长期存在的第二套程序网格绕过 loader。美术上没有验收的自动生成 shape key 不能标记“52 表情已完成”。
@@ -94,7 +99,7 @@ MediaPipe 当前 52 项中，索引 0 是 `_neutral`；它不作为额外面部�
 
 ## 4. 资产入口及 JSON 清单契约
 
-此节的正式用户导入事务仍未实现；当前主程序从 APK assets 加载内置 GLB/清单，不能把底层 loader 可解析字节等同于完整导入入口。目标仍是内置和用户导入采用相同 `AvatarPackage` 契约。正式入口须使用 Android 文件选择器的 `content://` 授权读取，复制到应用私有 staging；不从任意网络 URL 拉取资源。用户分别选择 GLB 和清单，或在受授权的目录树中选择包；清单引用只允许已选包内的平级文件名，不能拼出任意本地路径。先完成验证，再切换当前角色。源文件、清单摘要和导入报告应可导出。
+存储事务及正式用户入口现已实现，v9 已完成第 9 节所列设备 SAF/切换检查；尚不等于全部异常和生命周期验收。Android 11+ 使用系统文件选择器的 `content://` 临时授权读取一个本地 ZIP，复制到应用私有 `files/avatars` staging；不从任意网络 URL 拉取资源，也不请求全部存储权限。包仅允许平级 `character.glb`、`avatar.json` 及可选 README/LICENSE/thumbnail，具体上限见 [Store 合同与检查](../tests/avatar-package-store.md)。这是对早期分别选择文件/拒绝 ZIP 草案的有界扩展，不允许任意 ZIP 内容或外部引用。严格 JSON、摘要、真实 GLB/rig/形变验证后只发布候选；精确包预览成功并由用户点击“使用此角色”才原子更新 current，同时保留 previous。主程序从管理页任何返回都重新读取 current，以处理提交已发生但成功回调被 HOME 打断的情况；该提交期间 HOME 分支尚未实测。源文件、清单摘要和导入报告导出仍待实现。
 
 下面保留向后兼容的 schema 1 结构示例；不是完整绑定表。当前内置实际使用 schema 2，包含全部 direct 映射和第 9 节的 `requiredRigFeatures`/`derivedBindings`，不能直接用本示例替换生产清单：
 
@@ -136,11 +141,11 @@ MediaPipe 当前 52 项中，索引 0 是 `_neutral`；它不作为额外面部�
 
 ## 5. GLB v1 loader 的明确支持范围
 
-当前 `AvatarGlbLoader` 已实现 morph-only GLB、刚性节点和不使用贴图的基础材质解析；APK 内置角色经此路径加载。正式里程碑 v1a 仍要求实际用户文件导入及失败回退，不能将“loader 已实现”替代文件选择、授权、校验报告和切换事务。下面区分当前子集与原定扩展要求；蒙皮和更复杂材质属于随后 v1b。有限支持范围要向用户说明，导入失败保留当前角色并给出具体原因。
+当前 `AvatarGlbLoader` 已实现 morph-only GLB、刚性节点和不使用贴图的基础材质解析；APK 内置角色和导入包均复用此路径。文件选择、包级校验报告、候选/当前/上一版事务及管理 UI 已实现，v9 两份测试包和一份无效包的设备导入/切换/回退已有证据；正式里程碑 v1a 仍需补齐真实第三方资产与授权/取消等异常验收，不能由这两份测试包推断任意 GLB 均可导入。下面区分当前子集与原定扩展要求；蒙皮和更复杂材质属于随后 v1b。有限支持范围要向用户说明，导入失败保留当前角色并给出具体原因。
 
 | 范围 | 当前实现 / 后续处理要求 |
 | --- | --- |
-| 文件 | 当前为 GLB 2.0、JSON+BIN chunk、一个内嵌 buffer；拒绝外部 URI 和图片/纹理/sampler。正式包入口仍须拒绝路径穿越、ZIP 包及下载地址。后续 PNG/JPEG 图片必须内嵌，不能绕过包授权。 |
+| 文件 | 当前为 GLB 2.0、JSON+BIN chunk、一个内嵌 buffer；拒绝外部 URI 和图片/纹理/sampler。本地包入口仅接收固定文件白名单的有界 ZIP，拒绝路径穿越、额外条目及下载地址。后续 PNG/JPEG 图片必须内嵌，不能绕过包授权。 |
 | 顶点 | 已支持 TRIANGLES；POSITION/NORMAL 为有限 float VEC3，TEXCOORD_0 可读 float VEC2，但尚无贴图采样；COLOR_0 支持 float 或规范化 unsigned byte/short。索引支持 unsigned byte/short/int，也支持无索引三角形；统一为内部索引格式。 |
 | buffer/accessor | 支持有效 byteOffset、byteStride、bufferView 与 accessor offset 组合；支持 sparse morph accessor，在一次性导入阶段展开。每个 offset/count/stride 用 long 做边界检查，先检查再分配内存。 |
 | 节点 | 一个被选中的 scene、有限且无环的节点树、TRS 或 matrix（二选一）。支持正的非均匀 scale，并正确变换法线；负尺度/反射先拒绝，要求离线烘焙，防止背面剔除方向错误。 |
@@ -172,7 +177,9 @@ UI 30 Hz 的平滑会使形变更新高于原始面捕帧率，因此统计中�
 
 ### 6.1 热切换与失败回退
 
-本节是尚未完成的正式导入/热切换事务要求，不是当前内置加载路径已有的能力。后续 repository/loader 在后台解析到 CPU staging；复用现有 `AvatarGlbLoader`/`AvatarRig` 并补齐包级验证，完成 schema、边界、覆盖和预算检查后，在 GL 线程创建候选 scene 资源。先完成新资产上传及首帧检查，再原子替换活动 scene。导入失败继续显示原角色，若连原角色不可用则加载 APK 内置 GLB；诊断椭球只在明确的诊断模式出现。
+当前 v9 已实现后台 Store staging 和包级 schema、边界、覆盖、预算检查，复用 `AvatarGlbLoader`/`AvatarRig`，再由管理页 GL 线程创建候选 scene。v8 在 Android 11 上的 `Files.getFileStore` 权限异常已改为 `StatFs.getAvailableBytes()`，维持 74 MiB 空间门槛并保留查询错误原因；v9 SAF 已实际进入并通过合法包验证。当前准入检查是成功提交一次绘制、`glFlush` 后无 GL 错误，并保持选中包/owner/context 身份一致；不声称已证明 SurfaceFlinger 呈现或美术效果。用户明确激活后原子替换选择指针，返回主程序时重建并加载已选角色，尚不是原活动 scene 内无缝替换。导入失败保留原选择；主程序读取已选包失败时保留坏包并明确提示暂用 APK 内置 GLB。候选 GPU 初始化或 debug 合并绘制失败直接报错，不静默换成成功的内置控制组；诊断椭球只在明确的诊断模式出现。
+
+原定无缝热切换要求仍保留：完成新资产上传及首帧检查后，在帧边界替换活动 scene，失败继续显示原角色；当前管理页预览和主程序重建路径已有第 9 节的局部设备验收。文件读取/排队 30 秒、加载完成后的 GL 预览 20 秒、明确切换确认 15 秒分别限时，超时撤销 owner 和预览资格，不替换被阻塞的单一 IO 线程。原子指针提交已开始时取消不能撤销，切换超时只报告结果未确认，任何管理页返回都重读 current。回退 B 后 force-stop/重启继续选择 B 已有执行记录和新 session 证据；实际 IO/提交中 HOME、同页 EGL 恢复、断电或存储损坏恢复尚未实测，文件强制写出也不等同于目录 fsync 的断电保证。
 
 切换附带 generation id。旧加载任务、旧形变结果和重建前的 GL 资源不得重新发布。旧 GPU buffers/textures/program 引用等最后一个已提交 fence 完成后释放；上下文丢失时丢弃 GL handle，用当前已验证 CPU 资产重建。不能让无界候选包或每次切换都残留 direct buffer。
 
@@ -183,6 +190,12 @@ staging 最多一个候选包。切换峰值超出已测内存预算时先卸载
 当前已落盘的 `output/mirror-program/20261003/portrait-program-baseline.json` 是诊断椭球、20 视点、每视点 400×720、输出 1200×1920 的基线：实际呈现约 29.45 FPS、GPU 平均约 94.87%、全机 CPU 约 71.67%。它说明此负载余量不足，不能拿更小视点或旧横屏结果来保证新角色 30 FPS。`runtime-initial-blackout-status.json` 的 renderer callback FPS 也不能替代 SurfaceFlinger 呈现证据。
 
 正式角色 v3 已在同一 APK（SHA-256 `44d0a133f4ef7b9c66e06d57f6dc541b991019d19f9111f1daf52103e711e746`）做 90 秒同步/异步对照：20 视点、每视点 **320×576**、输出 1200×1920，`camera_replay` 为真实 USB 采集＋已录人像回放的完整面捕＋UI，不代表现场实时表情准确度。[同步原始报告](E:/tripo/output/mirror-program/20261003/avatar-v3-sync-a-90s.json) 的已确认互动呈现约 24.3941 FPS，[异步原始报告](E:/tripo/output/mirror-program/20261003/avatar-v3-async-b-90s.json) 约 28.1340 FPS。两组分别仍有 1.6877/1.4037 秒历史缺口、1.3866/1.4474 秒未确认尾段，`complete_active_evidence=false`、`meets_30fps_target=false`，均未通过完整 30 FPS 验收。它们不能替代 400×720、长时热态或真实 camera 的结果。
+
+v7 同 APK 对照仍为同一生产模型、20×320×576、完整面捕与 UI：[同步](E:/tripo/output/mirror-program/20261003/avatar-v7-sync-a-90s.json)和[异步](E:/tripo/output/mirror-program/20261003/avatar-v7-async-b-90s.json)的 90 秒确认互动呈现分别为 28.9378 / 29.2387 FPS，确认互动历史完整，未确认尾段分别 0.3029 / 0.5291 秒，仍未达持续 30 FPS。构造期源数组缓存保持数值和画质不变，双 Deformer 新增约 3.126 MiB；形变均值为 7.2843 / 10.0344 ms。完整资源、温度、SHA、v6 HOME 恢复及 v7 quicken 另测的事实边界见[设备验证记录](avatar-runtime-validation.md)。这些短测不替代真实 GLB 的 30 分钟/2 小时或 400×720 联合验收。
+
+v8 APK `AvatarRuntime-v8-import-batch.apk` 的 SHA-256 为 `5f38fe6cb60f14f4249cae1122f96a1c8217950ee82821358edb540789a65af9`。debug-only 合并绘制把此模型每 20 视点的 35 次 scene draw 合为 5 次；[GPU 原始报告](E:/tripo/output/mirror-program/20261003/avatar-v8-batch.json) 的 69 姿态×20 图层在 400×720 下通过预设 `max RGB≤1`、`RMSE≤0.1` 容差：总计仅 1 个 RGB 字节不同、最大差值 1、最大 RMSE 0.00107583，不能称逐字节相同。其 90 秒同 APK、20×320×576 联合负载对照为[原逐 primitive 路径](E:/tripo/output/mirror-program/20261003/avatar-v8-individual-a-90s.json) 29.3158 FPS、[合并路径](E:/tripo/output/mirror-program/20261003/avatar-v8-batched-b-90s.json) 27.8562 FPS；确认互动历史完整，无状态错误，未确认尾段分别 0.6307/0.2869 秒，两者均未达 30 FPS。减少 draw 次数在这轮实测中没有提速，默认保留原路径。
+
+v9 APK `AvatarRuntime-v9-import-fix-flat-material.apk` 的 SHA-256 为 `8ab4674ca965c199697a1e91ff058b2df247e5f472f090be825a1c8cb157a24e`。该版修复角色包空间检查并加入管理页有限截止时间；功能证据见第 9 节。另一个 debug-only shader 候选把动态材质选择移至顶点阶段，再以 `flat highp` 传入片元阶段；其独立设备 GPU 核对69×20通过预设容差，仅一个RGB字节差1，全部对应图层哈希与v8不变；同APK反向顺序合并/原路径为27.0074/29.3386 FPS，没有性能改善证据。原始报告及统计范围见[运行验收](avatar-runtime-validation.md)。生产默认仍为原逐 primitive 路径。
 
 以下保留最初工程目标，未测即不算完成。当前正式资产为 15,085 顶点、29,482 三角形，已经超过表中约 6,000/12,000 的初始规划，虽仍在 loader 硬上限内，也不能宣称达到原网格/上传预算；应按真实资产量测再优化，不能悄悄重定义目标：
 
@@ -202,15 +215,15 @@ staging 最多一个候选包。切换峰值超出已测内存预算时先卸载
 
 ## 8. 最小代码分解与实现顺序
 
-这些是连续的交付切片，表中验收要求并非全部完成。A/C/D 已有实现和局部证据，B 的底层 loader 已实现但用户包入口未完成，E/F 仍有明确缺口；正式用户资产流程不等待所有美术微调结束。
+这些是连续的交付切片，表中验收要求并非全部完成。A/C/D 已有实现和局部设备证据，B 的 Store 及 E 的管理入口已通过主机检查、整体 SDK 构建及 v9 两测试包的 SAF/切换/回退检查；实际第三方资产、异常生命周期、全部动作美术和 F 的完整性能/耐久仍有缺口。正式用户资产流程不等待所有美术微调结束。
 
 | 切片 | 文件/边界 | 必须形成的可审查结果 |
 | --- | --- | --- |
 | A：完整控制量 | 已有 `BlendshapeSchema.java`、`FaceFrame.java`、`InteractionController.Snapshot`；`FacePostGraph` 校验标签 | 52 维保留、左右不合并、镜像只处理一次、失效回中；旧 benchmark 四维出口继续兼容。镜像/中性校准仍待独立验收。 |
-| B：资产容器与真实导入 v1a | 已有 `AvatarGlbLoader.java`、`AvatarAsset.java`、`AvatarRig.java` 与离线 `scripts/inspect_builtin_avatar.py`；包级 repository/导入事务待实现 | 同时支持 APK assets 和导入文件；合法/损坏/超预算样例；实际读出 morph、刚性节点、primitive、基础材质及报告，明确拒绝 skin。不能只写接口，不能把读取内置字节等同于用户导入完成。 |
+| B：资产容器与真实导入 v1a | 已有 `AvatarGlbLoader.java`、`AvatarAsset.java`、`AvatarRig.java`、`AvatarPackageStore.java` 与离线 `scripts/inspect_builtin_avatar.py`；真实文件系统/ZIP 事务主机检查 139 项通过，v9 两测试包 SAF 导入及无效 ZIP 拒绝已实测 | 同时支持 APK assets 和导入文件；合法/损坏/超预算样例；实际读出 morph、刚性节点、primitive、基础材质及报告，明确拒绝 skin。现有测试包不能替代真实第三方资产和全部异常验收。 |
 | C：内置完整角色第一版 | `build_builtin_avatar.py`、内置 GLB/清单/源文件 | 真实完整头、眼/睑/眉、口腔/牙/颌/颈肩，至少左右闭眼、左右视线、张嘴、左右笑与头姿可辨；立即通过 B 加载。 |
 | D：CPU 形变和角色渲染 | `AvatarRig.java`、`AvatarDeformer.java`、`AvatarPoseWorker.java`、`AvatarGpuScene.java`，renderer 已有 scene 委托 | 一次形变共享20视点，动态法线、真实primitive绘制、资源释放与上下文重建。保持旧诊断 benchmark 独立分支；异步发布和重建仍需各自完整设备验收。 |
-| E：补全所有输入及导入 UI | 内置51动作覆盖表、`AvatarRepository.java`、维护页文件选择/导入报告/切换/恢复默认 | 不同GLB至少两套导入验证，其中一套从本地文件选择器进入；缺动作包报告partial，不冒称完整。完成真实用户资产入口。若真实用户资产依赖 skin，紧接 E 实施 v1b 的有界 CPU skin 和对应姿态/法线测试，再对该资产验收；不能仅永久拒绝用户模型。 |
+| E：补全所有输入及导入 UI | 已有内置51动作覆盖表、`AvatarPackageStore.java`、`AvatarManagementActivity.java`/`AvatarManagementGate.java`、Mirror 维护入口及 renderer 读取；24 项门控、42 项截止时间、6 项坏摘要适配主机检查通过；v9 显式启用 B→A、回退 B、重启持久选择和恢复内置已实测 | 两份不同 GLB SHA 的测试包均经系统文件选择器导入；缺动作包报告 partial，不冒称完整。实际阻塞提供方、IO/提交中 HOME、同页 EGL 恢复仍待验，导出尚未实现。若真实用户资产依赖 skin，紧接 E 实施 v1b 的有界 CPU skin 和对应姿态/法线测试，再对该资产验收；不能仅永久拒绝用户模型。 |
 | F：优化与联合验收 | native deformer仅在剖析要求时增加；扩展runtime数值状态和脚本 | 相同像素/输入/角色的前后结果、raw SF history、CPU/GPU/NPU/PSS、形变时延、30min和2h结果、回滚包。 |
 
 v1a 的完成标准是完整可辨识头部、实际 GLB loader、独立眼/口/头动作、文件导入和错误回退；不要求先完成完整 skin 或 PBR 才能交付这个里程碑。v1b 在得到首个需要这些特性的真实资产后按差异报告实现和测试，保持具体资产验收入口。资产风格属于可替换的默认内容选择，不能成为不实现 loader、动作拓扑和资源回收的借口。若确实缺少可执行建模工具，先完成 A/B 和离线解析器/测试，再把具体工具缺口与可交付状态说明，不把功能缩减为原椭球。
@@ -229,6 +242,8 @@ v1a 的完成标准是完整可辨识头部、实际 GLB loader、独立眼/口/
 
 ### 主机测试
 
+本节保留完整验收矩阵，不能把每一条都视为已完成。v9 的 Store 139 项、管理门控 24 项、截止时间 42 项、坏摘要适配 6 项及既有 loader/rig/deformer/worker 等整套回归通过，整体 Android SDK 构建成功。Store 已用真实 ZIP/GLB 和文件系统覆盖坏包、预算、取消、精确 ticket、提交前后注入失败、残留恢复；新增 StatFs 边界替身覆盖 74 MiB 临界、负/零、超过 2 GiB 及查询异常，生产源码另通过真实 SDK 链接。门控覆盖旧 IO/GL 回调和 context 失效；可控时钟及真实单线程阻塞 fixture 覆盖截止时间，坏摘要适配实际复用 Store。第 9 节以下仅列出的 SAF/切换设备流程已有证据；实际 GPU 上传失败、提供方阻塞、未测生命周期、长期反复切换泄漏和断电/存储损坏恢复仍需补测。复测入口及具体边界见 [Store 检查](../tests/avatar-package-store.md)与[管理入口检查](avatar-management.md)。
+
 - 全部 52 标签的顺序/重排/缺失/重复测试；`_neutral` 不产生 delta；`tongueOut` 等未知来源不能凭索引误绑定。
 - 每项系数依次置 0、0.5、1，验证映射目标和左右隔离；对 jawOpen+mouthClose、blink+wide、smile+frown 等组合验证有限值和明确限幅。
 - 独立离线 float64 参考变形对 CPU/JNI/GPU候选输出；不是把生产实现抄一份当参考。检查顶点位置、单位法线、面积为零三角形处理、镜像和姿态变换顺序。
@@ -245,6 +260,23 @@ v1a 的完成标准是完整可辨识头部、实际 GLB loader、独立眼/口/
 
 - [v3 GLES 报告](E:/tripo/output/mirror-program/20261003/avatar-v3-device/report.json) 已保存 480×768 的中性、左右独立闭眼、张嘴、笑、视线、头姿和张颌闭唇共 10 状态截图（run `45f5227f-bcc7-4854-82b0-347a5ca71ecf`）。root 已视觉检查独立闭眼和 jawOpen×mouthClose；这不是全部 51 动作/极端组合美术验收，报告仍明确 `artwork_validated=false`。
 - [v4 多视图原始报告](E:/tripo/output/mirror-program/20261003/avatar-v4-multiview.json) 在 APK SHA-256 `0e8f129ade4001f4fdb3927137267a3ee0c47897f19ee02b23c4bcf9ef7322eb`、同一生产模型下通过：run `8584e865-931c-4393-a7aa-6ae6615eb7ae`，69 姿态×20 独立视图 = 1,380 层对，每层 400×720；最大 RGB 差值 0、总 RGB 字节差异 0。比较的是**同一同步姿态和共享 VBO，交织前的串行单视图与 OVR 四视图图层**。361,225.7 ms 是整项诊断耗时；`performance_evidence=false`、`artwork_validated=false`。此通过不证明异步发布像素一致性、最终交织光学效果或 30 FPS。
+
+### v9 角色管理的局部设备验收
+
+使用第 7 节 SHA `8ab467…7a24e` 的同一 v9 APK，在 Android 11 设备经系统 SAF 选择测试包。完整原始文件位于 `E:/tripo/output/mirror-program/20261003/v9-manager-*`，按选择指针、XML 和返回主程序后的模型 SHA 分别确认；[结构化审计](E:/tripo/output/mirror-program/20261003/avatar-v9-management-evidence.json)及[详细记录](avatar-management-validation.md)保存 36 个采集点、11 项状态核对与原始文件哈希。以下仅覆盖这些具体操作：
+
+| 功能 | 设备证据与结论 |
+| --- | --- |
+| 有效 B 导入、预览及显式启用 | 05/11 的 XML 显示 B 预览就绪，启用前只发布 candidate；12 明确启用后，[13 主程序状态](E:/tripo/output/mirror-program/20261003/v9-manager-13-main-b-runtime.json)报告 imported B 和其实际模型 SHA。05 的文件名 `invalid` 是误命名，不能作为坏包证据。 |
+| 未启用候选的 HOME 路径 | 06 HOME 后经启动器回到主程序，[08 选择状态](E:/tripo/output/mirror-program/20261003/v9-manager-08-main-candidate-uncommitted-selection.json)仍为 current=null、candidate=B，主程序加载内置。只证明候选未自动启用，不证明同一 Manager Activity/EGL 恢复，也不是 IO 或提交中 HOME。 |
+| 无效 ZIP 保留当前 | 18 实际选择无效包，19 拒绝启用、20 显示 `ZIP must contain 2 to 5 flat allowed files`；[19 选择状态](E:/tripo/output/mirror-program/20261003/v9-manager-19-invalid-result-selection.json)与错误前的 B 状态一致。这次进入了 ZIP 内容校验，已越过 v8 的 getFileStore 权限失败。 |
+| 有效 A 导入、预览及显式启用 | 24 只添加候选 A，预览就绪后 25 明确启用；[26 主程序状态](E:/tripo/output/mirror-program/20261003/v9-manager-26-main-a-runtime.json)加载 imported A，previous=B。A 的 GLB 与内置相同，但 imported 来源和包 ID 能区分它与内置回退；B 则有不同 GLB SHA，不能将这两测试包扩展为任意第三方资产覆盖。 |
+| 回退及重启持久选择 | 29 预览 previous B，30 明确回退；[31 新 session](E:/tripo/output/mirror-program/20261003/v9-manager-31-restarted-b-runtime.json)实际加载 B，持久 current=B、previous=A。执行者确认 force-stop 后重启；该采集点 action=null，没有保存 force-stop 命令本身，操作记录与新 session 的直接证据分开解释。 |
+| 恢复内置 | 34 预览内置、35 明确启用后，[36 主程序状态](E:/tripo/output/mirror-program/20261003/v9-manager-36-main-builtin-runtime.json)加载 builtin，current=null、previous=B。 |
+
+这些返回主程序后的快照已有约 24.44–24.61 FPS 的 USB 采集、无采集失败或应用错误，但均处于 WAITING、`face_frames=0`、`mesh_calls=0`、`post_calls=0`；不能据此证明完整面捕恢复性能或实际呈现达 30 FPS。管理页期间的 runtime 文件不少是此前主程序快照，XML 与 PNG 也存在先后采集差，不能作为后台持续采集、无缝呈现或无资源泄漏的证据。
+
+实际阻塞的 SAF 提供方、IO/原子提交期间 HOME 或超时、同一 Manager Activity/EGL 恢复仍未实测；真实低空间、权限拒绝、GPU 上传失败、长期反复切换资源趋势、断电/存储损坏恢复也保留为后续验收。主机的 42 项截止时间回归和 Store 故障注入不替代这些设备实验。
 
 ### 真机 gate
 
