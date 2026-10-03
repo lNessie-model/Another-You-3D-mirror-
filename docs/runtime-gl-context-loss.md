@@ -1,6 +1,6 @@
 # 主运行界面 EGL 上下文释放/恢复诊断
 
-这是默认关闭的 debug 生命周期入口。当前仅完成主机 RED→GREEN 与 SDK 链接检查，**没有部署或执行设备 HOME/context-loss 验收**。实现期间设备继续运行冻结 v16 的 30 分钟测试；此源码不进入该轮负载。
+这是默认关闭的 debug 生命周期入口。主机 RED→GREEN 与 SDK 链接检查之后，**v17 已在 16×400×640、legacy FBO / per-frame VP、camera_replay 条件下完成真实主界面 HOME/context 重建功能验证**；同 Activity 的 context 1→2、新 session、完整面捕与 USB 进展均已独立核对，详见 [v17 设备记录](runtime-400640-device-validation.md#主界面-home--egl-重建功能验证)。默认20对照、组合候选恢复及其他生命周期条件仍未由这轮验收。最初实现期间的冻结 v16 30 分钟负载没有包含此切片。
 
 ## 触发方式及默认兼容
 
@@ -22,12 +22,12 @@ Android 文档规定 false 时暂停释放并在恢复时重新创建 EGL；true
 
 context 与 frame generation 来自一个 volatile 不可变快照，状态读取不会把新 context 和旧 frame 拼在一起。EGL 释放的实际证据是框架合同、真实 HOME 动作、同 Activity 的新 `onSurfaceCreated` 世代及新成功 frame；没有插入原生 `eglDestroyContext`/`eglCreateContext` 调用跟踪，不能声称捕获了这些原生函数事件。
 
-## 设备执行与恢复门（待执行）
+## 设备执行与恢复门
 
-由设备负责人在当前耐久测试结束后构建并绑定新 APK/hash，使用同一 APK 的默认配置对照。示例：
+由设备负责人构建并绑定 APK/hash；已完成 v17 上述单一条件，未来默认配置对照和其它后端仍须分别采集。对应 v17 条件的命令示例：
 
 ```powershell
-python scripts/run_runtime_check.py --name avatar-context-release-16-90s --input camera_replay --seconds 90 --output-dir E:/tripo/output/mirror-program/20261003 --view-count 16 --view-preset 400x720 --active-target-fps 31 --pause-at 25 --pause-seconds 8 --release-gl-on-pause
+python scripts/run_runtime_check.py --name avatar-context-release-16-90s --input camera_replay --seconds 90 --output-dir E:/tripo/output/mirror-program/20261003 --view-count 16 --view-preset 400x640 --active-target-fps 31 --pause-at 25 --pause-seconds 8 --release-gl-on-pause
 ```
 
 初启和 HOME 恢复复用同一 extras 字符串，显式 true 各出现一次。缺省不发键。采样器仅有原先的初次/最终 force-stop；中间 HOME 后使用原 Activity 重排到前台，不用 force-stop 伪造 context 恢复。
@@ -52,6 +52,6 @@ python -m unittest discover -s tests -p test_runtime_metrics.py
 python -m unittest discover -s tests -p test_gl_context_recovery.py
 ```
 
-已通过 lifecycle 34 checks、collector 40 tests、恢复证据门 8 tests（多个拒绝子情形），原视点配置/矩阵/校准传播 12,895 checks、主渲染与预览姿态 3,000 项逐位对照也通过。生产三类先链接真实 SDK 35，再用已有 Bundle/SystemClock 值容器替身运行 host 测试；测试不模拟真正 Android View 或 EGL。旧 SDK runner 仅补新依赖源文件，避免使用上次 APK 的旧类。真正的默认20兼容与 16 context-loss 设备像素/恢复结果须绑定后续 APK 单独记录。
+已通过 lifecycle 34 checks、collector 40 tests、恢复证据门 8 tests（多个拒绝子情形），原视点配置/矩阵/校准传播 12,895 checks、主渲染与预览姿态 3,000 项逐位对照也通过。生产三类先链接真实 SDK 35，再用已有 Bundle/SystemClock 值容器替身运行 host 测试；测试不模拟真正 Android View 或 EGL。旧 SDK runner 仅补新依赖源文件，避免使用上次 APK 的旧类。v17 的16视点单一条件实际恢复已另行绑定 APK 和完整 raw；该 HOME 轮性能门为 false，不能用于宣称30 FPS。默认20兼容对照和 persistent/cache组合恢复仍须单独记录；三组离屏像素等价通过也不能代替组合生命周期验收。
 
 `GLSurfaceView.onPause()` 自身仍可能等待平台 GL 线程；本切片没有承诺硬中断卡死驱动，也没有改变原硬件 owner 的异步取消/重开顺序。
