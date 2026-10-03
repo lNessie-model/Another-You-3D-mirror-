@@ -195,6 +195,34 @@ class RuntimeMetricsTests(unittest.TestCase):
         _, calls = self.offline_collection(False)
         self.assertFalse(any("test_active_target_fps" in call[-1] for call in calls))
 
+    def test_persistent_fbos_cli_is_explicit_opt_in(self):
+        required = ["run_runtime_check.py", "--name", "offline", "--output-dir", "."]
+        with patch.object(sys, "argv", required):
+            self.assertIs(runtime.arguments().persistent_fbos, False)
+        with patch.object(sys, "argv", required + ["--persistent-fbos"]):
+            self.assertIs(runtime.arguments().persistent_fbos, True)
+
+    def test_persistent_fbos_survive_both_actual_launches_and_are_recorded(self):
+        payload, calls = self.offline_collection(False, persistent_fbos=True)
+        launches = [call[-1] for call in calls if "am start -n " in call[-1]]
+        self.assertEqual(len(launches), 2)
+        self.assertNotIn("0x20020000", launches[0])
+        self.assertIn("0x20020000", launches[1])
+        for command in launches:
+            self.assertEqual(command.count("--ez test_persistent_fbos true"), 1)
+        actions = [row for row in payload["host_actions"] if row["action"] in ("start", "resume")]
+        self.assertEqual([row["action"] for row in actions], ["start", "resume"])
+        self.assertEqual([row["command"] for row in actions], launches)
+        self.assertIs(payload["arguments"]["persistent_fbos"], True)
+        self.assertFalse(any("shared_prefs" in call[-1] for call in calls))
+
+    def test_default_keeps_legacy_for_both_actual_launches(self):
+        payload, calls = self.offline_collection(False)
+        launches = [call[-1] for call in calls if "am start -n " in call[-1]]
+        self.assertEqual(len(launches), 2)
+        self.assertTrue(all("test_persistent_fbos" not in command for command in launches))
+        self.assertIs(payload["arguments"]["persistent_fbos"], False)
+
     def test_surface_is_queried_before_slow_memory_and_without_draw_wait(self):
         payload, calls = self.offline_collection(False, slow_start=True, memory_delay=3,
                                                   presentation_delay=.4, no_pause=True)
@@ -247,7 +275,7 @@ class RuntimeMetricsTests(unittest.TestCase):
     def offline_collection(self, fail_sample, empty_pre_home=False, synchronous=False,
                            slow_start=False, memory_delay=0, presentation_delay=0, no_pause=False,
                            final_error=None, final_status_offset=0, batched=False, view_preset=None,
-                           active_target_fps=None):
+                           active_target_fps=None, persistent_fbos=False):
         clock = [100.0]
         calls = []
         foreground = [True]
@@ -307,7 +335,7 @@ class RuntimeMetricsTests(unittest.TestCase):
             args = argparse.Namespace(name="offline", input="replay", seconds=20, output_dir=Path(directory),
                                       blackout_after=0, blackout_seconds=0, pause_at=None if no_pause else 5, pause_seconds=3,
                                       avatar_synchronous=synchronous, avatar_batched=batched, view_preset=view_preset,
-                                      active_target_fps=active_target_fps)
+                                      active_target_fps=active_target_fps, persistent_fbos=persistent_fbos)
             with patch.object(runtime, "adb", side_effect=fake_adb), \
                  patch.object(runtime.time, "monotonic", side_effect=lambda: clock[0]), \
                  patch.object(runtime.time, "sleep", side_effect=lambda seconds: clock.__setitem__(0, clock[0]+seconds)), \

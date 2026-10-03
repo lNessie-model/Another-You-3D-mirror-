@@ -64,6 +64,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private JSONObject atlasVerification;
     private boolean multiview,verifyMultiview;
     private int multiviewProgram,multiviewDepth,multiviewFbo;
+    private boolean persistentFbosRequested;
+    private volatile String multiviewFboActual="uninitialized";
+    private volatile int persistentFboCount;
+    private PersistentMultiviewFbos persistentFbos;
+    private long glContextGeneration;
     private JSONObject multiviewVerification;
     private final float[] multiviewMatrices=new float[64];
     private boolean preblend,verifyPreblend;
@@ -183,6 +188,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     void setAtlas(boolean enabled,boolean verify) { atlas=enabled; verifyAtlas=verify; }
     void setAtlasCopy(boolean enabled) { atlasCopy=enabled; if(enabled) atlas=true; }
     void setMultiview(boolean enabled,boolean verify) { multiview=enabled; verifyMultiview=verify; }
+    synchronized void setPersistentMultiviewFbos(boolean enabled) {
+        if(surfaceInitialized)throw new IllegalStateException("Framebuffer backend must be configured before GL initialization");
+        persistentFbosRequested=enabled;
+    }
     void setPreblend(boolean enabled,boolean verify) { preblend=enabled; verifyPreblend=verify; }
     void setExplicitLod(boolean enabled) { explicitLod=enabled; }
     void setVerifyCombined(boolean enabled) { verifyCombined=enabled; }
@@ -245,6 +254,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
         runtimeFrameReady=false;
+        // EGL owns destruction of the lost context: never delete/reuse its numeric framebuffer names.
+        glContextGeneration++;persistentFbos=null;persistentFboCount=0;multiviewFboActual="uninitialized";
         synchronized(this) {
             surfaceInitialized=true;
             framePacing.reset();pacingMeasurementGeneration++;pacingEpoch++;
@@ -252,6 +263,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         renderThread=Thread.currentThread();
         runtimePoseTime=0;
         try {
+            if(persistentFbosRequested&&(!runtimeMode||avatarAssets==null||!multiview||verifyMultiview||atlas))
+                throw new IllegalArgumentException("Persistent FBO experiment requires runtime avatar OVR array rendering");
             for(int i=0;i<fences.length;i++) fences[i]=0;
             fenceSlot=0;
             texture=0; fbo=0; depth=0; lookupTexture=0; lookupMismatch=-1;
@@ -316,6 +329,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         viewWidth=requestedViewWidth>0?requestedViewWidth:Math.max(1,Math.round(width*widthScale));
         viewHeight=requestedViewHeight>0?requestedViewHeight:Math.max(1,Math.round(height*scale));
         try {
+            releasePersistentFbos();multiviewFboActual="uninitialized";
             int[] ids=new int[1];
             if(texture!=0) GLES30.glDeleteTextures(1,new int[]{texture},0);
             GLES30.glGenTextures(1,ids,0); texture=ids[0];
@@ -464,6 +478,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     synchronized JSONObject runtimeStatus() throws Exception {
         return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",avatarAssets==null)
+                .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
+                .put("multiview_fbo_actual",multiviewFboActual).put("persistent_fbo_count",persistentFboCount)
                 .put("avatar_load_warning",avatarLoadWarning).put("avatar_batched_requested",avatarBatched)
                 .put("avatar_source",avatarSourceKind).put("avatar_package_id",avatarPackageId)
                 .put("avatar",avatarScene==null?JSONObject.NULL:avatarScene.status())
@@ -515,7 +531,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("stage_overlap","fence_wait is CPU wall time inside glClientWaitSync, already included in pre_views and callback_work; background worker rig/morph/copy are separate concurrent applied-pose metrics, not callback stages")
                 .put("stage_no_pose_policy","callbacks with no new worker result still contribute prepare wall time; no avatar means zero prepare")
                 .put("view_detail_scope","runtime avatar callbacks only; setup + all groups' attach_clear/camera_matrices/scene_draw/invalidate + tail exactly cover view_submission; means use callback count, not group count; unavailable/legacy/non-avatar callbacks are missing, not zero samples")
-                .put("view_detail_boundaries","setup: after prepare through framebuffer/viewport setup; attach_clear: attachment and clear per group; camera_matrices: lookAt/frustum/multiply/copy; scene_draw: complete AvatarGpuScene.draw CPU call; invalidate: depth invalidation per group; tail: loop exit, optional atlas work and return; control/timer overhead belongs to its enclosing segment")
+                .put("view_detail_boundaries","setup: after prepare through framebuffer/viewport setup; attach_clear: attachment rebinding (legacy) or fixed-FBO bind (persistent), then clear per group; camera_matrices: lookAt/frustum/multiply/copy; scene_draw: complete AvatarGpuScene.draw CPU call; invalidate: depth invalidation per group; tail: loop exit, optional atlas work and return; control/timer overhead belongs to its enclosing segment")
                 .put("gap_scope","previous measured work end to next callback entry: publication, EGL swap, framework and OS scheduling; not isolated swap or GPU time")
                 .put("boundary_policy","first/context/resume/resize/target-change/transition boundaries exclude gap, interval and deadline debt")
                 .put("physical_presentation_fps",false);
@@ -862,7 +878,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             runtimeViewTiming.begin(runtimePrepareEnd,views/(multiview?4:1));
         }
         boolean drawAtlas=atlas&&!atlasCopy;
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiview?multiviewFbo:(drawAtlas?atlasFbo:fbo));
+        if(persistentFbosRequested) {
+            if(persistentFbos==null)throw new IllegalStateException("Persistent framebuffer groups are not initialized");
+            persistentFbos.bind(0,glContextGeneration);
+        } else GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiview?multiviewFbo:(drawAtlas?atlasFbo:fbo));
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glViewport(0,0,viewWidth,viewHeight);
         if(drawAtlas) {
             GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
@@ -873,8 +892,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(runtimeMode)runtimeViewTiming.setupComplete(SystemClock.elapsedRealtimeNanos());
         for(int v=0;v<views;v+=group) {
             if(multiview) {
-                MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,texture,v,4);
-                MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,multiviewDepth,v,4);
+                if(persistentFbosRequested)persistentFbos.bind(v,glContextGeneration);
+                else {
+                    MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,texture,v,4);
+                    MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,multiviewDepth,v,4);
+                }
             } else if(drawAtlas) {
                 int x=v%atlasColumns*viewWidth,y=v/atlasColumns*viewHeight;
                 GLES30.glViewport(x,y,viewWidth,viewHeight);GLES30.glScissor(x,y,viewWidth,viewHeight);
@@ -963,6 +985,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         int[] ids=new int[1]; GLES30.glGenTextures(1,ids,0); multiviewDepth=ids[0];
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,multiviewDepth);
         GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_DEPTH_COMPONENT16,viewWidth,viewHeight,views);
+        if(persistentFbosRequested) {
+            persistentFbos=PersistentMultiviewFbos.create(PersistentMultiviewGl.INSTANCE,glContextGeneration,views,texture,multiviewDepth);
+            persistentFboCount=persistentFbos.groups();multiviewFboActual="persistent_groups";
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);return;
+        }
         if(multiviewFbo==0) { GLES30.glGenFramebuffers(1,ids,0); multiviewFbo=ids[0]; }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiviewFbo);
         MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,texture,0,4);
@@ -970,6 +997,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)
             throw new IllegalStateException("Multiview framebuffer incomplete");
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0); checkGl();
+        multiviewFboActual="legacy";
+    }
+    private void releasePersistentFbos() {
+        PersistentMultiviewFbos previous=persistentFbos;persistentFbos=null;persistentFboCount=0;
+        if(previous!=null)previous.close(glContextGeneration);
     }
     private void verifyMultiviewPixels() throws Exception {
         boolean saved=multiview;
@@ -1130,7 +1162,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("timing",pipeline?"CPU submission and bounded fence wait; not GPU completion; callback FPS includes EGL swap backpressure"
                         :"glFinish completion wall time; includes CPU submission and GPU execution; excludes EGL swap");
     }
-    private void fail(Throwable problem) { error=problem.toString(); Log.e("MirrorBench","GL failure",problem); }
+    private void fail(Throwable problem) {
+        if(persistentFbosRequested){multiviewFboActual="failed";try{releasePersistentFbos();}catch(Throwable cleanup){problem.addSuppressed(cleanup);}}
+        error=problem.toString(); Log.e("MirrorBench","GL failure",problem);
+    }
     private static void checkGl() { int e=GLES30.glGetError(); if(e!=0) throw new IllegalStateException("GL error "+e); }
     private static int program(String vertex,String fragment) {
         return program(vertex,fragment,null);

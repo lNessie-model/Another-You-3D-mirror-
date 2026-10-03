@@ -23,19 +23,26 @@ public final class AvatarMultiviewCheck {
     }
     static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
                                     BooleanSupplier cancelled,boolean batchComparison)throws Exception {
+        return runComparison(assets,width,height,views,physicalAspect,cancelled,batchComparison,false);
+    }
+    static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
+                                    BooleanSupplier cancelled,boolean batchComparison,boolean persistentComparison)throws Exception {
+        if(batchComparison&&persistentComparison)throw new IllegalArgumentException("Select one comparison");
         if(assets==null||width<64||height<64||width>2048||height>2048||views<4||views>32||views%4!=0
                 ||(long)width*height*views>8_388_608||!Float.isFinite(physicalAspect)||physicalAspect<=0)
             throw new IllegalArgumentException("Require 64..2048 view dimensions, 4..32 views divisible by four, <=8M layer pixels, and positive physical aspect");
         long started=System.nanoTime();JSONArray poseReports=new JSONArray();
         JSONObject report=new JSONObject().put("passed",false).put("completed",false).put("cancelled",false)
-                .put("scope",batchComparison?"actual avatar, one CPU pose uploaded to independent original and packed buffers; original single-view vs batched OVR4, all layers before interlacing":
+                .put("scope",persistentComparison?"actual avatar, same prepared VBO/world pose/shader, legacy OVR4 vs persistent OVR4 framebuffer groups; all layers before interlacing":batchComparison?"actual avatar, one CPU pose uploaded to independent original and packed buffers; original single-view vs batched OVR4, all layers before interlacing":
                         "actual avatar, synchronous shared CPU pose, serial single-view vs OVR4; every off-axis array layer before interlacing")
-                .put("comparison_backend",batchComparison?"individual_serial_vs_batched_ovr4":"individual_serial_vs_individual_ovr4")
+                .put("comparison_backend",persistentComparison?"legacy_ovr4_vs_persistent_ovr4":batchComparison?"individual_serial_vs_batched_ovr4":"individual_serial_vs_individual_ovr4")
                 .put("input_schema",BlendshapeSchema.ID).put("view_width",width).put("view_height",height)
-                .put("views",views).put("physical_aspect",physicalAspect).put("max_rgb_error_allowed",1).put("rmse_allowed",.1)
+                .put("views",views).put("physical_aspect",physicalAspect).put("max_rgb_error_allowed",persistentComparison?0:1).put("rmse_allowed",persistentComparison?0:.1)
+                .put("alpha_error_allowed",0)
                 .put("poses",poseReports).put("artwork_validated",false).put("performance_evidence",false);
         SavedState saved=null;AvatarGpuScene scene=null;
-        int[] vao={0},fbos=new int[3],textures=new int[3],depth={0};
+        PersistentMultiviewFbos persistent=null;
+        int[] vao={0},fbos=new int[persistentComparison?4:3],textures=new int[persistentComparison?5:3],depth={0};
         int completed=0,comparisons=0,prepareCalls=0,changedCenter=0;boolean pass=true;
         try {
             checkCancelled(cancelled);checkGl("entry requires a clean GL error state");
@@ -57,7 +64,7 @@ public final class AvatarMultiviewCheck {
             // Construct after binding our VAO: constructor element-buffer bindings must not touch caller VAO state.
             scene=AvatarGpuScene.builtin(assets,true,false,batchComparison?AvatarGpuScene.DrawMode.VERIFY:AvatarGpuScene.DrawMode.INDIVIDUAL);
             report.put("avatar",scene.status());
-            GLES30.glGenFramebuffers(3,fbos,0);GLES30.glGenTextures(3,textures,0);GLES30.glGenRenderbuffers(1,depth,0);
+            GLES30.glGenFramebuffers(fbos.length,fbos,0);GLES30.glGenTextures(textures.length,textures,0);GLES30.glGenRenderbuffers(1,depth,0);
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,textures[0]);GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,1,GLES30.GL_RGBA8,width,height);
             GLES30.glBindRenderbuffer(GLES30.GL_RENDERBUFFER,depth[0]);GLES30.glRenderbufferStorage(GLES30.GL_RENDERBUFFER,GLES30.GL_DEPTH_COMPONENT16,width,height);
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[0]);
@@ -65,6 +72,14 @@ public final class AvatarMultiviewCheck {
             GLES30.glFramebufferRenderbuffer(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,GLES30.GL_RENDERBUFFER,depth[0]);complete("serial");
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[1]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_RGBA8,width,height,views);
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[2]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_DEPTH_COMPONENT16,width,height,views);
+            if(persistentComparison) {
+                // Diagnostic-only independent baseline storage. Runtime candidate reuses its original arrays.
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[3]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_RGBA8,width,height,views);
+                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[4]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_DEPTH_COMPONENT16,width,height,views);
+                persistent=PersistentMultiviewFbos.create(PersistentMultiviewGl.INSTANCE,1,views,textures[1],textures[2]);
+                report.put("persistent_groups",persistent.groups()).put("depth_clear_and_invalidate_both_paths",true)
+                        .put("reference_label","legacy_ovr4; legacy report serial_* keys name the reference only");
+            }
             checkGl("private diagnostic objects");
             int bytes=width*height*4;
             ByteBuffer serial=ByteBuffer.allocateDirect(bytes),candidate=ByteBuffer.allocateDirect(bytes);
@@ -83,25 +98,41 @@ public final class AvatarMultiviewCheck {
                 for(int base=0;base<views;base+=4) {
                     checkCancelled(cancelled);
                     // Real global base indices 0/4/... are exercised, not a reused four-layer scratch texture.
-                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[1]);
-                    MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,textures[1],base,4);
-                    MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,textures[2],base,4);complete("OVR batch "+base);
-                    System.arraycopy(matrices,base*16,four,0,64);clear();
+                    System.arraycopy(matrices,base*16,four,0,64);
+                    if(persistentComparison) {
+                        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[3]);
+                        MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,textures[3],base,4);
+                        MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,textures[4],base,4);complete("legacy OVR batch "+base);
+                        clear();scene.draw(four,4,physicalAspect);
+                        GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);checkGl("legacy OVR draw "+base);
+                        persistent.bind(base,1);
+                    } else {
+                        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[1]);
+                        MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,textures[1],base,4);
+                        MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,textures[2],base,4);complete("OVR batch "+base);
+                    }
+                    clear();
                     if(batchComparison)scene.drawBatched(four,4,physicalAspect);else scene.draw(four,4,physicalAspect);
+                    if(persistentComparison)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
                     checkGl("OVR draw "+base);
                     for(int relative=0;relative<4;relative++) {
                         int view=base+relative;checkCancelled(cancelled);
-                        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[0]);clear();
-                        System.arraycopy(matrices,view*16,one,0,16);scene.draw(one,1,physicalAspect);checkGl("serial draw "+view);
+                        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[0]);
+                        if(persistentComparison) {
+                            GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,textures[3],0,view);complete("legacy read layer "+view);
+                        } else {
+                            clear();System.arraycopy(matrices,view*16,one,0,16);scene.draw(one,1,physicalAspect);checkGl("serial draw "+view);
+                        }
                         serial.clear();GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,serial);checkGl("serial read "+view);
                         // OVR forbids ReadPixels from a multi-view attachment. Attach exactly one layer to a separate FBO.
                         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[2]);
                         GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,textures[1],0,view);complete("read layer "+view);
                         candidate.clear();GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,candidate);checkGl("layer read "+view);
                         AvatarPixelComparison.Stats stats=AvatarPixelComparison.compare(serial,candidate,width,height);comparisons++;
-                        perView.put(toJson(stats).put("global_view",view).put("ovr_base",base).put("ovr_relative",relative)
+                        boolean pixelsPass=persistentComparison?AvatarPersistentFboCheck.pixelsMatch(stats):stats.passed();
+                        perView.put(toJson(stats).put("passed",pixelsPass).put("global_view",view).put("ovr_base",base).put("ovr_relative",relative)
                                 .put("eye_x",(view/(float)(views-1)-.5f)*.4f));
-                        posePass&=stats.passed();
+                        posePass&=pixelsPass;
                         if(view==0){copyPixels(serial,firstSerial);copyPixels(candidate,firstCandidate);}
                         if(view==views/2)centerHash=stats.serialSha256;
                     }
@@ -128,8 +159,9 @@ public final class AvatarMultiviewCheck {
         } finally {
             try {
                 if(scene!=null)scene.dispose();
-                GLES30.glDeleteRenderbuffers(1,depth,0);GLES30.glDeleteTextures(3,textures,0);
-                GLES30.glDeleteFramebuffers(3,fbos,0);GLES30.glDeleteVertexArrays(1,vao,0);
+                if(persistent!=null)persistent.close(1);
+                GLES30.glDeleteRenderbuffers(1,depth,0);GLES30.glDeleteTextures(textures.length,textures,0);
+                GLES30.glDeleteFramebuffers(fbos.length,fbos,0);GLES30.glDeleteVertexArrays(1,vao,0);
                 if(saved!=null){saved.restore();checkGl("diagnostic cleanup/state restore");}
             } catch(Exception|LinkageError cleanup) {report.put("passed",false).put("cleanup_error",cleanup.toString());}
             report.put("completed_fixtures",completed).put("layer_comparisons",comparisons).put("prepare_calls",prepareCalls)
@@ -153,6 +185,7 @@ public final class AvatarMultiviewCheck {
         }return all;
     }
     private static void clear(){GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);}
+    private static final int[] DEPTH_ATTACHMENT={GLES30.GL_DEPTH_ATTACHMENT};
     private static void copyPixels(ByteBuffer source,ByteBuffer target){source.clear();target.clear();target.put(source);target.flip();source.clear();}
     private static void complete(String label){if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)throw new IllegalStateException(label+" framebuffer incomplete");checkGl(label);}
     private static void checkCancelled(BooleanSupplier cancelled){if(cancelled!=null&&cancelled.getAsBoolean())throw new CancellationException("Avatar multiview check cancelled");}

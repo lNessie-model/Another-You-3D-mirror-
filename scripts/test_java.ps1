@@ -48,6 +48,8 @@ $sources = @(
     'app\src\main\java\com\mirror\bench\RuntimeProgressWatchdog.java',
     'app\src\main\java\com\mirror\bench\AvatarPoseProgressWatchdog.java',
     'app\src\main\java\com\mirror\bench\MultiviewGl.java',
+    'app\src\main\java\com\mirror\bench\PersistentMultiviewFbos.java',
+    'app\src\main\java\com\mirror\bench\PersistentMultiviewGl.java',
     'app\src\main\java\com\mirror\bench\PanelCalibration.java',
     'app\src\main\java\com\mirror\bench\PanelTestImages.java',
     'app\src\main\java\com\mirror\bench\MirrorSettings.java',

@@ -110,6 +110,7 @@ public final class MirrorActivity extends Activity {
         renderer.setRuntimeAvatar(getAssets(),new File(getFilesDir(),"avatars"),android.os.Build.VERSION.SDK_INT);
         renderer.setAvatarAsynchronous(!options.synchronousAvatar);
         renderer.setAvatarBatched(options.batchedAvatar);
+        renderer.setPersistentMultiviewFbos(options.persistentFbos);
         renderer.setPanelCalibration(settings.panel);
         surface = new GLSurfaceView(this);
         surface.setEGLContextClientVersion(3);
@@ -755,6 +756,7 @@ public final class MirrorActivity extends Activity {
                 .put("control_rejected_frames",current==null?0:current.calibrationRejectedFrames())
                 .put("view_width", runtimeViewWidth).put("view_height", runtimeViewHeight).put("view_count", 20)
                 .put("debug_render_overrides",new JSONObject().put("synchronous",options.synchronousAvatar)
+                        .put("persistent_fbos",options.persistentFbos)
                         .put("batched",options.batchedAvatar).put("view_preset",options.viewPreset==null?JSONObject.NULL:options.viewPreset)
                         .put("active_target_fps",options.activeTargetFps))
                 .put("optical_calibration", new JSONObject().put("pitch", settings.panel.pitch())
@@ -865,18 +867,19 @@ public final class MirrorActivity extends Activity {
         final String input, recordId;
         final double replayFps;
         final long blackoutAfterNs, blackoutDurationNs;
-        final boolean synchronousAvatar,batchedAvatar;
+        final boolean synchronousAvatar,batchedAvatar,persistentFbos;
         final String viewPreset;
         final int activeTargetFps;
         private InputOptions(String input, String recordId, double replayFps, int after, int duration,
-                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps) {
+                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
             this.batchedAvatar=batchedAvatar;this.viewPreset=viewPreset;
             this.activeTargetFps=activeTargetFps;
+            this.persistentFbos=persistentFbos;
         }
-        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31); }
+        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false); }
         static InputOptions read(Bundle extras, boolean debug) {
             if (extras == null) return defaults();
             String input = text(extras, "runtime_input", "camera");
@@ -895,6 +898,8 @@ public final class MirrorActivity extends Activity {
             if(synchronous!=null&&(!(synchronous instanceof Boolean)||!debug))throw new IllegalArgumentException("Synchronous avatar override requires debug Boolean");
             Object batched=value(extras,"test_avatar_batched");
             if(batched!=null&&(!(batched instanceof Boolean)||!debug))throw new IllegalArgumentException("Batched avatar override requires debug Boolean");
+            Object persistent=value(extras,"test_persistent_fbos");
+            if(persistent!=null&&(!(persistent instanceof Boolean)||!debug))throw new IllegalArgumentException("Persistent FBO override requires debug Boolean");
             String preset=null;
             if(value(extras,"test_view_preset")!=null) {
                 preset=text(extras,"test_view_preset","");
@@ -904,7 +909,7 @@ public final class MirrorActivity extends Activity {
             int target=integer(extras,"test_active_target_fps",31);
             if(value(extras,"test_active_target_fps")!=null&&(!debug||(target!=31&&target!=35)))
                 throw new IllegalArgumentException("Frame pacing override requires debug Integer 31 or 35");
-            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target);
+            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,Boolean.TRUE.equals(persistent));
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {
