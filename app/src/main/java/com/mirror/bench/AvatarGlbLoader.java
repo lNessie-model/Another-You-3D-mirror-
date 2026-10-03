@@ -152,7 +152,7 @@ public final class AvatarGlbLoader {
             JSONObject v=view(integer(image,"bufferView",0,views.length()-1,-1));
             require(!v.has("byteStride")&&!v.has("target"),"atlas image bufferView must be packed");
             int length=integer(v,"byteLength",1,4*1024*1024,-1),offset=integer(v,"byteOffset",0,Integer.MAX_VALUE,0);
-            reserve(length,"atlas PNG");byte[] data=new byte[length];bin.duplicate().position(offset).get(data);
+            reserve(length,"atlas PNG");byte[] data=new byte[length];ByteBuffer encoded=bin.duplicate();encoded.position(offset);encoded.get(data);
             int[] size=validatePng(data);reserve(4L*size[0]*size[1],"atlas RGBA decode");
             return new AvatarAsset.AlbedoAtlas(data,size[0],size[1]);
         }

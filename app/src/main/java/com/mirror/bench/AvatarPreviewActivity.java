@@ -40,12 +40,14 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     private long startedNs;
     private int contextGeneration;
     private boolean verifyMultiview,verifyBatch,verifyPersistentFbos,verifyCachedCameraVp,verifyMultiview16;
+    private boolean privateHead;
     private int verificationViewCount=20;
     private int verificationViewHeight=720;
     private boolean verificationConfigurationError;
     private TextView status;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        privateHead=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0&&getIntent().getBooleanExtra("test_private_head",false);
         verifyMultiview=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0
                 &&getIntent().getBooleanExtra("verify_multiview",false);
         verifyBatch=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0
@@ -75,7 +77,6 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
             readVerificationConfiguration(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
             if((verifyMultiview?1:0)+(verifyBatch?1:0)+(verifyPersistentFbos?1:0)+(verifyCachedCameraVp?1:0)+(verifyMultiview16?1:0)>1)throw new IllegalArgumentException("Select one avatar verification per run");
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",true).put("passed",false));
-            boolean privateHead=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0&&getIntent().getBooleanExtra("test_private_head",false);
             scene=privateHead?AvatarGpuScene.privateHeadCheck(getFilesDir(),false,AvatarGpuScene.DrawMode.INDIVIDUAL):AvatarGpuScene.builtin(getAssets(),false);
         }
         catch(Throwable failure){reportFailure(failure);}
@@ -96,7 +97,8 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         catch(Throwable failure){reportFailure(failure);}
     }
     private void captureStates()throws Exception {
-        File directory=new File(getFilesDir(),"avatar-preview");if(!directory.isDirectory()&&!directory.mkdirs())throw new IllegalStateException("Cannot create avatar preview directory");
+        String folder=privateHead?"tripo-head-preview":"avatar-preview";
+        File directory=new File(getFilesDir(),folder);if(!directory.isDirectory()&&!directory.mkdirs())throw new IllegalStateException("Cannot create avatar preview directory");
         JSONObject report=new JSONObject().put("running",true).put("passed",false);write(report);
         int[] fbo={0},texture={0},depth={0};
         try {
@@ -130,7 +132,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
                 if(foreground<1000)throw new IllegalStateException("Avatar frame contains no visible geometry");
                 File target=new File(directory,names[state]+".png");String hash=writePng(argb,target);
                 frames.put(new JSONObject().put("name",names[state]).put("foreground_pixels",foreground)
-                        .put("file","avatar-preview/"+target.getName()).put("sha256",hash).put("bytes",target.length()));
+                        .put("file",folder+"/"+target.getName()).put("sha256",hash).put("bytes",target.length()));
             }
             if(cancelled)throw new InterruptedException("Avatar preview cancelled before publication");
             checkGl("completed avatar captures");
@@ -216,7 +218,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     }
     private void write(JSONObject report)throws Exception {
         report.put("capture_width",W).put("capture_height",H).put("expected_state_count",10);
-        writeArtifact("avatar-preview-check.json",report);
+        writeArtifact(privateHead?"tripo-head-preview-check.json":"avatar-preview-check.json",report);
     }
     private void writeArtifact(String filename,JSONObject report)throws Exception {
         report.put("updated_elapsed_ns",SystemClock.elapsedRealtimeNanos()).put("started_elapsed_ns",startedNs)
