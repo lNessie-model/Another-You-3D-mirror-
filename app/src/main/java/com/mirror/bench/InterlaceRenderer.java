@@ -69,6 +69,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private volatile int persistentFboCount;
     private PersistentMultiviewFbos persistentFbos;
     private long glContextGeneration;
+    private boolean cachedCameraVpRequested;
+    private volatile String cameraVpActual="uninitialized";
+    private final AvatarCameraProjectionCache cameraVpCache=new AvatarCameraProjectionCache();
     private JSONObject multiviewVerification;
     private final float[] multiviewMatrices=new float[64];
     private boolean preblend,verifyPreblend;
@@ -192,6 +195,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(surfaceInitialized)throw new IllegalStateException("Framebuffer backend must be configured before GL initialization");
         persistentFbosRequested=enabled;
     }
+    synchronized void setCachedCameraVp(boolean enabled) {
+        if(surfaceInitialized)throw new IllegalStateException("Camera matrix mode must be configured before GL initialization");
+        cachedCameraVpRequested=enabled;
+    }
     void setPreblend(boolean enabled,boolean verify) { preblend=enabled; verifyPreblend=verify; }
     void setExplicitLod(boolean enabled) { explicitLod=enabled; }
     void setVerifyCombined(boolean enabled) { verifyCombined=enabled; }
@@ -256,6 +263,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         runtimeFrameReady=false;
         // EGL owns destruction of the lost context: never delete/reuse its numeric framebuffer names.
         glContextGeneration++;persistentFbos=null;persistentFboCount=0;multiviewFboActual="uninitialized";
+        cameraVpCache.invalidate();cameraVpActual="uninitialized";
         synchronized(this) {
             surfaceInitialized=true;
             framePacing.reset();pacingMeasurementGeneration++;pacingEpoch++;
@@ -263,6 +271,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         renderThread=Thread.currentThread();
         runtimePoseTime=0;
         try {
+            if(cachedCameraVpRequested&&(!runtimeMode||avatarAssets==null))
+                throw new IllegalArgumentException("Cached camera matrices require runtime avatar rendering");
             if(persistentFbosRequested&&(!runtimeMode||avatarAssets==null||!multiview||verifyMultiview||atlas))
                 throw new IllegalArgumentException("Persistent FBO experiment requires runtime avatar OVR array rendering");
             for(int i=0;i<fences.length;i++) fences[i]=0;
@@ -324,11 +334,14 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
         runtimeFrameReady=false;
+        cameraVpCache.invalidate();cameraVpActual="uninitialized";
         synchronized(this) {pacingEpoch++;}
         this.width=width; this.height=height;
         viewWidth=requestedViewWidth>0?requestedViewWidth:Math.max(1,Math.round(width*widthScale));
         viewHeight=requestedViewHeight>0?requestedViewHeight:Math.max(1,Math.round(height*scale));
         try {
+            if(cachedCameraVpRequested)cameraVpCache.prepare(views,width,height);
+            cameraVpActual=cachedCameraVpRequested?"cached":"per_frame";
             releasePersistentFbos();multiviewFboActual="uninitialized";
             int[] ids=new int[1];
             if(texture!=0) GLES30.glDeleteTextures(1,new int[]{texture},0);
@@ -480,6 +493,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",avatarAssets==null)
                 .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
                 .put("multiview_fbo_actual",multiviewFboActual).put("persistent_fbo_count",persistentFboCount)
+                .put("camera_vp_requested",cachedCameraVpRequested?"cached":"per_frame").put("camera_vp_actual",cameraVpActual)
                 .put("avatar_load_warning",avatarLoadWarning).put("avatar_batched_requested",avatarBatched)
                 .put("avatar_source",avatarSourceKind).put("avatar_package_id",avatarPackageId)
                 .put("avatar",avatarScene==null?JSONObject.NULL:avatarScene.status())
@@ -531,7 +545,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("stage_overlap","fence_wait is CPU wall time inside glClientWaitSync, already included in pre_views and callback_work; background worker rig/morph/copy are separate concurrent applied-pose metrics, not callback stages")
                 .put("stage_no_pose_policy","callbacks with no new worker result still contribute prepare wall time; no avatar means zero prepare")
                 .put("view_detail_scope","runtime avatar callbacks only; setup + all groups' attach_clear/camera_matrices/scene_draw/invalidate + tail exactly cover view_submission; means use callback count, not group count; unavailable/legacy/non-avatar callbacks are missing, not zero samples")
-                .put("view_detail_boundaries","setup: after prepare through framebuffer/viewport setup; attach_clear: attachment rebinding (legacy) or fixed-FBO bind (persistent), then clear per group; camera_matrices: lookAt/frustum/multiply/copy; scene_draw: complete AvatarGpuScene.draw CPU call; invalidate: depth invalidation per group; tail: loop exit, optional atlas work and return; control/timer overhead belongs to its enclosing segment")
+                .put("view_detail_boundaries","setup: after prepare through framebuffer/viewport setup; attach_clear: attachment rebinding (legacy) or fixed-FBO bind (persistent), then clear per group; camera_matrices: original lookAt/frustum/multiply/copy or cached group copy; scene_draw: complete AvatarGpuScene.draw CPU call; invalidate: depth invalidation per group; tail: loop exit, optional atlas work and return; control/timer overhead belongs to its enclosing segment")
                 .put("gap_scope","previous measured work end to next callback entry: publication, EGL swap, framework and OS scheduling; not isolated swap or GPU time")
                 .put("boundary_policy","first/context/resume/resize/target-change/transition boundaries exclude gap, interval and deadline debt")
                 .put("physical_presentation_fps",false);
@@ -905,7 +919,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
             }
             if(runtimeMode)runtimeViewTiming.attachmentsComplete(SystemClock.elapsedRealtimeNanos());
-            for(int relative=0;relative<group;relative++) {
+            if(cachedCameraVpRequested)cameraVpCache.copyGroup(views,width,height,v,group,multiviewMatrices);
+            else for(int relative=0;relative<group;relative++) {
                 float eye=views==1?0:((v+relative)/(float)(views-1)-.5f)*.4f;
                 Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
                 float near=.1f,half=.052f,shift=-eye*near/3;
@@ -1163,6 +1178,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                         :"glFinish completion wall time; includes CPU submission and GPU execution; excludes EGL swap");
     }
     private void fail(Throwable problem) {
+        if(cachedCameraVpRequested)cameraVpActual="failed";
         if(persistentFbosRequested){multiviewFboActual="failed";try{releasePersistentFbos();}catch(Throwable cleanup){problem.addSuppressed(cleanup);}}
         error=problem.toString(); Log.e("MirrorBench","GL failure",problem);
     }

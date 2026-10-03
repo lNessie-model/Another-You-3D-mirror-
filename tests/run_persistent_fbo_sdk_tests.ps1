@@ -6,7 +6,7 @@ $json=Join-Path $root 'app\build\avatar-tests\json-20240303.jar'
 if((Get-FileHash -LiteralPath $json -Algorithm SHA256).Hash -ne '3CF6CD6892E32E2B4C1C39E0F52F5248A2F5B37646FDFBB79A66B46B618414ED'){throw 'Unexpected JSON-java test dependency'}
 New-Item -ItemType Directory -Force -Path $classes | Out-Null
 # Compile every changed production class from source; prior build only links unchanged dependencies.
-$names=@('PersistentMultiviewFbos','PersistentMultiviewGl','MultiviewGl','InterlaceRenderer','MirrorActivity',
+$names=@('AvatarCameraProjectionCache','AvatarCameraProjectionCheck','PersistentMultiviewFbos','PersistentMultiviewGl','MultiviewGl','InterlaceRenderer','MirrorActivity',
     'AvatarMultiviewCheck','AvatarPersistentFboCheck','AvatarBatchCheck','AvatarPixelComparison','AvatarPoseFixtures','AvatarPreviewActivity')
 $sources=$names | ForEach-Object {Join-Path $root "app\src\main\java\com\mirror\bench\$_.java"}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp "$json;$AndroidJar;$built" -d $classes @sources

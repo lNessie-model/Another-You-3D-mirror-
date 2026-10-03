@@ -39,7 +39,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     private String runId="";
     private long startedNs;
     private int contextGeneration;
-    private boolean verifyMultiview,verifyBatch,verifyPersistentFbos;
+    private boolean verifyMultiview,verifyBatch,verifyPersistentFbos,verifyCachedCameraVp;
     private TextView status;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -49,6 +49,8 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
                 &&getIntent().getBooleanExtra("verify_batch",false);
         verifyPersistentFbos=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0
                 &&getIntent().getBooleanExtra("verify_persistent_fbos",false);
+        verifyCachedCameraVp=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0
+                &&getIntent().getBooleanExtra("verify_cached_camera_vp",false);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         surface=new GLSurfaceView(this);surface.setEGLContextClientVersion(3);surface.setEGLConfigChooser(8,8,8,8,16,0);
         surface.setRenderer(this);surface.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
@@ -65,8 +67,8 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         scene=null;error="";runId=UUID.randomUUID().toString();startedNs=SystemClock.elapsedRealtimeNanos();contextGeneration++;
         try {
             write(new JSONObject().put("running",true).put("passed",false));
-            if((verifyMultiview?1:0)+(verifyBatch?1:0)+(verifyPersistentFbos?1:0)>1)throw new IllegalArgumentException("Select one avatar verification per run");
-            if(verifyMultiview||verifyBatch||verifyPersistentFbos)writeArtifact(verificationFile(),new JSONObject().put("running",true).put("passed",false));
+            if((verifyMultiview?1:0)+(verifyBatch?1:0)+(verifyPersistentFbos?1:0)+(verifyCachedCameraVp?1:0)>1)throw new IllegalArgumentException("Select one avatar verification per run");
+            if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp)writeArtifact(verificationFile(),new JSONObject().put("running",true).put("passed",false));
             scene=AvatarGpuScene.builtin(getAssets(),false);
         }
         catch(Throwable failure){reportFailure(failure);}
@@ -76,9 +78,10 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         if(scene==null)return;
         try {
             captureStates();
-            if((verifyMultiview||verifyBatch||verifyPersistentFbos)&&!cancelled) {
-                show(verifyPersistentFbos?"正在核对固定帧缓冲的69组动作、20视点；可退出取消":verifyBatch?"正在核对合并绘制的69组动作、20视点；可退出取消":"正在核对69组动作的20个独立视点；可退出取消");
-                JSONObject result=verifyPersistentFbos?AvatarPersistentFboCheck.run(getAssets(),400,720,20,1200f/1920f,()->cancelled)
+            if((verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp)&&!cancelled) {
+                show(verifyCachedCameraVp?"正在核对相机矩阵缓存及69组动作、20视点；可退出取消":verifyPersistentFbos?"正在核对固定帧缓冲的69组动作、20视点；可退出取消":verifyBatch?"正在核对合并绘制的69组动作、20视点；可退出取消":"正在核对69组动作的20个独立视点；可退出取消");
+                JSONObject result=verifyCachedCameraVp?AvatarCameraProjectionCheck.run(getAssets(),400,720,20,1200,1920,()->cancelled)
+                        :verifyPersistentFbos?AvatarPersistentFboCheck.run(getAssets(),400,720,20,1200f/1920f,()->cancelled)
                         :verifyBatch?AvatarBatchCheck.run(getAssets(),400,720,20,1200f/1920f,()->cancelled)
                         :AvatarMultiviewCheck.run(getAssets(),400,720,20,1200f/1920f,()->cancelled);
                 if(cancelled)result.put("passed",false).put("cancelled",true);
@@ -152,12 +155,12 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         show("预览失败："+error);
         try {
             write(new JSONObject().put("running",false).put("passed",false).put("error",error));
-            if(verifyMultiview||verifyBatch||verifyPersistentFbos)writeArtifact(verificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
+            if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp)writeArtifact(verificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
         }
         catch(Exception writeError){android.util.Log.e("AvatarPreview","Could not publish failure; do not use an older report",writeError);show("失败报告写入失败；不可使用旧报告："+writeError);}
     }
     private static void checkGl(String operation){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(operation+" GL error "+code);}
-    private String verificationFile(){return verifyPersistentFbos?"avatar-persistent-fbo-check.json":verifyBatch?"avatar-batch-check.json":"avatar-multiview-check.json";}
+    private String verificationFile(){return verifyCachedCameraVp?"avatar-camera-vp-check.json":verifyPersistentFbos?"avatar-persistent-fbo-check.json":verifyBatch?"avatar-batch-check.json":"avatar-multiview-check.json";}
     private void show(String message){runOnUiThread(()->{if(status!=null)status.setText(message);});}
     private static String writePng(int[] argb,File target)throws Exception {
         Bitmap bitmap=Bitmap.createBitmap(argb,W,H,Bitmap.Config.ARGB_8888);

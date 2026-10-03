@@ -27,25 +27,43 @@ public final class AvatarMultiviewCheck {
     }
     static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
                                     BooleanSupplier cancelled,boolean batchComparison,boolean persistentComparison)throws Exception {
+        return runComparison(assets,width,height,views,physicalAspect,cancelled,batchComparison,persistentComparison,false,0,0);
+    }
+    static JSONObject runCameraComparison(AssetManager assets,int width,int height,int views,int physicalWidth,int physicalHeight,
+                                         BooleanSupplier cancelled)throws Exception {
+        if(physicalWidth<=0||physicalHeight<=0)throw new IllegalArgumentException("Positive physical dimensions required");
+        return runComparison(assets,width,height,views,(float)physicalWidth/physicalHeight,cancelled,false,false,true,physicalWidth,physicalHeight);
+    }
+    private static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
+                                    BooleanSupplier cancelled,boolean batchComparison,boolean persistentComparison,boolean cameraComparison,
+                                    int physicalWidth,int physicalHeight)throws Exception {
         if(batchComparison&&persistentComparison)throw new IllegalArgumentException("Select one comparison");
+        boolean pairedOvr=persistentComparison||cameraComparison;
         if(assets==null||width<64||height<64||width>2048||height>2048||views<4||views>32||views%4!=0
                 ||(long)width*height*views>8_388_608||!Float.isFinite(physicalAspect)||physicalAspect<=0)
             throw new IllegalArgumentException("Require 64..2048 view dimensions, 4..32 views divisible by four, <=8M layer pixels, and positive physical aspect");
         long started=System.nanoTime();JSONArray poseReports=new JSONArray();
         JSONObject report=new JSONObject().put("passed",false).put("completed",false).put("cancelled",false)
-                .put("scope",persistentComparison?"actual avatar, same prepared VBO/world pose/shader, legacy OVR4 vs persistent OVR4 framebuffer groups; all layers before interlacing":batchComparison?"actual avatar, one CPU pose uploaded to independent original and packed buffers; original single-view vs batched OVR4, all layers before interlacing":
+                .put("scope",cameraComparison?"actual avatar, same prepared VBO/world pose/shader, identical persistent OVR4 paths; original per-group camera matrices vs cached camera matrices; all layers before interlacing":persistentComparison?"actual avatar, same prepared VBO/world pose/shader, legacy OVR4 vs persistent OVR4 framebuffer groups; all layers before interlacing":batchComparison?"actual avatar, one CPU pose uploaded to independent original and packed buffers; original single-view vs batched OVR4, all layers before interlacing":
                         "actual avatar, synchronous shared CPU pose, serial single-view vs OVR4; every off-axis array layer before interlacing")
-                .put("comparison_backend",persistentComparison?"legacy_ovr4_vs_persistent_ovr4":batchComparison?"individual_serial_vs_batched_ovr4":"individual_serial_vs_individual_ovr4")
+                .put("comparison_backend",cameraComparison?"per_group_camera_vp_vs_cached_camera_vp":persistentComparison?"legacy_ovr4_vs_persistent_ovr4":batchComparison?"individual_serial_vs_batched_ovr4":"individual_serial_vs_individual_ovr4")
                 .put("input_schema",BlendshapeSchema.ID).put("view_width",width).put("view_height",height)
-                .put("views",views).put("physical_aspect",physicalAspect).put("max_rgb_error_allowed",persistentComparison?0:1).put("rmse_allowed",persistentComparison?0:.1)
+                .put("views",views).put("physical_aspect",physicalAspect).put("max_rgb_error_allowed",pairedOvr?0:1).put("rmse_allowed",pairedOvr?0:.1)
                 .put("alpha_error_allowed",0)
                 .put("poses",poseReports).put("artwork_validated",false).put("performance_evidence",false);
         SavedState saved=null;AvatarGpuScene scene=null;
-        PersistentMultiviewFbos persistent=null;
-        int[] vao={0},fbos=new int[persistentComparison?4:3],textures=new int[persistentComparison?5:3],depth={0};
+        PersistentMultiviewFbos persistent=null,referencePersistent=null;
+        AvatarCameraProjectionCache cameraCache=cameraComparison?new AvatarCameraProjectionCache():null;
+        int[] vao={0},fbos=new int[pairedOvr?4:3],textures=new int[pairedOvr?5:3],depth={0};
         int completed=0,comparisons=0,prepareCalls=0,changedCenter=0;boolean pass=true;
         try {
             checkCancelled(cancelled);checkGl("entry requires a clean GL error state");
+            if(cameraComparison){
+                JSONObject matrixGate=AvatarCameraProjectionCheck.matrixGate();report.put("matrix_gate",matrixGate)
+                        .put("physical_width",physicalWidth).put("physical_height",physicalHeight);
+                if(!matrixGate.getBoolean("passed"))throw new IllegalStateException("Camera matrix bitwise gate failed");
+                cameraCache.prepare(views,physicalWidth,physicalHeight);
+            }
             String extensions=GLES30.glGetString(GLES30.GL_EXTENSIONS);
             if(extensions==null||!(" "+extensions+" ").contains(" GL_OVR_multiview2 "))throw new IllegalStateException("GL_OVR_multiview2 unavailable");
             int maxViews=integer(0x9631);if(maxViews<4)throw new IllegalStateException("Four OVR views unsupported");
@@ -72,19 +90,22 @@ public final class AvatarMultiviewCheck {
             GLES30.glFramebufferRenderbuffer(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,GLES30.GL_RENDERBUFFER,depth[0]);complete("serial");
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[1]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_RGBA8,width,height,views);
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[2]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_DEPTH_COMPONENT16,width,height,views);
-            if(persistentComparison) {
+            if(pairedOvr) {
                 // Diagnostic-only independent baseline storage. Runtime candidate reuses its original arrays.
                 GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[3]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_RGBA8,width,height,views);
                 GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[4]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_DEPTH_COMPONENT16,width,height,views);
                 persistent=PersistentMultiviewFbos.create(PersistentMultiviewGl.INSTANCE,1,views,textures[1],textures[2]);
+                if(cameraComparison)referencePersistent=PersistentMultiviewFbos.create(PersistentMultiviewGl.INSTANCE,1,views,textures[3],textures[4]);
                 report.put("persistent_groups",persistent.groups()).put("depth_clear_and_invalidate_both_paths",true)
-                        .put("reference_label","legacy_ovr4; legacy report serial_* keys name the reference only");
+                        .put("reference_label",cameraComparison?"per-group Matrix operations, persistent OVR4; serial_* keys name the reference only":"legacy_ovr4; legacy report serial_* keys name the reference only");
+                if(cameraComparison)report.put("reference_persistent_groups",referencePersistent.groups());
             }
             checkGl("private diagnostic objects");
             int bytes=width*height*4;
             ByteBuffer serial=ByteBuffer.allocateDirect(bytes),candidate=ByteBuffer.allocateDirect(bytes);
             ByteBuffer firstSerial=ByteBuffer.allocateDirect(bytes),firstCandidate=ByteBuffer.allocateDirect(bytes);
             float[] matrices=viewMatrices(views,physicalAspect),four=new float[64],one=new float[16];
+            float[] cameraView=cameraComparison?new float[16]:null,cameraProjection=cameraComparison?new float[16]:null,cameraMvp=cameraComparison?new float[16]:null;
             float[] coefficients=new float[52],angles=new float[3];String neutralCenter=null;
             var fixtures=AvatarPoseFixtures.regression();report.put("expected_fixtures",fixtures.size()).put("isolated_source_fixtures",52);
             for(var pose:fixtures) {
@@ -99,13 +120,19 @@ public final class AvatarMultiviewCheck {
                     checkCancelled(cancelled);
                     // Real global base indices 0/4/... are exercised, not a reused four-layer scratch texture.
                     System.arraycopy(matrices,base*16,four,0,64);
-                    if(persistentComparison) {
-                        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[3]);
-                        MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,textures[3],base,4);
-                        MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,textures[4],base,4);complete("legacy OVR batch "+base);
+                    if(pairedOvr) {
+                        if(cameraComparison){
+                            AvatarCameraProjectionCheck.originalGroup(views,physicalWidth,physicalHeight,base,4,four,cameraView,cameraProjection,cameraMvp);
+                            referencePersistent.bind(base,1);
+                        } else {
+                            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[3]);
+                            MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,textures[3],base,4);
+                            MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,textures[4],base,4);complete("legacy OVR batch "+base);
+                        }
                         clear();scene.draw(four,4,physicalAspect);
                         GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);checkGl("legacy OVR draw "+base);
                         persistent.bind(base,1);
+                        if(cameraComparison)cameraCache.copyGroup(views,physicalWidth,physicalHeight,base,4,four);
                     } else {
                         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[1]);
                         MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,textures[1],base,4);
@@ -113,12 +140,12 @@ public final class AvatarMultiviewCheck {
                     }
                     clear();
                     if(batchComparison)scene.drawBatched(four,4,physicalAspect);else scene.draw(four,4,physicalAspect);
-                    if(persistentComparison)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
+                    if(pairedOvr)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
                     checkGl("OVR draw "+base);
                     for(int relative=0;relative<4;relative++) {
                         int view=base+relative;checkCancelled(cancelled);
                         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[0]);
-                        if(persistentComparison) {
+                        if(pairedOvr) {
                             GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,textures[3],0,view);complete("legacy read layer "+view);
                         } else {
                             clear();System.arraycopy(matrices,view*16,one,0,16);scene.draw(one,1,physicalAspect);checkGl("serial draw "+view);
@@ -129,7 +156,7 @@ public final class AvatarMultiviewCheck {
                         GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,textures[1],0,view);complete("read layer "+view);
                         candidate.clear();GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,candidate);checkGl("layer read "+view);
                         AvatarPixelComparison.Stats stats=AvatarPixelComparison.compare(serial,candidate,width,height);comparisons++;
-                        boolean pixelsPass=persistentComparison?AvatarPersistentFboCheck.pixelsMatch(stats):stats.passed();
+                        boolean pixelsPass=cameraComparison?AvatarCameraProjectionCheck.pixelsMatch(stats):persistentComparison?AvatarPersistentFboCheck.pixelsMatch(stats):stats.passed();
                         perView.put(toJson(stats).put("passed",pixelsPass).put("global_view",view).put("ovr_base",base).put("ovr_relative",relative)
                                 .put("eye_x",(view/(float)(views-1)-.5f)*.4f));
                         posePass&=pixelsPass;
@@ -160,6 +187,7 @@ public final class AvatarMultiviewCheck {
             try {
                 if(scene!=null)scene.dispose();
                 if(persistent!=null)persistent.close(1);
+                if(referencePersistent!=null)referencePersistent.close(1);
                 GLES30.glDeleteRenderbuffers(1,depth,0);GLES30.glDeleteTextures(textures.length,textures,0);
                 GLES30.glDeleteFramebuffers(fbos.length,fbos,0);GLES30.glDeleteVertexArrays(1,vao,0);
                 if(saved!=null){saved.restore();checkGl("diagnostic cleanup/state restore");}
