@@ -49,6 +49,7 @@ $sources = @(
     'app\src\main\java\com\mirror\bench\PanelCalibration.java',
     'app\src\main\java\com\mirror\bench\PanelTestImages.java',
     'app\src\main\java\com\mirror\bench\MirrorSettings.java',
+    'app\src\main\java\com\mirror\bench\FramePacingStats.java',
     'app\src\main\java\com\mirror\bench\InterlaceRenderer.java',
     'tests\YuvPackingTest.java',
     'tests\ResourceCleanupTest.java',
@@ -56,6 +57,7 @@ $sources = @(
     'tests\RuntimeProgressWatchdogTest.java',
     'tests\AvatarPoseProgressWatchdogTest.java',
     'tests\RendererRuntimeTest.java',
+    'tests\RendererPacingTest.java',
     'tests\PanelCalibrationTest.java',
     'tests\PanelPhaseContractionTest.java',
     'tests\PanelTestImagesTest.java',
@@ -66,7 +68,7 @@ $sources = @(
 if ($LASTEXITCODE -ne 0) { throw 'Host regression test compilation failed.' }
 
 $classpath = "$testClasses;$androidJar;$androidClasses"
-foreach ($test in @('YuvPackingTest', 'ResourceCleanupTest', 'InteractionControllerTest', 'RuntimeProgressWatchdogTest', 'AvatarPoseProgressWatchdogTest', 'RendererRuntimeTest', 'PanelCalibrationTest', 'PanelPhaseContractionTest', 'PanelTestImagesTest', 'PanelRendererConfigTest', 'MirrorSettingsTest')) {
+foreach ($test in @('YuvPackingTest', 'ResourceCleanupTest', 'InteractionControllerTest', 'RuntimeProgressWatchdogTest', 'AvatarPoseProgressWatchdogTest', 'RendererRuntimeTest', 'RendererPacingTest', 'PanelCalibrationTest', 'PanelPhaseContractionTest', 'PanelTestImagesTest', 'PanelRendererConfigTest', 'MirrorSettingsTest')) {
     & $java -cp $classpath "com.mirror.bench.$test"
     if ($LASTEXITCODE -ne 0) { throw "$test failed." }
 }

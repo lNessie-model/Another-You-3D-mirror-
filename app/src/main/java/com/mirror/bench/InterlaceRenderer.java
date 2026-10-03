@@ -90,6 +90,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private volatile int targetFps;
     private volatile Thread renderThread;
     private long renderDeadline;
+    private final FramePacingStats framePacing=new FramePacingStats();
+    private volatile long pacingEpoch;
+    private long pacingMeasurementGeneration;
     private String calibration="diagnostic constants; not a verified optical panel calibration";
     private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
 
@@ -152,7 +155,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     void closeRuntimeAvatar(){avatarShutdown=true;AvatarGpuScene previous=avatarScene;if(previous!=null)previous.stopCpu();}
     /** UI thread signals lifecycle explicitly; only the GL thread resets pose progress. */
-    void resumeRuntimeAvatar(){runtimeFrameReady=false;avatarResumeGeneration++;}
+    synchronized void resumeRuntimeAvatar(){runtimeFrameReady=false;avatarResumeGeneration++;pacingEpoch++;}
     /** Successful GL submission, not proof of a physical presentation timestamp. */
     boolean hasRuntimeFrame(){return runtimeFrameReady&&error.isEmpty();}
     void setInteractiveSnapshot(InteractionController.Snapshot snapshot,boolean active) {
@@ -165,9 +168,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 :InteractiveFace.NEUTRAL;
     }
     void setProfileStages(boolean enabled) { profileStages=enabled; }
-    void setTargetFps(int value) {
+    synchronized void setTargetFps(int value) {
         if(value<0||value>60) throw new IllegalArgumentException("Invalid render target FPS");
-        targetFps=value;
+        if(targetFps!=value) {targetFps=value;pacingEpoch++;}
         Thread thread=renderThread;
         if(thread!=null) java.util.concurrent.locks.LockSupport.unpark(thread);
     }
@@ -234,11 +237,15 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         runtimeWindowWorkMs=0; runtimeFps=0; runtimeWorkMeanMs=0;
         preblendUpdates=0;
         renderDeadline=0;
+        framePacing.reset();pacingMeasurementGeneration++;pacingEpoch++;
     }
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
         runtimeFrameReady=false;
-        synchronized(this) { surfaceInitialized=true; }
+        synchronized(this) {
+            surfaceInitialized=true;
+            framePacing.reset();pacingMeasurementGeneration++;pacingEpoch++;
+        }
         renderThread=Thread.currentThread();
         runtimePoseTime=0;
         try {
@@ -301,6 +308,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
         runtimeFrameReady=false;
+        synchronized(this) {pacingEpoch++;}
         this.width=width; this.height=height;
         viewWidth=requestedViewWidth>0?requestedViewWidth:Math.max(1,Math.round(width*widthScale));
         viewHeight=requestedViewHeight>0?requestedViewHeight:Math.max(1,Math.round(height*scale));
@@ -359,12 +367,24 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     @Override public void onDrawFrame(GL10 ignored) {
         if(!error.isEmpty()||texture==0) return;
         try {
+            long entered=runtimeMode?SystemClock.elapsedRealtimeNanos():0;
+            long frameEpoch=pacingEpoch;
             int frameTargetFps=targetFps;
+            long pacerWait=0,fenceWait=0,entryLate=0,scheduledStart=0;
+            int parkCalls=0;
+            boolean deadlineRebased=false,fenceCalled=false;
             if(frameTargetFps>0) {
                 long now=SystemClock.elapsedRealtimeNanos(),period=1_000_000_000L/frameTargetFps;
+                if(runtimeMode&&renderDeadline!=0) {
+                    entryLate=Math.max(0,now-renderDeadline);
+                    deadlineRebased=now-renderDeadline>period;
+                }
                 if(renderDeadline==0||now-renderDeadline>period) renderDeadline=now;
+                scheduledStart=renderDeadline;
                 while(now<renderDeadline&&targetFps==frameTargetFps) {
+                    long parkStart=runtimeMode?SystemClock.elapsedRealtimeNanos():0;
                     java.util.concurrent.locks.LockSupport.parkNanos(renderDeadline-now);
+                    if(runtimeMode) {pacerWait+=SystemClock.elapsedRealtimeNanos()-parkStart;parkCalls++;}
                     now=SystemClock.elapsedRealtimeNanos();
                 }
                 renderDeadline=targetFps==frameTargetFps?renderDeadline+period:0;
@@ -372,7 +392,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             long before=SystemClock.elapsedRealtimeNanos();
             if(runtimeMode) updateInteractiveFace(before);
             if(pipeline&&fences[fenceSlot]!=0) {
+                long fenceStart=runtimeMode?SystemClock.elapsedRealtimeNanos():0;
                 int wait=GLES30.glClientWaitSync(fences[fenceSlot],GLES30.GL_SYNC_FLUSH_COMMANDS_BIT,1_000_000_000L);
+                if(runtimeMode) {fenceWait=SystemClock.elapsedRealtimeNanos()-fenceStart;fenceCalled=true;}
                 if(wait==GLES30.GL_WAIT_FAILED||wait==GLES30.GL_TIMEOUT_EXPIRED)
                     throw new IllegalStateException("GPU fence did not complete: "+wait);
                 GLES30.glDeleteSync(fences[fenceSlot]); fences[fenceSlot]=0;
@@ -390,8 +412,18 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             } else GLES30.glFinish();
             checkGl();
             long after=SystemClock.elapsedRealtimeNanos();
-            recordFrame(before,after,split,sceneEnd);
+            if(runtimeMode) recordPacedRuntimeFrame(frameTargetFps,frameEpoch,entered,before,after,pacerWait,
+                    parkCalls,fenceWait,fenceCalled,entryLate,
+                    frameTargetFps>0?Math.max(0,before-scheduledStart):0,deadlineRebased);
+            else recordFrame(before,after,split,sceneEnd);
         } catch(Throwable problem) { fail(problem); }
+    }
+    private synchronized void recordPacedRuntimeFrame(int frameTarget,long frameEpoch,long entered,
+            long before,long after,long pacerWait,int parkCalls,long fenceWait,boolean fenceCalled,
+            long entryLate,long startLate,boolean deadlineRebased) {
+        framePacing.record(frameTarget,frameEpoch,entered,before,after,pacerWait,parkCalls,fenceWait,
+                fenceCalled,entryLate,startLate,deadlineRebased,frameEpoch!=pacingEpoch);
+        recordRuntimeFrame(before,after);
     }
     private synchronized void recordFrame(long before,long after,boolean split,long sceneEnd) {
         if(runtimeMode) recordRuntimeFrame(before,after);
@@ -425,10 +457,40 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("projection_aspect",avatarAssets==null?(float)viewWidth/Math.max(1,viewHeight):(float)width/Math.max(1,height))
                 .put("frames",runtimeFrames).put("fps",runtimeFps).put("frame_work_mean_ms",runtimeWorkMeanMs)
                 .put("runtime_gl_frame_ready",hasRuntimeFrame())
+                .put("frame_pacing",framePacingStatus())
                 .put("render_target_fps",targetFps).put("face_active",runtimeFaceActive).put("error",error)
                 .put("panel_calibration",calibration).put("optical_alignment_verified",false)
                 .put("retained_frame_samples",workMs.size()+intervalMs.size()+sceneStageMs.size()+interlaceStageMs.size())
                 .put("timing_window","approximately one second; callback cadence includes EGL swap backpressure");
+    }
+    private JSONObject framePacingStatus() throws Exception {
+        FramePacingStats.Snapshot stats=framePacing.snapshot();
+        JSONArray buckets=new JSONArray();
+        for(int i=0;i<stats.bucketCapacity();i++) {
+            FramePacingStats.BucketSnapshot b=stats.bucket(i);
+            if(b.frames==0)continue;
+            buckets.put(new JSONObject().put("target_fps",b.targetFps).put("frames",b.frames)
+                    .put("boundary_frames",b.boundaryFrames).put("park_calls",b.parkCalls)
+                    .put("fence_calls",b.fenceCalls).put("deadline_rebases",b.deadlineRebases)
+                    .put("pacer_wait",pacingMetric(b.pacerWait)).put("fence_wait",pacingMetric(b.fenceWait))
+                    .put("callback_work",pacingMetric(b.work)).put("callback_gap",pacingMetric(b.gap))
+                    .put("callback_interval",pacingMetric(b.interval))
+                    .put("entry_deadline_lateness",pacingMetric(b.entryLateness))
+                    .put("start_deadline_lateness",pacingMetric(b.startLateness)));
+        }
+        return new JSONObject().put("measurement_generation",pacingMeasurementGeneration)
+                .put("continuity_epoch",pacingEpoch).put("frames",stats.frames)
+                .put("transition_frames",stats.transitionFrames).put("target_buckets",buckets)
+                .put("retained_frame_samples",stats.retainedFrameSamples).put("bucket_capacity",stats.bucketCapacity())
+                .put("scope","successful callbacks since GL context creation or beginMeasurement; grouped by captured target, not interaction state; transitions excluded from buckets")
+                .put("wait_denominator","per successful stable-target callback, including zero wait; API call counts reported separately")
+                .put("gap_scope","previous measured work end to next callback entry: publication, EGL swap, framework and OS scheduling; not isolated swap or GPU time")
+                .put("boundary_policy","first/context/resume/resize/target-change/transition boundaries exclude gap, interval and deadline debt")
+                .put("physical_presentation_fps",false);
+    }
+    private static JSONObject pacingMetric(FramePacingStats.MetricSnapshot m) throws Exception {
+        return new JSONObject().put("count",m.count).put("total_ms",m.totalMs)
+                .put("mean_ms",m.meanMs).put("max_ms",m.maxMs);
     }
     private void updateInteractiveFace(long now) {
         InteractiveFace face=interactiveFace;

@@ -88,7 +88,7 @@ public final class MirrorActivity extends Activity {
                 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
         renderer = new InterlaceRenderer(20, .3f, true);
         renderer.setRuntimeMode(true);
-        renderer.setTargetFps(31);
+        renderer.setTargetFps(options.activeTargetFps);
         if(options.viewPreset==null) {runtimeViewWidth=settings.viewWidth;runtimeViewHeight=settings.viewHeight;}
         else {
             String[] size=options.viewPreset.split("x");
@@ -257,7 +257,7 @@ public final class MirrorActivity extends Activity {
             renderer.setInteractiveSnapshot(snapshot, active);
             renderer.setTargetFps(!maintenance && !renderFault && progressFault == null && worker != null && !worker.cancelled
                     && (snapshot.state() == InteractionController.State.INTERACTIVE
-                    || snapshot.state() == InteractionController.State.GRACE) ? 31 : 10);
+                    || snapshot.state() == InteractionController.State.GRACE) ? options.activeTargetFps : 10);
             if (snapshot.state() != lastEventState) {
                 lastEventState = snapshot.state();
                 recordEvent(now, "state", snapshot.state().name());
@@ -629,7 +629,8 @@ public final class MirrorActivity extends Activity {
                 .put("recoveries", recoveries).put("analysis_active_target_fps", settings.activeFps).put("analysis_idle_target_fps", 3)
                 .put("view_width", runtimeViewWidth).put("view_height", runtimeViewHeight).put("view_count", 20)
                 .put("debug_render_overrides",new JSONObject().put("synchronous",options.synchronousAvatar)
-                        .put("batched",options.batchedAvatar).put("view_preset",options.viewPreset==null?JSONObject.NULL:options.viewPreset))
+                        .put("batched",options.batchedAvatar).put("view_preset",options.viewPreset==null?JSONObject.NULL:options.viewPreset)
+                        .put("active_target_fps",options.activeTargetFps))
                 .put("optical_calibration", new JSONObject().put("pitch", settings.panel.pitch())
                         .put("pitch_units", settings.panel.pitchUnits().name()).put("tan", settings.panel.tan())
                         .put("phase_cycles", settings.panel.phaseCycles()).put("subpixel_order", settings.panel.subpixelOrder().name())
@@ -728,14 +729,16 @@ public final class MirrorActivity extends Activity {
         final long blackoutAfterNs, blackoutDurationNs;
         final boolean synchronousAvatar,batchedAvatar;
         final String viewPreset;
+        final int activeTargetFps;
         private InputOptions(String input, String recordId, double replayFps, int after, int duration,
-                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset) {
+                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
             this.batchedAvatar=batchedAvatar;this.viewPreset=viewPreset;
+            this.activeTargetFps=activeTargetFps;
         }
-        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null); }
+        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31); }
         static InputOptions read(Bundle extras, boolean debug) {
             if (extras == null) return defaults();
             String input = text(extras, "runtime_input", "camera");
@@ -760,7 +763,10 @@ public final class MirrorActivity extends Activity {
                 if(!debug||!java.util.Arrays.asList(MirrorSettings.VIEW_PRESETS).contains(preset))
                     throw new IllegalArgumentException("View preset override requires a supported debug preset");
             }
-            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset);
+            int target=integer(extras,"test_active_target_fps",31);
+            if(value(extras,"test_active_target_fps")!=null&&(!debug||(target!=31&&target!=35)))
+                throw new IllegalArgumentException("Frame pacing override requires debug Integer 31 or 35");
+            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target);
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {
