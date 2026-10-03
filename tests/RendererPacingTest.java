@@ -32,6 +32,11 @@ public final class RendererPacingTest {
         frame(renderer,31,epoch(renderer),10_100);
         check(snapshot(renderer).bucket(31).gap.count==2,"post-resume stable cadence counted");
         check((Long)field(renderer,"runtimeFrames")==snapshot(renderer).frames,"frame publication is coherent");
+        FramePacingStats.BucketSnapshot stages=snapshot(renderer).bucket(31);
+        check(stages.stageFrames==stages.frames,"production publisher includes complete stages");
+        check(Math.abs(stages.preViews.totalMs+stages.avatarPrepare.totalMs+stages.viewSubmission.totalMs+
+                stages.interlaceSubmission.totalMs+stages.submitTail.totalMs-stages.stageWork.totalMs)<1e-12,
+                "production stages conserve work after floating millisecond conversion");
         renderer.setTargetFps(35);frame(renderer,35,epoch(renderer),10_200);
         check(snapshot(renderer).bucket(35).frames==1 && snapshot(renderer).bucket(35).gap.count==0,
                 "new target has own first boundary sample");
@@ -51,9 +56,10 @@ public final class RendererPacingTest {
     }
     private static void frame(InterlaceRenderer renderer,int fps,long epoch,long entry) throws Exception {
         Method method=InterlaceRenderer.class.getDeclaredMethod("recordPacedRuntimeFrame",int.class,long.class,
-                long.class,long.class,long.class,long.class,int.class,long.class,boolean.class,long.class,long.class,boolean.class);
+                long.class,long.class,long.class,long.class,int.class,long.class,boolean.class,long.class,long.class,boolean.class,
+                long.class,long.class,long.class,long.class,long.class);
         method.setAccessible(true);
-        method.invoke(renderer,fps,epoch,entry,entry+10,entry+50,5L,1,10L,true,0L,0L,false);
+        method.invoke(renderer,fps,epoch,entry,entry+10,entry+50,5L,1,10L,true,0L,0L,false,10L,10L,10L,5L,5L);
     }
     private static FramePacingStats.Snapshot snapshot(InterlaceRenderer renderer) throws Exception {
         return ((FramePacingStats)field(renderer,"framePacing")).snapshot();

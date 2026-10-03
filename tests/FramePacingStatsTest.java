@@ -11,6 +11,7 @@ public final class FramePacingStatsTest {
         badInputIsTransactional();
         boundedStorageAndImmutableSnapshots();
         concurrentSnapshots();
+        nonoverlappingStagesAndMissingSamples();
         System.out.println("PASS: " + checks + " frame-pacing assertions (1,000,000 bounded records)");
     }
     private static long ms(long value) { return value * 1_000_000L; }
@@ -84,7 +85,8 @@ public final class FramePacingStatsTest {
         FramePacingStats.Snapshot empty=s.snapshot();
         for(int i=0;i<1_000_000;i++) {
             long t=i*40_000_000L;
-            s.record(31,1,t,t+1_000_000,t+10_000_000,500_000,1,1_000_000,true,0,0,false,false);
+            s.recordStages(31,1,t,t+1_000_000,t+10_000_000,500_000,1,1_000_000,true,0,0,false,false,
+                    1_000_000,2_000_000,3_000_000,2_000_000,1_000_000);
         }
         FramePacingStats.Snapshot snap=s.snapshot();
         check(snap.frames==1_000_000 && snap.bucket(31).gap.count==999_999,"million frames accounted");
@@ -92,21 +94,58 @@ public final class FramePacingStatsTest {
         check(empty.frames==0 && empty.bucket(31).frames==0,"snapshot is independent");
         near(snap.bucket(31).gap.meanMs,30,"constant synthetic gap");
         near(snap.bucket(31).work.meanMs,9,"constant synthetic work");
+        check(snap.bucket(31).stageFrames==1_000_000,"million stage-complete records bounded too");
     }
     private static void concurrentSnapshots() throws Exception {
         FramePacingStats s=new FramePacingStats(); AtomicReference<Throwable> failure=new AtomicReference<>();
         Thread writer=new Thread(()->{try {for(int i=0;i<100_000;i++) {
-            long t=i*100L;s.record(35,1,t,t+10,t+50,5,1,10,true,0,0,false,false);
+            long t=i*100L;s.recordStages(35,1,t,t+10,t+50,5,1,10,true,0,0,false,false,10,10,10,5,5);
         }}catch(Throwable e){failure.set(e);}});
         writer.start();
         do {
             FramePacingStats.Snapshot snap=s.snapshot(); FramePacingStats.BucketSnapshot b=snap.bucket(35);
             check(snap.frames==b.frames && b.frames==b.pacerWait.count && b.frames==b.fenceCalls,"coherent concurrent snapshot");
+            check(b.frames==b.stageFrames && b.frames==b.submitTail.count,"stage publication shares the same atomic snapshot");
             if(b.frames>0) check(b.gap.count==b.frames-1,"gap count shares frame publication");
             Thread.yield();
         } while(writer.isAlive());
         writer.join();if(failure.get()!=null)throw new AssertionError(failure.get());
         check(s.snapshot().frames==100_000,"concurrent writer complete");
+    }
+    private static void nonoverlappingStagesAndMissingSamples() {
+        FramePacingStats s=new FramePacingStats();
+        // One old caller has no stage data; a missing measurement must not become a zero-duration sample.
+        frame(s,31,1,0,10,50,1,1,2,true,0,0,false,false);
+        staged(s,31,1,100,false,4,8,17,6,5);
+        staged(s,31,1,200,false,2,10,20,5,3);
+        FramePacingStats.BucketSnapshot b=s.snapshot().bucket(31);
+        check(b.frames==3 && b.stageFrames==2,"stage denominator independent of legacy record");
+        near(b.preViews.meanMs,3,"pre-view mean");near(b.avatarPrepare.meanMs,9,"prepare mean");
+        near(b.viewSubmission.meanMs,18.5,"multiview submission mean");
+        near(b.interlaceSubmission.meanMs,5.5,"interlace submission mean");near(b.submitTail.meanMs,4,"tail mean");
+        near(b.preViews.totalMs+b.avatarPrepare.totalMs+b.viewSubmission.totalMs+
+                b.interlaceSubmission.totalMs+b.submitTail.totalMs,80,"five nonoverlap stages conserve work");
+        check(b.stageWork.count==b.stageFrames,"stage work has exactly same sample denominator");
+        near(b.stageWork.totalMs,80,"work for stage-complete subset only");
+        staged(s,31,1,300,true,4,8,17,6,5);
+        check(s.snapshot().transitionFrames==1 && s.snapshot().bucket(31).stageFrames==2,"epoch transition excludes all stages");
+        staged(s,35,2,400,false,0,0,0,0,40);
+        check(s.snapshot().bucket(35).stageFrames==1,"new target boundary retains work stages");
+        FramePacingStats.Snapshot stable=s.snapshot();
+        bad(()->staged(s,35,2,500,false,-1,0,0,0,41));
+        bad(()->staged(s,35,2,500,false,1,0,0,0,40));
+        bad(()->staged(s,35,2,500,false,1,0,0,0,38));
+        bad(()->s.recordStages(35,2,600,610,650,0,0,0,false,0,0,false,false,
+                Long.MAX_VALUE,Long.MAX_VALUE,2,0,0));
+        bad(()->s.recordStages(35,2,600,610,650,0,0,3,true,0,0,false,false,2,8,20,5,5));
+        check(s.snapshot().frames==stable.frames && s.snapshot().bucket(35).stageFrames==1,"bad stage durations are transactional");
+        s.reset();check(s.snapshot().bucket(31).stageFrames==0 && s.snapshot().bucket(31).stageWork.count==0,"stage reset bounded");
+        check(stable.bucket(31).stageFrames==2,"stage snapshot remains immutable");
+    }
+    private static void staged(FramePacingStats s,int fps,long epoch,long entry,boolean transition,
+            long pre,long prepare,long views,long interlace,long tail) {
+        s.recordStages(fps,epoch,ms(entry),ms(entry+10),ms(entry+50),ms(1),1,ms(Math.max(0,Math.min(2,pre))),true,0,0,false,transition,
+                ms(pre),ms(prepare),ms(views),ms(interlace),ms(tail));
     }
     private static void bad(Runnable action) {
         try {action.run();throw new AssertionError("expected invalid sample rejection");}

@@ -40,6 +40,32 @@ final class FramePacingStats {
         } else b.boundaryFrames++;
         lastEpoch=epoch;lastTarget=target;lastEntry=entry;lastEnd=end;hasPrevious=true;
     }
+    /**
+     * Five contiguous wall-time segments of exactly start..end. Validation precedes publication,
+     * including transition frames. Existing record callers retain their original no-stage semantics.
+     * Fence wait is already inside preViews and must never be added as a sixth segment.
+     */
+    synchronized void recordStages(int target,long epoch,long entry,long start,long end,long pacerWait,
+            int parkCalls,long fenceWait,boolean fenceCalled,long entryLate,long startLate,
+            boolean rebased,boolean transition,long preViews,long avatarPrepare,long viewSubmission,
+            long interlaceSubmission,long submitTail) {
+        if(start<0||end<start)throw new IllegalArgumentException("Invalid staged callback interval");
+        long remaining=end-start;
+        remaining=subtractStage(remaining,preViews);remaining=subtractStage(remaining,avatarPrepare);
+        remaining=subtractStage(remaining,viewSubmission);remaining=subtractStage(remaining,interlaceSubmission);
+        remaining=subtractStage(remaining,submitTail);
+        if(remaining!=0)throw new IllegalArgumentException("Callback stages do not cover work interval");
+        if(fenceWait>preViews)throw new IllegalArgumentException("Fence wait exceeds its enclosing pre-view stage");
+        record(target,epoch,entry,start,end,pacerWait,parkCalls,fenceWait,fenceCalled,entryLate,startLate,rebased,transition);
+        if(transition)return;
+        Bucket b=buckets[target];b.stageFrames++;
+        b.preViews.add(preViews);b.avatarPrepare.add(avatarPrepare);b.viewSubmission.add(viewSubmission);
+        b.interlaceSubmission.add(interlaceSubmission);b.submitTail.add(submitTail);b.stageWork.add(end-start);
+    }
+    private static long subtractStage(long remaining,long stage) {
+        if(stage<0||stage>remaining)throw new IllegalArgumentException("Callback stage is negative or exceeds work interval");
+        return remaining-stage;
+    }
     synchronized void reset() {
         frames=transitionFrames=lastEpoch=lastEntry=lastEnd=0;lastTarget=0;hasPrevious=false;
         for(Bucket bucket:buckets)bucket.reset();
@@ -61,14 +87,19 @@ final class FramePacingStats {
     }
     static final class BucketSnapshot {
         final int targetFps;
-        final long frames,parkCalls,fenceCalls,boundaryFrames,deadlineRebases;
+        final long frames,parkCalls,fenceCalls,boundaryFrames,deadlineRebases,stageFrames;
         final MetricSnapshot pacerWait,fenceWait,work,gap,interval,entryLateness,startLateness;
+        final MetricSnapshot preViews,avatarPrepare,viewSubmission,interlaceSubmission,submitTail,stageWork;
         private BucketSnapshot(int target,Bucket b) {
             targetFps=target;frames=b.frames;parkCalls=b.parkCalls;fenceCalls=b.fenceCalls;
             boundaryFrames=b.boundaryFrames;deadlineRebases=b.deadlineRebases;
+            stageFrames=b.stageFrames;
             pacerWait=new MetricSnapshot(b.pacerWait);fenceWait=new MetricSnapshot(b.fenceWait);
             work=new MetricSnapshot(b.work);gap=new MetricSnapshot(b.gap);interval=new MetricSnapshot(b.interval);
             entryLateness=new MetricSnapshot(b.entryLateness);startLateness=new MetricSnapshot(b.startLateness);
+            preViews=new MetricSnapshot(b.preViews);avatarPrepare=new MetricSnapshot(b.avatarPrepare);
+            viewSubmission=new MetricSnapshot(b.viewSubmission);interlaceSubmission=new MetricSnapshot(b.interlaceSubmission);
+            submitTail=new MetricSnapshot(b.submitTail);stageWork=new MetricSnapshot(b.stageWork);
         }
     }
     static final class MetricSnapshot {
@@ -84,13 +115,17 @@ final class FramePacingStats {
         void reset(){count=maxNs=0;totalNs=0;}
     }
     private static final class Bucket {
-        long frames,parkCalls,fenceCalls,boundaryFrames,deadlineRebases;
+        long frames,parkCalls,fenceCalls,boundaryFrames,deadlineRebases,stageFrames;
         final Metric pacerWait=new Metric(),fenceWait=new Metric(),work=new Metric(),gap=new Metric(),
                 interval=new Metric(),entryLateness=new Metric(),startLateness=new Metric();
+        final Metric preViews=new Metric(),avatarPrepare=new Metric(),viewSubmission=new Metric(),
+                interlaceSubmission=new Metric(),submitTail=new Metric(),stageWork=new Metric();
         void reset() {
-            frames=parkCalls=fenceCalls=boundaryFrames=deadlineRebases=0;
+            frames=parkCalls=fenceCalls=boundaryFrames=deadlineRebases=stageFrames=0;
             pacerWait.reset();fenceWait.reset();work.reset();gap.reset();interval.reset();
             entryLateness.reset();startLateness.reset();
+            preViews.reset();avatarPrepare.reset();viewSubmission.reset();interlaceSubmission.reset();
+            submitTail.reset();stageWork.reset();
         }
     }
 }

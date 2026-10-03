@@ -93,6 +93,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private final FramePacingStats framePacing=new FramePacingStats();
     private volatile long pacingEpoch;
     private long pacingMeasurementGeneration;
+    // GL-thread scratch timestamps only; reset at every callback before drawViews.
+    private long runtimePrepareStart,runtimePrepareEnd;
     private String calibration="diagnostic constants; not a verified optical panel calibration";
     private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
 
@@ -400,10 +402,13 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 GLES30.glDeleteSync(fences[fenceSlot]); fences[fenceSlot]=0;
             }
             boolean split=!runtimeMode&&profileStages&&!pipeline&&measuring&&workMs.size()%30==0;
+            if(runtimeMode)runtimePrepareStart=runtimePrepareEnd=SystemClock.elapsedRealtimeNanos();
             if(scene) drawViews();
+            long viewsEnd=runtimeMode?SystemClock.elapsedRealtimeNanos():0;
             long sceneEnd=before;
             if(split) { GLES30.glFinish(); sceneEnd=SystemClock.elapsedRealtimeNanos(); }
             drawInterlace(lookup);
+            long interlaceEnd=runtimeMode?SystemClock.elapsedRealtimeNanos():0;
             // Completion wall time includes CPU submission + GPU execution, not a GPU-only timer.
             if(pipeline) {
                 fences[fenceSlot]=GLES30.glFenceSync(GLES30.GL_SYNC_GPU_COMMANDS_COMPLETE,0);
@@ -414,15 +419,19 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             long after=SystemClock.elapsedRealtimeNanos();
             if(runtimeMode) recordPacedRuntimeFrame(frameTargetFps,frameEpoch,entered,before,after,pacerWait,
                     parkCalls,fenceWait,fenceCalled,entryLate,
-                    frameTargetFps>0?Math.max(0,before-scheduledStart):0,deadlineRebased);
+                    frameTargetFps>0?Math.max(0,before-scheduledStart):0,deadlineRebased,
+                    runtimePrepareStart-before,runtimePrepareEnd-runtimePrepareStart,
+                    viewsEnd-runtimePrepareEnd,interlaceEnd-viewsEnd,after-interlaceEnd);
             else recordFrame(before,after,split,sceneEnd);
         } catch(Throwable problem) { fail(problem); }
     }
     private synchronized void recordPacedRuntimeFrame(int frameTarget,long frameEpoch,long entered,
             long before,long after,long pacerWait,int parkCalls,long fenceWait,boolean fenceCalled,
-            long entryLate,long startLate,boolean deadlineRebased) {
-        framePacing.record(frameTarget,frameEpoch,entered,before,after,pacerWait,parkCalls,fenceWait,
-                fenceCalled,entryLate,startLate,deadlineRebased,frameEpoch!=pacingEpoch);
+            long entryLate,long startLate,boolean deadlineRebased,long preViews,long avatarPrepare,
+            long viewSubmission,long interlaceSubmission,long submitTail) {
+        framePacing.recordStages(frameTarget,frameEpoch,entered,before,after,pacerWait,parkCalls,fenceWait,
+                fenceCalled,entryLate,startLate,deadlineRebased,frameEpoch!=pacingEpoch,
+                preViews,avatarPrepare,viewSubmission,interlaceSubmission,submitTail);
         recordRuntimeFrame(before,after);
     }
     private synchronized void recordFrame(long before,long after,boolean split,long sceneEnd) {
@@ -476,7 +485,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                     .put("callback_work",pacingMetric(b.work)).put("callback_gap",pacingMetric(b.gap))
                     .put("callback_interval",pacingMetric(b.interval))
                     .put("entry_deadline_lateness",pacingMetric(b.entryLateness))
-                    .put("start_deadline_lateness",pacingMetric(b.startLateness)));
+                    .put("start_deadline_lateness",pacingMetric(b.startLateness))
+                    .put("stages",new JSONObject().put("frames",b.stageFrames).put("missing_frames",b.frames-b.stageFrames)
+                            .put("pre_views",pacingMetric(b.preViews)).put("avatar_prepare",pacingMetric(b.avatarPrepare))
+                            .put("view_submission",pacingMetric(b.viewSubmission))
+                            .put("interlace_submission",pacingMetric(b.interlaceSubmission))
+                            .put("submit_tail",pacingMetric(b.submitTail)).put("covered_callback_work",pacingMetric(b.stageWork))));
         }
         return new JSONObject().put("measurement_generation",pacingMeasurementGeneration)
                 .put("continuity_epoch",pacingEpoch).put("frames",stats.frames)
@@ -484,6 +498,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("retained_frame_samples",stats.retainedFrameSamples).put("bucket_capacity",stats.bucketCapacity())
                 .put("scope","successful callbacks since GL context creation or beginMeasurement; grouped by captured target, not interaction state; transitions excluded from buckets")
                 .put("wait_denominator","per successful stable-target callback, including zero wait; API call counts reported separately")
+                .put("stage_scope","five contiguous wall-time stages sum exactly to covered callback work per measured callback; CPU, scheduling and implicit driver stalls, not GPU-exclusive times")
+                .put("stage_definitions","pre_views: face update and previous fence; avatar_prepare: current callback pose submit/acquire/upload; view_submission: framebuffer/camera/multiview draw/invalidate; interlace_submission: output draw; submit_tail: new fence/flush/error check")
+                .put("stage_overlap","fence_wait is CPU wall time inside glClientWaitSync, already included in pre_views and callback_work; background worker rig/morph/copy are separate concurrent applied-pose metrics, not callback stages")
+                .put("stage_no_pose_policy","callbacks with no new worker result still contribute prepare wall time; no avatar means zero prepare")
                 .put("gap_scope","previous measured work end to next callback entry: publication, EGL swap, framework and OS scheduling; not isolated swap or GPU time")
                 .put("boundary_policy","first/context/resume/resize/target-change/transition boundaries exclude gap, interval and deadline debt")
                 .put("physical_presentation_fps",false);
@@ -823,7 +841,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(generation!=consumedAvatarResumeGeneration) {
             avatarScene.resumeCpuPose();consumedAvatarResumeGeneration=generation;
         }
+        if(runtimeMode)runtimePrepareStart=SystemClock.elapsedRealtimeNanos();
         avatarScene.prepare(runtimeBlendshapes,runtimeAngles);
+        if(runtimeMode)runtimePrepareEnd=SystemClock.elapsedRealtimeNanos();
         boolean drawAtlas=atlas&&!atlasCopy;
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiview?multiviewFbo:(drawAtlas?atlasFbo:fbo));
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glViewport(0,0,viewWidth,viewHeight);
