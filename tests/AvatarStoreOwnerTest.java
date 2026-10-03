@@ -82,8 +82,10 @@ public final class AvatarStoreOwnerTest {
         io.start();try{check(reading.await(3,TimeUnit.SECONDS),"real Store operation owns Guard and waits for provider");dispose(o);
             check(retained.get(o)==null,"destroy drops cached owner without closing an in-flight Store operation");
             rejects(()->acquire(o,()->a),InterruptedIOException.class,"no later work after destroy");
-        }finally{release.countDown();io.join(5000);}
-        check(!io.isAlive()&&failure.get()==null,"caller-owned in-flight Store can finish safely");
+        }finally{release.countDown();io.join(30000);}
+        // This verifies ownership after completion, not a five-second filesystem latency budget.
+        check(!io.isAlive(),"caller-owned Store operation finishes within the test watchdog");
+        check(failure.get()==null,"caller-owned in-flight Store can finish safely: "+failure.get());
         check(a.readCandidate()!=null&&retained.get(o)==null,"completed operation cannot republish owner; disk result is independently readable");
     }
     interface Checked{void run()throws Exception;}
