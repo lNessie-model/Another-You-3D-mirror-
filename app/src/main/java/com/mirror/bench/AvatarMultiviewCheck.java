@@ -19,12 +19,18 @@ public final class AvatarMultiviewCheck {
     private AvatarMultiviewCheck(){}
     public static JSONObject run(AssetManager assets,int width,int height,int views,float physicalAspect,
                                  BooleanSupplier cancelled)throws Exception {
+        return runComparison(assets,width,height,views,physicalAspect,cancelled,false);
+    }
+    static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
+                                    BooleanSupplier cancelled,boolean batchComparison)throws Exception {
         if(assets==null||width<64||height<64||width>2048||height>2048||views<4||views>32||views%4!=0
                 ||(long)width*height*views>8_388_608||!Float.isFinite(physicalAspect)||physicalAspect<=0)
             throw new IllegalArgumentException("Require 64..2048 view dimensions, 4..32 views divisible by four, <=8M layer pixels, and positive physical aspect");
         long started=System.nanoTime();JSONArray poseReports=new JSONArray();
         JSONObject report=new JSONObject().put("passed",false).put("completed",false).put("cancelled",false)
-                .put("scope","actual avatar, synchronous shared CPU pose, serial single-view vs OVR4; every off-axis array layer before interlacing")
+                .put("scope",batchComparison?"actual avatar, one CPU pose uploaded to independent original and packed buffers; original single-view vs batched OVR4, all layers before interlacing":
+                        "actual avatar, synchronous shared CPU pose, serial single-view vs OVR4; every off-axis array layer before interlacing")
+                .put("comparison_backend",batchComparison?"individual_serial_vs_batched_ovr4":"individual_serial_vs_individual_ovr4")
                 .put("input_schema",BlendshapeSchema.ID).put("view_width",width).put("view_height",height)
                 .put("views",views).put("physical_aspect",physicalAspect).put("max_rgb_error_allowed",1).put("rmse_allowed",.1)
                 .put("poses",poseReports).put("artwork_validated",false).put("performance_evidence",false);
@@ -49,7 +55,7 @@ public final class AvatarMultiviewCheck {
             GLES30.glColorMask(true,true,true,true);GLES30.glDepthMask(true);GLES30.glDepthFunc(GLES30.GL_LESS);
             GLES30.glDepthRangef(0,1);GLES30.glClearDepthf(1);GLES30.glViewport(0,0,width,height);
             // Construct after binding our VAO: constructor element-buffer bindings must not touch caller VAO state.
-            scene=AvatarGpuScene.builtin(assets,true,false);
+            scene=AvatarGpuScene.builtin(assets,true,false,batchComparison?AvatarGpuScene.DrawMode.VERIFY:AvatarGpuScene.DrawMode.INDIVIDUAL);
             report.put("avatar",scene.status());
             GLES30.glGenFramebuffers(3,fbos,0);GLES30.glGenTextures(3,textures,0);GLES30.glGenRenderbuffers(1,depth,0);
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,textures[0]);GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,1,GLES30.GL_RGBA8,width,height);
@@ -80,7 +86,9 @@ public final class AvatarMultiviewCheck {
                     GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[1]);
                     MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,textures[1],base,4);
                     MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,textures[2],base,4);complete("OVR batch "+base);
-                    System.arraycopy(matrices,base*16,four,0,64);clear();scene.draw(four,4,physicalAspect);checkGl("OVR draw "+base);
+                    System.arraycopy(matrices,base*16,four,0,64);clear();
+                    if(batchComparison)scene.drawBatched(four,4,physicalAspect);else scene.draw(four,4,physicalAspect);
+                    checkGl("OVR draw "+base);
                     for(int relative=0;relative<4;relative++) {
                         int view=base+relative;checkCancelled(cancelled);
                         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbos[0]);clear();

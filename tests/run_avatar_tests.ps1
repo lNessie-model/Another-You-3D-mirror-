@@ -25,11 +25,13 @@ $sources = @(
     'app\src\main\java\com\mirror\bench\AvatarAsset.java',
     'app\src\main\java\com\mirror\bench\AvatarGlbLoader.java',
     'app\src\main\java\com\mirror\bench\AvatarDeformer.java',
+    'app\src\main\java\com\mirror\bench\AvatarBatchLayout.java',
     'tests\AvatarGlbLoaderTest.java',
     'tests\AvatarDeformerTest.java',
     'tests\AvatarDeformerReference.java',
     'tests\AvatarDeformerOptimizationTest.java',
-    'tests\AvatarDeformerHeapCacheTest.java'
+    'tests\AvatarDeformerHeapCacheTest.java',
+    'tests\AvatarBatchLayoutTest.java'
 ) | ForEach-Object { Join-Path $projectRoot $_ }
 & $javac --release 17 -encoding UTF-8 -cp $JsonJar -d $classes @sources
 if ($LASTEXITCODE -ne 0) { throw 'Avatar GLB test compilation failed.' }
@@ -41,4 +43,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Avatar deformation tests failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Avatar deformation optimization parity failed.' }
 & $java -cp "$classes;$JsonJar" com.mirror.bench.AvatarDeformerHeapCacheTest @AssetPath
 if ($LASTEXITCODE -ne 0) { throw 'Avatar deformation heap cache regression failed.' }
+& $java -cp "$classes;$JsonJar" com.mirror.bench.AvatarBatchLayoutTest @AssetPath
+if ($LASTEXITCODE -ne 0) { throw 'Avatar batch layout regression failed.' }
 Write-Host 'CPU GLB parser tests passed with real JSON-java. Renderer/device/complete-avatar acceptance remains separate.'

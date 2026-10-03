@@ -17,12 +17,15 @@ import java.util.List;
 
 /** Real GLB scene. GL-thread owner; one deformation/upload is shared by every independent view. */
 final class AvatarGpuScene {
+    enum DrawMode { INDIVIDUAL, BATCHED, VERIFY }
     private final AvatarAsset asset;
     private final AvatarRig rig;
     private final AvatarDeformer deformer;
     private final List<GpuPrimitive>[] primitives;
     private final float[][] weights;
     private Program program, multiviewProgram;
+    private AvatarBatchGpu batch;
+    private final DrawMode drawMode;
     private final List<Integer> allocatedBuffers=new ArrayList<>();
     private final float[] world=new float[16], fittedWorld=new float[16], fit=new float[16], inverse=new float[16], normal=new float[9];
     private AvatarFraming framing;
@@ -43,6 +46,9 @@ final class AvatarGpuScene {
         return builtin(assets,multiview,false);
     }
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview,boolean asynchronous) throws Exception {
+        return builtin(assets,multiview,asynchronous,DrawMode.INDIVIDUAL);
+    }
+    static AvatarGpuScene builtin(AssetManager assets,boolean multiview,boolean asynchronous,DrawMode drawMode) throws Exception {
         String directory="avatars/builtin-guide/";
         byte[] manifest,glb;
         try(InputStream input=assets.open(directory+"avatar.json")){manifest=readBounded(input,262_144);}
@@ -53,21 +59,30 @@ final class AvatarGpuScene {
         String hash=sha256(glb);
         if(!hash.equalsIgnoreCase(json.getString("modelSha256")))throw new IllegalArgumentException("Avatar GLB digest differs from manifest");
         AvatarAsset asset=AvatarGlbLoader.load(glb);
-        AvatarRig rig=new AvatarRig(asset,new String(manifest,StandardCharsets.UTF_8));
-        AvatarGpuScene scene=new AvatarGpuScene(asset,rig,hash,multiview);
+        return fromAsset(asset,new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,drawMode);
+    }
+    /** Inputs are a validated CPU asset/manifest and its verified model digest; no package-store dependency. */
+    static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous) throws Exception {
+        return fromAsset(asset,manifestJson,modelSha256,multiview,asynchronous,DrawMode.INDIVIDUAL);
+    }
+    static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous,DrawMode drawMode) throws Exception {
+        if(drawMode==null)throw new IllegalArgumentException("Avatar draw mode required");
+        if(drawMode==DrawMode.VERIFY&&asynchronous)throw new IllegalArgumentException("Avatar pixel verification requires synchronous pose ownership");
+        AvatarRig rig=new AvatarRig(asset,manifestJson);
+        AvatarGpuScene scene=new AvatarGpuScene(asset,rig,modelSha256,multiview,drawMode);
         try {
-            if(asynchronous)scene.poseWorker=new AvatarPoseWorker(asset,new String(manifest,StandardCharsets.UTF_8));
+            if(asynchronous)scene.poseWorker=new AvatarPoseWorker(asset,manifestJson);
             return scene;
         } catch(Exception|Error failure){scene.dispose();throw failure;}
     }
     @SuppressWarnings("unchecked")
-    private AvatarGpuScene(AvatarAsset asset,AvatarRig rig,String hash,boolean multiview) {
-        this.asset=asset;this.rig=rig;sha256=hash;
+    private AvatarGpuScene(AvatarAsset asset,AvatarRig rig,String hash,boolean multiview,DrawMode drawMode) {
+        this.asset=asset;this.rig=rig;sha256=hash;this.drawMode=drawMode;
         displayedWorlds=new float[asset.nodes().size()*16];
         deformer=new AvatarDeformer(asset,rig.normalPolicy().equals("authored")?AvatarDeformer.NormalPolicy.AUTHORED:AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
         weights=new float[asset.meshes().size()][];primitives=new List[weights.length];
         try {
-        program=new Program(false);multiviewProgram=multiview?new Program(true):null;
+        if(drawMode!=DrawMode.BATCHED){program=new Program(false);multiviewProgram=multiview?new Program(true):null;}
         int count=0;
         for(int m=0;m<weights.length;m++) {
             weights[m]=new float[asset.meshes().get(m).targetCount()];
@@ -77,6 +92,7 @@ final class AvatarGpuScene {
             }
         }
         primitiveCount=count;
+        if(drawMode!=DrawMode.INDIVIDUAL)batch=new AvatarBatchGpu(asset,rig,multiview);
         framing=AvatarGeometryBounds.fromAsset(asset,rig);
         prepare(new float[52],new float[3]);
         checkGl("avatar initialization");
@@ -85,6 +101,7 @@ final class AvatarGpuScene {
     /** Call only while the owning EGL context is current. On context loss discard this object instead. */
     void dispose() {
         stopCpu();
+        if(batch!=null){batch.dispose();batch=null;}
         for(int buffer:allocatedBuffers)GLES30.glDeleteBuffers(1,new int[]{buffer},0);
         allocatedBuffers.clear();
         if(program!=null){GLES30.glDeleteProgram(program.id);program=null;}
@@ -106,12 +123,17 @@ final class AvatarGpuScene {
             rig.copyWorldMatrix(n,world);System.arraycopy(world,0,displayedWorlds,n*16,16);
         }
         long uploadStart=System.nanoTime();
-        for(List<GpuPrimitive> mesh:primitives)for(GpuPrimitive primitive:mesh) {
+        for(int m=0;m<primitives.length;m++)for(int p=0;p<primitives[m].size();p++) {
+            GpuPrimitive primitive=primitives[m].get(p);
             if(primitive.lastRevision==primitive.output.revision())continue;
+            if(drawMode!=DrawMode.BATCHED) {
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,primitive.dynamicBuffer);
             primitive.upload.position(0);
             GLES30.glBufferSubData(GLES30.GL_ARRAY_BUFFER,0,primitive.upload.capacity()*4,primitive.upload);
-            primitive.lastRevision=primitive.output.revision();uploaded+=(long)primitive.upload.capacity()*4;
+            uploaded+=(long)primitive.upload.capacity()*4;
+            }
+            if(batch!=null)uploaded+=batch.upload(m,p,primitive.upload);
+            primitive.lastRevision=primitive.output.revision();
         }
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);
         recordPose((rigEnd-start)/1e6,(uploadStart-rigEnd)/1e6,0,
@@ -135,9 +157,13 @@ final class AvatarGpuScene {
                     GpuPrimitive primitive=primitives[m].get(p);long revision=frame.primitiveRevision(m,p);
                     if(asyncHasFrame&&primitive.lastRevision==revision)continue;
                     FloatBuffer buffer=frame.interleaved(m,p);
+                    if(drawMode!=DrawMode.BATCHED) {
                     GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,primitive.dynamicBuffer);
                     GLES30.glBufferSubData(GLES30.GL_ARRAY_BUFFER,0,buffer.capacity()*4,buffer);
-                    primitive.lastRevision=revision;uploaded+=(long)buffer.capacity()*4;meshChanged=true;
+                    uploaded+=(long)buffer.capacity()*4;
+                    }
+                    if(batch!=null)uploaded+=batch.upload(m,p,buffer);
+                    primitive.lastRevision=revision;meshChanged=true;
                   }
                   if(meshChanged)changed++;
                 }
@@ -163,6 +189,7 @@ final class AvatarGpuScene {
     }
     /** viewProjections contain one or four independent off-axis camera matrices, without model transform. */
     void draw(float[] viewProjections,int viewCount,float aspect) {
+        if(drawMode==DrawMode.BATCHED){drawBatched(viewProjections,viewCount,aspect);return;}
         if((viewCount!=1&&viewCount!=4)||viewProjections.length<viewCount*16)throw new IllegalArgumentException("Invalid avatar view group");
         Program active=viewCount==4?multiviewProgram:program;
         if(active==null)throw new IllegalStateException("Avatar multiview program was not initialized");
@@ -199,6 +226,11 @@ final class AvatarGpuScene {
         for(int i=0;i<3;i++)GLES30.glDisableVertexAttribArray(i);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
     }
+    /** VERIFY keeps independent legacy buffers; both draws share one prepared CPU pose. */
+    void drawBatched(float[] viewProjections,int viewCount,float aspect) {
+        if(batch==null)throw new IllegalStateException("Avatar batch backend not initialized");
+        batch.draw(viewProjections,viewCount,aspect,framing,displayedWorlds);
+    }
     JSONObject status() throws Exception {
         JSONObject value;
         synchronized(metricsLock) {
@@ -213,8 +245,11 @@ final class AvatarGpuScene {
                 .put("upload_mean_ms",meanUploadMs).put("applied_pose_age_mean_ms",meanPoseAgeMs).put("applied_pose_age_max_ms",maxPoseAgeMs)
                 .put("timing_scope","online means of applied poses since GL scene creation, including initial neutral pose; no per-frame samples retained")
                 .put("complete_source_mapping",rig.completeSourceCoverage()).put("artwork_validated",false)
-                .put("normal_policy",rig.normalPolicy()).put("deformation_scope","once per animation snapshot; all independent views share the same VBO");
+                .put("normal_policy",rig.normalPolicy()).put("deformation_scope","once per animation snapshot; all independent views share the same VBO")
+                .put("draw_backend",drawMode.name().toLowerCase(java.util.Locale.ROOT));
         }
+        AvatarBatchGpu currentBatch=batch;
+        if(currentBatch!=null)value.put("batch",currentBatch.status());
         if(poseWorker!=null) {
             var s=poseWorker.status();value.put("pose_worker",new JSONObject().put("submitted_inputs",s.submittedInputs)
                     .put("processed_inputs",s.processedInputs).put("published_frames",s.publishedFrames)
@@ -231,6 +266,8 @@ final class AvatarGpuScene {
         final int dynamicBuffer,colorBuffer,indexBuffer,indexCount;long lastRevision=-1;
         GpuPrimitive(AvatarAsset.Primitive source,AvatarDeformer.PrimitiveOutput output) {
             this.source=source;this.output=output;upload=output.interleaved();
+            asset.materials().get(source.materialIndex()).baseColor().get(materialColor);
+            if(drawMode==DrawMode.BATCHED){dynamicBuffer=0;colorBuffer=0;indexBuffer=0;indexCount=source.indices().remaining();return;}
             int[] names=new int[source.colors()==null?2:3];GLES30.glGenBuffers(names.length,names,0);
             for(int name:names)allocatedBuffers.add(name);
             dynamicBuffer=names[0];indexBuffer=names[1];
@@ -244,7 +281,6 @@ final class AvatarGpuScene {
                 GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,colorBuffer);
                 GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,colors.remaining()*4,colors,GLES30.GL_STATIC_DRAW);
             } else colorBuffer=0;
-            asset.materials().get(source.materialIndex()).baseColor().get(materialColor);
         }
     }
     private static final class Program {
@@ -268,13 +304,13 @@ final class AvatarGpuScene {
             unlit=GLES30.glGetUniformLocation(id,"uUnlit");roughness=GLES30.glGetUniformLocation(id,"uRoughness");
         }
     }
-    private static int shader(int kind,String source){int id=GLES30.glCreateShader(kind);try{GLES30.glShaderSource(id,source);GLES30.glCompileShader(id);int[] ok=new int[1];GLES30.glGetShaderiv(id,GLES30.GL_COMPILE_STATUS,ok,0);if(ok[0]==0)throw new IllegalStateException("Avatar shader: "+GLES30.glGetShaderInfoLog(id));return id;}catch(RuntimeException|Error failure){GLES30.glDeleteShader(id);throw failure;}}
+    static int shader(int kind,String source){int id=GLES30.glCreateShader(kind);try{GLES30.glShaderSource(id,source);GLES30.glCompileShader(id);int[] ok=new int[1];GLES30.glGetShaderiv(id,GLES30.GL_COMPILE_STATUS,ok,0);if(ok[0]==0)throw new IllegalStateException("Avatar shader: "+GLES30.glGetShaderInfoLog(id));return id;}catch(RuntimeException|Error failure){GLES30.glDeleteShader(id);throw failure;}}
     private static void checkGl(String label){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(label+" GL error "+code);}
     private static IntBuffer directInts(IntBuffer input){IntBuffer b=ByteBuffer.allocateDirect(input.remaining()*4).order(ByteOrder.nativeOrder()).asIntBuffer();b.put(input);b.flip();return b;}
     private static FloatBuffer directFloats(FloatBuffer input){FloatBuffer b=ByteBuffer.allocateDirect(input.remaining()*4).order(ByteOrder.nativeOrder()).asFloatBuffer();b.put(input);b.flip();return b;}
     private static byte[] readBounded(InputStream input,int max)throws Exception{ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] block=new byte[8192];int n;while((n=input.read(block))!=-1){if(n==0)continue;if(out.size()>max-n)throw new IllegalArgumentException("Avatar file too large");out.write(block,0,n);}return out.toByteArray();}
     private static String sha256(byte[] bytes)throws Exception{byte[] digest=MessageDigest.getInstance("SHA-256").digest(bytes);StringBuilder result=new StringBuilder();for(byte b:digest)result.append(String.format(java.util.Locale.ROOT,"%02x",b&255));return result.toString();}
-    private static final String VERTEX="""
+    static final String VERTEX="""
         #version 300 es
         precision highp float;
         layout(location=0) in vec3 aPosition;
@@ -286,7 +322,7 @@ final class AvatarGpuScene {
         out vec3 vNormal;out vec3 vPosition;out vec4 vColor;
         void main(){vec4 world=uWorld*vec4(aPosition,1.0);vNormal=uNormal*aNormal;vPosition=world.xyz;vColor=aColor;gl_Position=uViewProjection*world;}
         """;
-    private static final String FRAGMENT="""
+    static final String FRAGMENT="""
         #version 300 es
         precision highp float;
         in vec3 vNormal;in vec3 vPosition;in vec4 vColor;

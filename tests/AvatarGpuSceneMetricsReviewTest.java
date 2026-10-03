@@ -13,7 +13,7 @@ public final class AvatarGpuSceneMetricsReviewTest {
         AvatarGpuScene scene=(AvatarGpuScene)((Unsafe)singleton.get(null)).allocateInstance(AvatarGpuScene.class);
         AvatarAsset asset=AvatarRigTest.fixture();set(scene,"asset",asset);
         set(scene,"rig",new AvatarRig(asset,AvatarRigTest.manifest().toString()));set(scene,"sha256","host-metrics-fixture");
-        set(scene,"metricsLock",new Object());
+        set(scene,"metricsLock",new Object());set(scene,"drawMode",AvatarGpuScene.DrawMode.INDIVIDUAL);
         Method record=AvatarGpuScene.class.getDeclaredMethod("recordPose",double.class,double.class,double.class,double.class,double.class,long.class,long.class,long.class);
         record.setAccessible(true);AtomicReference<Throwable> failure=new AtomicReference<>();
         Thread writer=new Thread(()->{
