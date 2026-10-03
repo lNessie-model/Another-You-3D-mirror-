@@ -92,7 +92,7 @@ public final class MirrorActivity extends Activity {
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-        renderer = new InterlaceRenderer(20, .3f, true);
+        renderer = new InterlaceRenderer(options.viewCount, .3f, true);
         renderer.setRuntimeMode(true);
         renderer.setTargetFps(options.activeTargetFps);
         if(options.viewPreset==null) {runtimeViewWidth=settings.viewWidth;runtimeViewHeight=settings.viewHeight;}
@@ -333,7 +333,7 @@ public final class MirrorActivity extends Activity {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL); panel.setPadding(dp(20), dp(8), dp(20), dp(8));
         TextView details = new TextView(this);
-        details.setText("20视点，原生竖屏输出。\n"
+        details.setText(options.viewCount+"视点，原生竖屏输出。\n"
                 + "pitch="+settings.panel.pitch()+" "+settings.panel.pitchUnits()+", tan="+settings.panel.tan()
                 + ", phase="+settings.panel.phaseCycles()+"；实屏光学未确认。\n"+settings.warning+"\n"
                 + "输入：" + options.label() + "\n" + maintenanceMetrics()
@@ -349,7 +349,7 @@ public final class MirrorActivity extends Activity {
         for (int i = 0; i < MirrorSettings.VIEW_PRESETS.length; i++)
             if (MirrorSettings.VIEW_PRESETS[i].equals(settings.viewPreset)) views.setSelection(i);
         panel.addView(views);
-        Button calibrationButton=new Button(this);calibrationButton.setText("屏幕校准 / 20视点测试图");panel.addView(calibrationButton);
+        Button calibrationButton=new Button(this);calibrationButton.setText("屏幕校准 / "+options.viewCount+"视点测试图");panel.addView(calibrationButton);
         Button avatarButton=new Button(this);avatarButton.setText("角色管理 / 导入与预览");panel.addView(avatarButton);
         Button cameraButton=new Button(this);cameraButton.setText("相机与动作校准");panel.addView(cameraButton);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("魔镜维护").setView(panel)
@@ -384,7 +384,8 @@ public final class MirrorActivity extends Activity {
         dialog.setOnDismissListener(ignored -> { maintenance = false; startIfReady(false); });
         calibrationButton.setOnClickListener(ignored -> {
             calibrationOpen=true;
-            startActivityForResult(new Intent(this,CalibrationActivity.class),PANEL_CALIBRATION);
+            startActivityForResult(CalibrationActivity.intent(this,options.viewCount,
+                    (getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0),PANEL_CALIBRATION);
             dialog.dismiss();
         });
         avatarButton.setOnClickListener(ignored -> {
@@ -755,12 +756,12 @@ public final class MirrorActivity extends Activity {
                 .put("control_revision",current==null?0:current.calibrationRevision())
                 .put("control_error",current==null?"":current.calibrationError())
                 .put("control_rejected_frames",current==null?0:current.calibrationRejectedFrames())
-                .put("view_width", runtimeViewWidth).put("view_height", runtimeViewHeight).put("view_count", 20)
+                .put("view_width", runtimeViewWidth).put("view_height", runtimeViewHeight).put("view_count", options.viewCount)
                 .put("debug_render_overrides",new JSONObject().put("synchronous",options.synchronousAvatar)
                         .put("persistent_fbos",options.persistentFbos)
                         .put("cached_camera_vp",options.cachedCameraVp)
                         .put("batched",options.batchedAvatar).put("view_preset",options.viewPreset==null?JSONObject.NULL:options.viewPreset)
-                        .put("active_target_fps",options.activeTargetFps))
+                        .put("active_target_fps",options.activeTargetFps).put("view_count",options.viewCount))
                 .put("optical_calibration", new JSONObject().put("pitch", settings.panel.pitch())
                         .put("pitch_units", settings.panel.pitchUnits().name()).put("tan", settings.panel.tan())
                         .put("phase_cycles", settings.panel.phaseCycles()).put("subpixel_order", settings.panel.subpixelOrder().name())
@@ -871,9 +872,9 @@ public final class MirrorActivity extends Activity {
         final long blackoutAfterNs, blackoutDurationNs;
         final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp;
         final String viewPreset;
-        final int activeTargetFps;
+        final int activeTargetFps,viewCount;
         private InputOptions(String input, String recordId, double replayFps, int after, int duration,
-                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp) {
+                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
@@ -881,8 +882,9 @@ public final class MirrorActivity extends Activity {
             this.activeTargetFps=activeTargetFps;
             this.persistentFbos=persistentFbos;
             this.cachedCameraVp=cachedCameraVp;
+            this.viewCount=viewCount;
         }
-        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false,false); }
+        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false,false,20); }
         static InputOptions read(Bundle extras, boolean debug) {
             if (extras == null) return defaults();
             String input = text(extras, "runtime_input", "camera");
@@ -914,7 +916,8 @@ public final class MirrorActivity extends Activity {
             int target=integer(extras,"test_active_target_fps",31);
             if(value(extras,"test_active_target_fps")!=null&&(!debug||(target!=31&&target!=35)))
                 throw new IllegalArgumentException("Frame pacing override requires debug Integer 31 or 35");
-            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp));
+            int views=RuntimeViewCount.read(extras,debug);
+            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views);
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {

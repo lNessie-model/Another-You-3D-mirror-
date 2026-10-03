@@ -2,6 +2,8 @@ package com.mirror.bench;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.os.Bundle;
 import android.text.InputType;
 import android.widget.*;
@@ -12,12 +14,22 @@ public final class CalibrationActivity extends Activity {
     private Spinner units,order,origin;
     private CheckBox reverse;
     private TextView error;
+    static Intent intent(Context context,int views,boolean debug) {
+        return RuntimeViewCount.forward(new Intent(context,CalibrationActivity.class),views,debug);
+    }
+    static String previewLabel(int views) {return "预览"+views+"视点测试图";}
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        final boolean debug=(getApplicationInfo().flags&ApplicationInfo.FLAG_DEBUGGABLE)!=0;
+        final int viewCount;
+        try {viewCount=RuntimeViewCount.read(getIntent().getExtras(),debug);}
+        catch(RuntimeException bad) {
+            TextView message=new TextView(this);message.setText("校准配置错误："+bad.getMessage());setContentView(message);return;
+        }
         MirrorSettings settings=MirrorSettings.load(this);
         LinearLayout form=new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(24,12,24,16);
         ScrollView scroll=new ScrollView(this); scroll.addView(form); setContentView(scroll);
-        text(form,"屏幕交织校准 · 未经实屏光学确认\n保存的是交织参数，软件像素核对通过也不代表光学对齐。\n预览中是20张不同颜色和01–20数字的视点图。");
+        text(form,"屏幕交织校准 · 未经实屏光学确认\n保存的是交织参数，软件像素核对通过也不代表光学对齐。\n预览中是"+viewCount+"张不同颜色和01–"+viewCount+"数字的视点图。");
         if(!settings.warning.isEmpty())text(form,settings.warning);
         pitch=number(form,"Pitch（1–4096，按所选单位）",101);
         units=choice(form,"Pitch单位",new String[]{"子像素 SUBPIXELS","像素 PIXELS"},102);
@@ -28,8 +40,8 @@ public final class CalibrationActivity extends Activity {
         origin=choice(form,"垂直坐标原点",new String[]{"底部 BOTTOM","顶部 TOP（height − pixel center）"},107);
         error=text(form,""); error.setTextColor(0xffff7777);
         fill(settings.panel);
-        button(form,"预览20视点测试图",()-> {
-            try { PanelCalibration panel=read(); startActivity(PanelPreviewActivity.intent(this,panel)); error.setText(""); }
+        button(form,previewLabel(viewCount),()-> {
+            try { PanelCalibration panel=read(); startActivity(PanelPreviewActivity.intent(this,panel,viewCount,debug)); error.setText(""); }
             catch(RuntimeException bad) { error.setText("参数无效："+bad.getMessage()); }
         });
         button(form,"恢复默认（仅修改草稿）",()-> {fill(PanelCalibration.defaults());error.setText("草稿已恢复；保存后生效");});

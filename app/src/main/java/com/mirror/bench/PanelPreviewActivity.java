@@ -27,11 +27,16 @@ public final class PanelPreviewActivity extends Activity {
     private String runId=UUID.randomUUID().toString();
     private long startedNs;
     private int contextGeneration,verifiedWidth,verifiedHeight;
+    private int viewCount=20;
     static Intent intent(Context context,PanelCalibration panel) {
-        return new Intent(context,PanelPreviewActivity.class).putExtra("pitch",panel.pitch()).putExtra("tan",panel.tan())
-                .putExtra("units",panel.pitchUnits().name()).putExtra("phase",panel.phaseCycles())
-                .putExtra("order",panel.subpixelOrder().name()).putExtra("reverse",panel.reverseViews()).putExtra("origin",panel.yOrigin().name());
+        return intent(context,panel,20,false);
     }
+    static Intent intent(Context context,PanelCalibration panel,int views,boolean debug) {
+        return RuntimeViewCount.forward(new Intent(context,PanelPreviewActivity.class).putExtra("pitch",panel.pitch()).putExtra("tan",panel.tan())
+                .putExtra("units",panel.pitchUnits().name()).putExtra("phase",panel.phaseCycles())
+                .putExtra("order",panel.subpixelOrder().name()).putExtra("reverse",panel.reverseViews()).putExtra("origin",panel.yOrigin().name()),views,debug);
+    }
+    static String previewLabel(int views) {return views+"视点：01–"+views+"独立数字/颜色；光学未确认";}
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         startedNs=SystemClock.elapsedRealtimeNanos();
@@ -39,6 +44,8 @@ public final class PanelPreviewActivity extends Activity {
                 |View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
         try {
             Intent i=getIntent();verify=i.getBooleanExtra("verify",false);
+            viewCount=RuntimeViewCount.read(i.getExtras(),
+                    (getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
             if(verify)write(new JSONObject().put("running",true).put("passed",false).put("stage","activity_start"));
             PanelCalibration fallback=MirrorSettings.load(this).panel;
             PanelCalibration panel=new PanelCalibration(i.getFloatExtra("pitch",fallback.pitch()),i.getFloatExtra("tan",fallback.tan()),
@@ -70,7 +77,7 @@ public final class PanelPreviewActivity extends Activity {
                                     .put("width",width).put("height",height));
                             JSONObject result=renderer.verifyPanelPixels(()->cancelled).put("running",false);
                             if(cancelled)throw new InterruptedException("Pixel check cancelled before publication");
-                            write(result); show(result.optBoolean("passed")?"软件逐像素核对通过；实屏光学仍未确认":"像素核对未通过，详见 panel-pixel-check.json");
+                            write(result); show(result.optBoolean("passed")?viewCount+"视点软件逐像素核对通过；实屏光学仍未确认":"像素核对未通过，详见 "+verificationFile());
                         } catch(Throwable bad) {report(bad);}
                     } else try {
                         String error=renderer.runtimeStatus().optString("error");if(!error.isEmpty())show("预览失败："+error);
@@ -80,7 +87,7 @@ public final class PanelPreviewActivity extends Activity {
             });
             root.addView(surface,new FrameLayout.LayoutParams(-1,-1));
             LinearLayout controls=new LinearLayout(this);controls.setOrientation(LinearLayout.VERTICAL);controls.setBackgroundColor(0xb0000000);
-            status=new TextView(this);status.setText(verify?"正在核对6组参数 × 4条GPU路径的全部RGB像素…":"20视点：01–20独立数字/颜色；光学未确认");
+            status=new TextView(this);status.setText(verify?"正在核对"+viewCount+"视点 × 6组参数 × 4条GPU路径的全部RGB像素…":previewLabel(viewCount));
             status.setTextColor(0xffffffff);controls.addView(status);
             Button back=new Button(this);back.setText("返回校准页");back.setOnClickListener(v->finish());controls.addView(back);
             FrameLayout.LayoutParams controlsLayout=new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM);root.addView(controls,controlsLayout);setContentView(root);
@@ -89,7 +96,7 @@ public final class PanelPreviewActivity extends Activity {
     @Override protected void onResume() {super.onResume();cancelled=false;if(surface!=null)surface.onResume();}
     @Override protected void onPause() {cancelled=true;if(surface!=null)surface.onPause();super.onPause();}
     private InterlaceRenderer createRenderer(PanelCalibration panel) {
-        InterlaceRenderer renderer=new InterlaceRenderer(20,.3f,false);
+        InterlaceRenderer renderer=new InterlaceRenderer(viewCount,.3f,false);
         renderer.setRuntimeMode(true);renderer.setTargetFps(10);renderer.setViewSize(320,576);
         renderer.setPanelCalibration(panel);renderer.setCalibrationPattern(true);renderer.setExplicitLod(true);
         if(verify){renderer.setAtlas(false,true);renderer.setLookup(false,true);}
@@ -104,10 +111,12 @@ public final class PanelPreviewActivity extends Activity {
     private void write(JSONObject value) throws Exception {
         value.put("updated_elapsed_ns",SystemClock.elapsedRealtimeNanos()).put("started_elapsed_ns",startedNs)
                 .put("run_id",runId).put("context_generation",contextGeneration)
+                .put("view_count",viewCount)
                 .put("cancelled",cancelled).put("optical_alignment_verified",false);
         if(cancelled&&value.optBoolean("passed"))value.put("passed",false).put("error","Pixel check cancelled before publication");
-        AtomicFile file=new AtomicFile(new File(getFilesDir(),"panel-pixel-check.json"));FileOutputStream out=null;
+        AtomicFile file=new AtomicFile(new File(getFilesDir(),verificationFile()));FileOutputStream out=null;
         try {out=file.startWrite();out.write(value.toString(2).getBytes(StandardCharsets.UTF_8));file.finishWrite(out);}
         catch(Exception bad) {if(out!=null)file.failWrite(out);throw bad;}
     }
+    private String verificationFile() {return viewCount==16?"panel-pixel16-check.json":"panel-pixel-check.json";}
 }

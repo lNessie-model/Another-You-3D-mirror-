@@ -262,6 +262,7 @@ def arguments():
     parser.add_argument("--persistent-fbos", action="store_true", help="Debug-only opt-in persistent multiview FBO groups; defaults to legacy attachments")
     parser.add_argument("--cached-camera-vp", action="store_true", help="Debug-only opt-in static avatar camera matrix cache; defaults to per-frame calculation")
     parser.add_argument("--view-preset", choices=("240x720", "320x576", "400x720"), help="Debug-only view size override; never saves preferences")
+    parser.add_argument("--view-count", type=int, choices=(16, 20), help="Debug-only independent view count; default application profile is 20, never saves preferences")
     parser.add_argument("--active-target-fps", type=int, choices=(31, 35), help="Debug-only frame pacing control; leaves idle rate and preferences unchanged")
     args = parser.parse_args()
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,120}", args.name):
@@ -422,6 +423,8 @@ def run(args):
         extras += " --ez test_cached_camera_vp true"
     if args.view_preset:
         extras += " --es test_view_preset " + args.view_preset
+    if args.view_count is not None:
+        extras += " --ei test_view_count " + str(args.view_count)
     if args.active_target_fps is not None:
         extras += " --ei test_active_target_fps " + str(args.active_target_fps)
     try:

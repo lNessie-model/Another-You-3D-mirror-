@@ -21,22 +21,36 @@ public final class AvatarMultiviewCheck {
                                  BooleanSupplier cancelled)throws Exception {
         return runComparison(assets,width,height,views,physicalAspect,cancelled,false);
     }
+    /** Explicit sixteen-view profile: strict RGBA, independent serial shader versus four-view OVR. */
+    public static JSONObject runSixteen(AssetManager assets,BooleanSupplier cancelled)throws Exception {
+        return runComparison(assets,400,720,16,1200f/1920f,cancelled,false,false,false,0,0,true);
+    }
+    static JSONObject sixteenProfile()throws Exception {
+        return new JSONObject().put("verification_profile","avatar_16views_strict").put("views",16)
+                .put("expected_layer_comparisons",69*16).put("reference_views_per_draw",1)
+                .put("candidate_views_per_draw",4).put("candidate_view_groups",4)
+                .put("max_rgb_error_allowed",0).put("rmse_allowed",0).put("alpha_error_allowed",0)
+                .put("physical_width",1200).put("physical_height",1920);
+    }
+    static boolean strictPixelsMatch(AvatarPixelComparison.Stats stats) {
+        return stats.passed()&&stats.rgbMismatches==0&&stats.alphaMismatches==0;
+    }
     static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
                                     BooleanSupplier cancelled,boolean batchComparison)throws Exception {
         return runComparison(assets,width,height,views,physicalAspect,cancelled,batchComparison,false);
     }
     static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
                                     BooleanSupplier cancelled,boolean batchComparison,boolean persistentComparison)throws Exception {
-        return runComparison(assets,width,height,views,physicalAspect,cancelled,batchComparison,persistentComparison,false,0,0);
+        return runComparison(assets,width,height,views,physicalAspect,cancelled,batchComparison,persistentComparison,false,0,0,false);
     }
     static JSONObject runCameraComparison(AssetManager assets,int width,int height,int views,int physicalWidth,int physicalHeight,
                                          BooleanSupplier cancelled)throws Exception {
         if(physicalWidth<=0||physicalHeight<=0)throw new IllegalArgumentException("Positive physical dimensions required");
-        return runComparison(assets,width,height,views,(float)physicalWidth/physicalHeight,cancelled,false,false,true,physicalWidth,physicalHeight);
+        return runComparison(assets,width,height,views,(float)physicalWidth/physicalHeight,cancelled,false,false,true,physicalWidth,physicalHeight,false);
     }
     private static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
                                     BooleanSupplier cancelled,boolean batchComparison,boolean persistentComparison,boolean cameraComparison,
-                                    int physicalWidth,int physicalHeight)throws Exception {
+                                    int physicalWidth,int physicalHeight,boolean strictSixteen)throws Exception {
         if(batchComparison&&persistentComparison)throw new IllegalArgumentException("Select one comparison");
         boolean pairedOvr=persistentComparison||cameraComparison;
         if(assets==null||width<64||height<64||width>2048||height>2048||views<4||views>32||views%4!=0
@@ -51,6 +65,7 @@ public final class AvatarMultiviewCheck {
                 .put("views",views).put("physical_aspect",physicalAspect).put("max_rgb_error_allowed",pairedOvr?0:1).put("rmse_allowed",pairedOvr?0:.1)
                 .put("alpha_error_allowed",0)
                 .put("poses",poseReports).put("artwork_validated",false).put("performance_evidence",false);
+        if(strictSixteen){JSONObject profile=sixteenProfile();for(var keys=profile.keys();keys.hasNext();){String key=keys.next();report.put(key,profile.get(key));}}
         SavedState saved=null;AvatarGpuScene scene=null;
         PersistentMultiviewFbos persistent=null,referencePersistent=null;
         AvatarCameraProjectionCache cameraCache=cameraComparison?new AvatarCameraProjectionCache():null;
@@ -105,6 +120,8 @@ public final class AvatarMultiviewCheck {
             ByteBuffer serial=ByteBuffer.allocateDirect(bytes),candidate=ByteBuffer.allocateDirect(bytes);
             ByteBuffer firstSerial=ByteBuffer.allocateDirect(bytes),firstCandidate=ByteBuffer.allocateDirect(bytes);
             float[] matrices=viewMatrices(views,physicalAspect),four=new float[64],one=new float[16];
+            if(strictSixteen){JSONObject gate=sixteenMatrixGate(matrices);report.put("matrix_gate",gate);
+                if(!gate.getBoolean("passed"))throw new IllegalStateException("Sixteen-view matrix gate failed");}
             float[] cameraView=cameraComparison?new float[16]:null,cameraProjection=cameraComparison?new float[16]:null,cameraMvp=cameraComparison?new float[16]:null;
             float[] coefficients=new float[52],angles=new float[3];String neutralCenter=null;
             var fixtures=AvatarPoseFixtures.regression();report.put("expected_fixtures",fixtures.size()).put("isolated_source_fixtures",52);
@@ -116,6 +133,8 @@ public final class AvatarMultiviewCheck {
                 poseReports.put(poseReport);
                 scene.prepare(coefficients,angles);prepareCalls++;checkGl("prepare "+pose.name());
                 boolean posePass=true;String centerHash=null;
+                java.util.Set<String> serialHashes=strictSixteen?new java.util.HashSet<>():null;
+                java.util.Set<String> candidateHashes=strictSixteen?new java.util.HashSet<>():null;
                 for(int base=0;base<views;base+=4) {
                     checkCancelled(cancelled);
                     // Real global base indices 0/4/... are exercised, not a reused four-layer scratch texture.
@@ -156,7 +175,8 @@ public final class AvatarMultiviewCheck {
                         GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,textures[1],0,view);complete("read layer "+view);
                         candidate.clear();GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,candidate);checkGl("layer read "+view);
                         AvatarPixelComparison.Stats stats=AvatarPixelComparison.compare(serial,candidate,width,height);comparisons++;
-                        boolean pixelsPass=cameraComparison?AvatarCameraProjectionCheck.pixelsMatch(stats):persistentComparison?AvatarPersistentFboCheck.pixelsMatch(stats):stats.passed();
+                        boolean pixelsPass=strictSixteen?strictPixelsMatch(stats):cameraComparison?AvatarCameraProjectionCheck.pixelsMatch(stats):persistentComparison?AvatarPersistentFboCheck.pixelsMatch(stats):stats.passed();
+                        if(strictSixteen){serialHashes.add(stats.serialSha256);candidateHashes.add(stats.candidateSha256);}
                         perView.put(toJson(stats).put("passed",pixelsPass).put("global_view",view).put("ovr_base",base).put("ovr_relative",relative)
                                 .put("eye_x",(view/(float)(views-1)-.5f)*.4f));
                         posePass&=pixelsPass;
@@ -167,6 +187,8 @@ public final class AvatarMultiviewCheck {
                 var serialVariation=AvatarPixelComparison.compare(firstSerial,serial,width,height);
                 var candidateVariation=AvatarPixelComparison.compare(firstCandidate,candidate,width,height);
                 boolean independentViews=serialVariation.rgbMismatches>0&&candidateVariation.rgbMismatches>0;
+                if(strictSixteen){independentViews&=serialHashes.size()==views&&candidateHashes.size()==views;
+                    poseReport.put("serial_distinct_view_hashes",serialHashes.size()).put("ovr_distinct_view_hashes",candidateHashes.size());}
                 posePass&=independentViews;
                 if(neutralCenter==null)neutralCenter=centerHash;
                 boolean differs=!neutralCenter.equals(centerHash);if(differs)changedCenter++;
@@ -211,6 +233,26 @@ public final class AvatarMultiviewCheck {
             Matrix.frustumM(projection,0,-.052f*aspect+shift,.052f*aspect+shift,-.052f,.052f,.1f,10);
             Matrix.multiplyMM(all,i*16,projection,0,view,0);
         }return all;
+    }
+    /** Validate actual matrices consumed by both shader paths against the independent renderer expressions. */
+    static JSONObject sixteenMatrixGate(float[] actual)throws Exception {
+        if(actual==null||actual.length!=16*16)throw new IllegalArgumentException("Sixteen view matrices required");
+        float[] expected=new float[64],view=new float[16],projection=new float[16],mvp=new float[16];
+        int mismatches=0;boolean monotonic=true;java.util.Set<String> unique=new java.util.HashSet<>();
+        for(int base=0;base<16;base+=4){
+            AvatarCameraProjectionCheck.originalGroup(16,1200,1920,base,4,expected,view,projection,mvp);
+            for(int i=0;i<64;i++)if(!Float.isFinite(actual[base*16+i])
+                    ||Float.floatToRawIntBits(actual[base*16+i])!=Float.floatToRawIntBits(expected[i]))mismatches++;
+        }
+        // For this parallel off-axis camera, VP[8] decreases strictly as eyeX goes from -.2 to +.2.
+        for(int index=0;index<16;index++){
+            unique.add(java.util.Arrays.toString(java.util.Arrays.copyOfRange(actual,index*16,index*16+16)));
+            if(index>0)monotonic&=actual[index*16+8]<actual[(index-1)*16+8];
+        }
+        return new JSONObject().put("passed",mismatches==0&&monotonic&&unique.size()==16)
+                .put("compared_float_values",256).put("bit_mismatches",mismatches).put("distinct_actual_matrices",unique.size())
+                .put("actual_projection_order_monotonic",monotonic).put("eye_min",-.2f).put("eye_max",.2f)
+                .put("scope","actual diagnostic VP matrices versus independent original renderer expressions for 16 evenly spaced eyes; no reused middle camera; platform Android Matrix");
     }
     private static void clear(){GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);}
     private static final int[] DEPTH_ATTACHMENT={GLES30.GL_DEPTH_ATTACHMENT};

@@ -7,7 +7,8 @@ if((Get-FileHash -LiteralPath $json -Algorithm SHA256).Hash -ne '3CF6CD6892E32E2
 New-Item -ItemType Directory -Force -Path $classes | Out-Null
 # Compile every changed production class from source; prior build only links unchanged dependencies.
 $names=@('AvatarCameraProjectionCache','AvatarCameraProjectionCheck','PersistentMultiviewFbos','PersistentMultiviewGl','MultiviewGl','InterlaceRenderer','MirrorActivity',
-    'AvatarMultiviewCheck','AvatarPersistentFboCheck','AvatarBatchCheck','AvatarPixelComparison','AvatarPoseFixtures','AvatarPreviewActivity')
+    'AvatarMultiviewCheck','AvatarPersistentFboCheck','AvatarBatchCheck','AvatarPixelComparison','AvatarPoseFixtures','AvatarPreviewActivity',
+    'RuntimeViewCount','CalibrationActivity','PanelPreviewActivity')
 $sources=$names | ForEach-Object {Join-Path $root "app\src\main\java\com\mirror\bench\$_.java"}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp "$json;$AndroidJar;$built" -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'Persistent FBO actual SDK compilation failed'}

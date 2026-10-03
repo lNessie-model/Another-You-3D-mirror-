@@ -247,6 +247,36 @@ class RuntimeMetricsTests(unittest.TestCase):
         self.assertTrue(all("test_cached_camera_vp" not in command for command in launches))
         self.assertIs(payload["arguments"]["cached_camera_vp"], False)
 
+    def test_view_count_cli_defaults_and_strict_choices(self):
+        required = ["run_runtime_check.py", "--name", "offline", "--output-dir", "."]
+        with patch.object(sys, "argv", required):
+            self.assertIsNone(runtime.arguments().view_count)
+        for count in (16, 20):
+            with patch.object(sys, "argv", required + ["--view-count", str(count)]):
+                self.assertEqual(runtime.arguments().view_count, count)
+        for value in ("0", "15", "17", "32", "16.0", "true"):
+            with patch.object(sys, "argv", required + ["--view-count", value]), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    runtime.arguments()
+
+    def test_view_count_survives_both_launches_without_saving_preferences(self):
+        for count in (16, 20):
+            payload, calls = self.offline_collection(False, view_count=count)
+            launches = [call[-1] for call in calls if "am start -n " in call[-1]]
+            self.assertEqual(len(launches), 2)
+            self.assertIn("0x20020000", launches[1])
+            self.assertTrue(all(command.count(f"--ei test_view_count {count}") == 1 for command in launches))
+            self.assertEqual([row["command"] for row in payload["host_actions"] if row["action"] in ("start", "resume")], launches)
+            self.assertEqual(payload["arguments"]["view_count"], count)
+            self.assertFalse(any("shared_prefs" in call[-1] for call in calls))
+
+    def test_default_view_count_does_not_override_twenty(self):
+        payload, calls = self.offline_collection(False)
+        launches = [call[-1] for call in calls if "am start -n " in call[-1]]
+        self.assertEqual(len(launches), 2)
+        self.assertTrue(all("test_view_count" not in command for command in launches))
+        self.assertIsNone(payload["arguments"]["view_count"])
+
     def test_surface_is_queried_before_slow_memory_and_without_draw_wait(self):
         payload, calls = self.offline_collection(False, slow_start=True, memory_delay=3,
                                                   presentation_delay=.4, no_pause=True)
@@ -299,7 +329,7 @@ class RuntimeMetricsTests(unittest.TestCase):
     def offline_collection(self, fail_sample, empty_pre_home=False, synchronous=False,
                            slow_start=False, memory_delay=0, presentation_delay=0, no_pause=False,
                            final_error=None, final_status_offset=0, batched=False, view_preset=None,
-                           active_target_fps=None, persistent_fbos=False, cached_camera_vp=False):
+                           active_target_fps=None, persistent_fbos=False, cached_camera_vp=False, view_count=None):
         clock = [100.0]
         calls = []
         foreground = [True]
@@ -359,7 +389,8 @@ class RuntimeMetricsTests(unittest.TestCase):
             args = argparse.Namespace(name="offline", input="replay", seconds=20, output_dir=Path(directory),
                                       blackout_after=0, blackout_seconds=0, pause_at=None if no_pause else 5, pause_seconds=3,
                                       avatar_synchronous=synchronous, avatar_batched=batched, view_preset=view_preset,
-                                      active_target_fps=active_target_fps, persistent_fbos=persistent_fbos, cached_camera_vp=cached_camera_vp)
+                                      active_target_fps=active_target_fps, persistent_fbos=persistent_fbos, cached_camera_vp=cached_camera_vp,
+                                      view_count=view_count)
             with patch.object(runtime, "adb", side_effect=fake_adb), \
                  patch.object(runtime.time, "monotonic", side_effect=lambda: clock[0]), \
                  patch.object(runtime.time, "sleep", side_effect=lambda seconds: clock.__setitem__(0, clock[0]+seconds)), \

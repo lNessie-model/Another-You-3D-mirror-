@@ -731,7 +731,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(!error.isEmpty())throw new IllegalStateException(error);
         PanelCalibration savedPanel=panelCalibration;
         boolean savedAtlas=atlas,savedLookup=lookup,savedLod=explicitLod;
-        JSONArray checks=new JSONArray(); long mismatches=0;
+        JSONArray checks=new JSONArray(); long mismatches=0; boolean allViewsReached=true;
         ByteBuffer actual=ByteBuffer.allocateDirect(width*height*4);
         // Distinct cases isolate controls, followed by a combined units/signed-slope case.
         PanelCalibration[] cases={PanelCalibration.defaults(),
@@ -749,18 +749,23 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                     atlas=path==2; lookup=path==3; explicitLod=path==1;
                     drawInterlace(lookup); actual.clear();
                     GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual); checkGl();
-                    long bad=0; String first="";
+                    long bad=0; String first=""; long[] viewComponents=new long[views];
                     for(int y=0;y<height;y++) {
                       if(cancelled.getAsBoolean())throw new InterruptedException("Panel check cancelled");
                       for(int x=0;x<width;x++)for(int channel=0;channel<3;channel++) {
                         int expectedView=cases[ci].viewIndex(x,y,height,channel,views);
+                        viewComponents[expectedView]++;
                         int expected=PanelTestImages.code(expectedView,channel), value=actual.get((y*width+x)*4+channel)&255;
                         if(value!=expected) {bad++;if(first.isEmpty())first="x="+x+",y="+y+",channel="+channel+",view="+expectedView+",expected="+expected+",actual="+value;}
                       }
                     }
                     mismatches+=bad;
+                    JSONArray coverage=new JSONArray(); boolean reached=true;
+                    for(long count:viewComponents){coverage.put(count);reached&=count>0;}
+                    allViewsReached&=reached;
                     checks.put(new JSONObject().put("case",ci).put("parameters",calibration)
                             .put("path",new String[]{"array","array_explicit_lod","atlas","lookup"}[path])
+                            .put("oracle_view_component_counts",coverage).put("oracle_all_views_reached",reached)
                             .put("rgb_byte_mismatches",bad).put("checked_rgb_bytes",width*(long)height*3).put("first_mismatch",first));
                 }
             }
@@ -769,7 +774,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             if(calibrationPattern)fillCalibrationPattern();
             copyViewsToAtlas(); GLES30.glEnable(GLES30.GL_DITHER);
         }
-        return new JSONObject().put("passed",mismatches==0).put("rgb_byte_mismatches",mismatches)
+        return new JSONObject().put("passed",mismatches==0&&allViewsReached).put("rgb_byte_mismatches",mismatches)
+                .put("oracle_all_views_reached",allViewsReached)
                 .put("width",width).put("height",height).put("view_count",views).put("cases",checks)
                 .put("scope","All output pixels and RGB components, independent CPU float oracle; optical alignment is not verified")
                 .put("optical_alignment_verified",false);
