@@ -19,4 +19,12 @@ if errorlevel 1 exit /b 1
 cl /nologo /std:c11 /W3 /DMIRROR_TAP_PROFILE=1 /I native\vendor\rknn tests\rknn_tap_iteration_test.c /Fo:app\build\tap-contract-tests\stem-iteration.obj /Fe:app\build\tap-contract-tests\stem-iteration.exe
 if errorlevel 1 exit /b 1
 app\build\tap-contract-tests\stem-iteration.exe
+if errorlevel 1 exit /b 1
+cl /nologo /std:c11 /W3 /I native\vendor\rknn tests\rknn_ln_contract_test.c /Fo:app\build\tap-contract-tests\ln.obj /Fe:app\build\tap-contract-tests\ln.exe
+if errorlevel 1 exit /b 1
+app\build\tap-contract-tests\ln.exe
+if errorlevel 1 exit /b 1
+cl /nologo /std:c11 /W3 /DMIRROR_TAP_PROFILE=2 /I native\vendor\rknn tests\rknn_tap_iteration_test.c /Fo:app\build\tap-contract-tests\ln-iteration.obj /Fe:app\build\tap-contract-tests\ln-iteration.exe
+if errorlevel 1 exit /b 1
+app\build\tap-contract-tests\ln-iteration.exe
 exit /b %errorlevel%
