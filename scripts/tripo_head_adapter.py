@@ -81,7 +81,7 @@ def refine_texture_samples(positions,normals,uv,indices,sampler,*,max_vertices=2
         indices=np.concatenate([indices[keep],replacement])
     return positions,normals,uv,indices,colours
 
-def write_glb(path,positions,normals,colours,indices,*,head_pivot=(0,0,0),morphs=None):
+def write_glb(path,positions,normals,colours,indices,*,head_pivot=(0,0,0),morphs=None,uv=None,atlas_png=None,base_colour_factor=(1,1,1,1)):
     positions=np.asarray(positions,dtype='<f4');normals=np.asarray(normals,dtype='<f4');colours=np.asarray(colours,dtype='<f4')
     indices=np.asarray(indices,dtype='<u2' if len(positions)<65535 else '<u4').reshape(-1)
     assert len(positions)<=20000 and len(indices)//3<=30000 and len(indices)%3==0
@@ -97,22 +97,35 @@ def write_glb(path,positions,normals,colours,indices,*,head_pivot=(0,0,0),morphs
         index=len(accessors);accessors.append(accessor);return index
     primitive={'attributes':{'POSITION':add(positions,'VEC3'),'NORMAL':add(normals,'VEC3'),'COLOR_0':add(colours,'VEC4')},'indices':add(indices,'SCALAR'),'material':0,'mode':4}
     mesh={'name':'Face','primitives':[primitive]}
+    if atlas_png is not None:
+        uv=np.asarray(uv,dtype='<f4');assert uv.shape==(len(positions),2) and np.isfinite(uv).all()
+        assert (uv>=0).all() and (uv<=1).all(),'Atlas uses clamp sampling; validate source UV bounds'
+        check=Image.open(io.BytesIO(atlas_png));assert check.mode=='RGB' and check.width<=2048 and check.height<=2048 and len(atlas_png)<=4*1024*1024
+        primitive['attributes']['TEXCOORD_0']=add(uv,'VEC2')
     if morphs:
         assert len(morphs)<=64
         primitive['targets']=[{'POSITION':add(np.asarray(delta,dtype='<f4'),'VEC3')} for delta in morphs.values()]
         mesh.update(weights=[0.]*len(morphs),extras={'targetNames':list(morphs)})
+    atlas_view=None
+    if atlas_png is not None:
+        while len(binary)%4:binary.append(0)
+        atlas_view=len(views);views.append({'buffer':0,'byteOffset':len(binary),'byteLength':len(atlas_png)});binary.extend(atlas_png)
     logical=len(binary)
     while len(binary)%4:binary.append(0)
     doc={'asset':{'version':'2.0','generator':'Mirror offline head adapter'},'scene':0,'scenes':[{'nodes':[0]}],
          'nodes':[{'name':'Root','children':[1]},{'name':'Head','translation':list(map(float,head_pivot)),'children':[2,3]},{'name':'Face','mesh':0},{'name':'JawAttachments'}],
          'meshes':[mesh],'materials':[{'name':'BakedBaseColour','pbrMetallicRoughness':{'baseColorFactor':[1,1,1,1],'metallicFactor':0,'roughnessFactor':.75}}],
          'buffers':[{'byteLength':logical}],'bufferViews':views,'accessors':accessors}
+    if atlas_view is not None:
+        assert len(base_colour_factor)==4 and base_colour_factor[3]==1
+        doc.update(extras={'mirrorAlbedoAtlas':1},images=[{'bufferView':atlas_view,'mimeType':'image/png'}],textures=[{'source':0}])
+        pbr=doc['materials'][0]['pbrMetallicRoughness'];pbr['baseColorTexture']={'index':0,'texCoord':0};pbr['baseColorFactor']=list(base_colour_factor)
     encoded=json.dumps(doc,separators=(',',':')).encode('utf-8')
     encoded+=b' '*((-len(encoded))%4)
     raw=struct.pack('<III',0x46546c67,2,28+len(encoded)+len(binary))+struct.pack('<II',len(encoded),0x4e4f534a)+encoded+struct.pack('<II',len(binary),0x004e4942)+binary
     Path(path).write_bytes(raw)
 
-def bake_head(source,output,detail_levels=0):
+def bake_head(source,output,detail_levels=0,atlas=False):
     import hashlib
     source=Path(source);output=Path(output);output.mkdir(parents=True,exist_ok=True)
     glb=Glb(source)
@@ -124,17 +137,25 @@ def bake_head(source,output,detail_levels=0):
     scale=.24/np.ptp(positions[:,1]);positions*=scale
     normals=rotate_x_front(glb.read(primitive['attributes']['NORMAL'])).astype('<f4')
     normals/=np.linalg.norm(normals,axis=1)[:,None]
-    colours=glb.bake_base_colour(primitive);indices=glb.read(primitive['indices']).reshape(-1,3)
+    colours=np.ones((len(positions),4),dtype='<f4') if atlas else glb.bake_base_colour(primitive)
+    indices=glb.read(primitive['indices']).reshape(-1,3)
     uv=glb.read(primitive['attributes']['TEXCOORD_0']);source_vertices=len(positions)
+    assert not (atlas and detail_levels),'Atlas requires no colour refinement'
     if detail_levels:
         positions,normals,uv,indices,colours=refine_texture_samples(positions,normals,uv,indices,lambda q:glb.sample_base_colour(q,primitive['material']),levels=detail_levels,
                 region=lambda q:(q[:,2]>.025)&(abs(q[:,0])<.08)&(q[:,1]>-.10)&(q[:,1]<.075))
     pivot=np.array([0,float(positions[:,1].min())+.025,0],dtype=np.float32)
-    path=output/'head-base.glb';write_glb(path,positions-pivot,normals,colours,indices,head_pivot=pivot)
+    atlas_png=None;factor=(1,1,1,1)
+    if atlas:
+        pbr=glb.doc['materials'][primitive['material']]['pbrMetallicRoughness'];factor=pbr.get('baseColorFactor',factor)
+        texture=glb.doc['textures'][pbr['baseColorTexture']['index']]
+        pixels=np.rint(glb.image(texture['source'])*255).astype(np.uint8)
+        encoded=io.BytesIO();Image.fromarray(pixels).save(encoded,format='PNG');atlas_png=encoded.getvalue()
+    path=output/'head-base.glb';write_glb(path,positions-pivot,normals,colours,indices,head_pivot=pivot,uv=uv if atlas else None,atlas_png=atlas_png,base_colour_factor=factor)
     np.savez_compressed(output/'head-base.npz',positions=positions,normals=normals,colours=colours,indices=indices,uv=uv,head_pivot=pivot,scale=scale)
     report={'source':str(source.resolve()),'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'output':str(path.resolve()),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
        'observed_source_front':'+X','rotation':'proper rotation: original (x,y,z) -> (-z,y,x)','scale':float(scale),'vertices':len(positions),'triangles':len(indices),
-       'texture_conversion':'linear base-colour texels sampled bilinearly at vertices; normal/ORM textures not retained','facial_targets':0,'head_pivot':pivot.tolist(),
+       'texture_conversion':'original sRGB base-colour retained as one embedded RGB8 PNG; normal/ORM not retained' if atlas else 'linear base-colour texels sampled bilinearly at vertices; normal/ORM textures not retained','facial_targets':0,'head_pivot':pivot.tolist(),
        'added_texture_detail_vertices':len(positions)-source_vertices,'detail_levels':detail_levels,
        'scope':'Compatible geometry stage only; not an importable completed facial avatar'}
     (output/'base-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
@@ -142,5 +163,5 @@ def bake_head(source,output,detail_levels=0):
 
 if __name__=='__main__':
     import argparse
-    parser=argparse.ArgumentParser();parser.add_argument('--source',required=True);parser.add_argument('--out',required=True);parser.add_argument('--detail-levels',type=int,default=0)
-    args=parser.parse_args();print(json.dumps(bake_head(args.source,args.out,args.detail_levels),ensure_ascii=False,indent=2))
+    parser=argparse.ArgumentParser();parser.add_argument('--source',required=True);parser.add_argument('--out',required=True);parser.add_argument('--detail-levels',type=int,default=0);parser.add_argument('--atlas',action='store_true')
+    args=parser.parse_args();print(json.dumps(bake_head(args.source,args.out,args.detail_levels,args.atlas),ensure_ascii=False,indent=2))

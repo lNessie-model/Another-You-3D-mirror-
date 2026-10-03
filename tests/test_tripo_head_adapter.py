@@ -3,7 +3,9 @@ import unittest
 import sys
 from pathlib import Path
 import tempfile
+import io
 import numpy as np
+from PIL import Image
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 import tripo_head_adapter as adapter
 
@@ -59,5 +61,19 @@ class HeadAdapterTests(unittest.TestCase):
         self.assertGreater(c[-1,0],.99)
         np.testing.assert_array_equal(p[:3],positions)
         np.testing.assert_allclose(np.linalg.norm(n,axis=1),1)
+
+    def test_atlas_export_keeps_uv_and_srgb_texels_without_vertex_baking(self):
+        pixels=np.array([[[255,0,0],[0,255,0]]],dtype=np.uint8)
+        encoded=io.BytesIO();Image.fromarray(pixels).save(encoded,format='PNG')
+        p=np.array([[0,0,0],[.1,0,0],[0,.1,0]],dtype=np.float32);uv=np.array([[0,0],[1,0],[0,1]],dtype=np.float32)
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'atlas.glb'
+            adapter.write_glb(path,p,np.array([[0,0,1]]*3),np.ones((3,4)),np.array([[0,1,2]]),uv=uv,atlas_png=encoded.getvalue())
+            actual=adapter.Glb(path);primitive=actual.doc['meshes'][0]['primitives'][0]
+            self.assertEqual(actual.doc['extras']['mirrorAlbedoAtlas'],1)
+            np.testing.assert_array_equal(actual.read(primitive['attributes']['TEXCOORD_0']),uv)
+            np.testing.assert_array_equal((actual.image(0)*255).astype(np.uint8),pixels)
+            self.assertEqual(len(actual.doc['textures']),1)
+            self.assertNotIn('samplers',actual.doc)
 
 if __name__=='__main__':unittest.main()

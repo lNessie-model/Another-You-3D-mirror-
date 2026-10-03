@@ -2,6 +2,8 @@ package com.mirror.bench;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,11 +16,16 @@ public final class AvatarAsset {
     private final int[] sceneRoots;
     private final int vertices, triangles;
     private final long decodedBytes;
+    private final AlbedoAtlas atlas;
 
     // Package-private constructors take ownership of fresh loader arrays, never caller input arrays.
     AvatarAsset(List<Mesh> meshes,List<Node> nodes,List<Material> materials,int[] roots,int vertices,int triangles,long bytes) {
+        this(meshes,nodes,materials,roots,vertices,triangles,bytes,null);
+    }
+    AvatarAsset(List<Mesh> meshes,List<Node> nodes,List<Material> materials,int[] roots,int vertices,int triangles,long bytes,AlbedoAtlas atlas) {
         this.meshes=freeze(meshes);this.nodes=freeze(nodes);this.materials=freeze(materials);
         sceneRoots=roots;this.vertices=vertices;this.triangles=triangles;decodedBytes=bytes;
+        this.atlas=atlas;
     }
     public List<Mesh> meshes(){return meshes;}
     public List<Node> nodes(){return nodes;}
@@ -27,8 +34,19 @@ public final class AvatarAsset {
     /** Total geometry submitted by the selected scene, including mesh instances. */
     public int vertexCount(){return vertices;}
     public int triangleCount(){return triangles;}
-    /** Charged decoded primitive/accessor/node arrays, excluding input bytes and bounded JSON DOM. */
+    /** Charged arrays plus optional encoded atlas and one RGBA decode, excluding input/JSON DOM. */
     public long decodedBytes(){return decodedBytes;}
+    /** Null for the original factor-only asset profile. No GPU handles are cached here. */
+    public AlbedoAtlas albedoAtlas(){return atlas;}
+    public static final class AlbedoAtlas {
+        private final byte[] png;
+        private final int width,height;
+        AlbedoAtlas(byte[] png,int width,int height){this.png=png;this.width=width;this.height=height;}
+        public InputStream openStream(){return new ByteArrayInputStream(png);}
+        public int encodedBytes(){return png.length;}
+        public int width(){return width;}
+        public int height(){return height;}
+    }
 
     public static final class Mesh {
         private final String name;
@@ -93,11 +111,14 @@ public final class AvatarAsset {
         private final float[] color;
         private final float roughness;
         private final boolean unlit;
-        Material(String name,float[] color,float roughness,boolean unlit){this.name=name;this.color=color;this.roughness=roughness;this.unlit=unlit;}
+        private final boolean textured;
+        Material(String name,float[] color,float roughness,boolean unlit){this(name,color,roughness,unlit,false);}
+        Material(String name,float[] color,float roughness,boolean unlit,boolean textured){this.name=name;this.color=color;this.roughness=roughness;this.unlit=unlit;this.textured=textured;}
         public String name(){return name;}
         public FloatBuffer baseColor(){return floats(color);}
         public float roughness(){return roughness;}
         public boolean unlit(){return unlit;}
+        public boolean textured(){return textured;}
     }
     private static FloatBuffer floats(float[] a){return a==null?null:FloatBuffer.wrap(a).asReadOnlyBuffer();}
     private static IntBuffer ints(int[] a){return IntBuffer.wrap(a).asReadOnlyBuffer();}

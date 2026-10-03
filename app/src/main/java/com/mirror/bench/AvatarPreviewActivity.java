@@ -75,7 +75,8 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
             readVerificationConfiguration(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
             if((verifyMultiview?1:0)+(verifyBatch?1:0)+(verifyPersistentFbos?1:0)+(verifyCachedCameraVp?1:0)+(verifyMultiview16?1:0)>1)throw new IllegalArgumentException("Select one avatar verification per run");
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",true).put("passed",false));
-            scene=AvatarGpuScene.builtin(getAssets(),false);
+            boolean privateHead=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0&&getIntent().getBooleanExtra("test_private_head",false);
+            scene=privateHead?AvatarGpuScene.privateHeadCheck(getFilesDir(),false,AvatarGpuScene.DrawMode.INDIVIDUAL):AvatarGpuScene.builtin(getAssets(),false);
         }
         catch(Throwable failure){reportFailure(failure);}
     }

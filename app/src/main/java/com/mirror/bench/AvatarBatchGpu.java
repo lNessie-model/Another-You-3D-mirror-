@@ -11,12 +11,14 @@ import org.json.JSONObject;
 /** Opt-in GL-thread batch renderer. Only immutable layout data is packed on the CPU. */
 final class AvatarBatchGpu {
     private final AvatarBatchLayout layout;
-    private final int[] buffers=new int[4]; // dynamic xyz/nxyz, original COLOR_0, integer id, index
+    private final int[] buffers; // dynamic xyz/nxyz, original COLOR_0, integer id, index, optional static UV
+    private final boolean atlas;
     private Program single,multiview;
     private final float[] worlds,normals,colors,params,fit=new float[16],inverse=new float[16];
     private final int vertexLimit,fragmentLimit,varyingLimit,requiredVertexVectors;
     private boolean disposed;
     AvatarBatchGpu(AvatarAsset asset,AvatarRig rig,boolean useMultiview) {
+        atlas=asset.albedoAtlas()!=null;buffers=new int[atlas?5:4];
         boolean[] active=new boolean[asset.nodes().size()];for(int n=0;n<active.length;n++)active[n]=rig.activeNode(n);
         layout=new AvatarBatchLayout(asset,active);int count=layout.entries().size();
         worlds=new float[count*16];normals=new float[count*9];colors=new float[count*4];params=new float[count*4];
@@ -25,16 +27,17 @@ final class AvatarBatchGpu {
         GLES30.glGetIntegerv(GLES30.GL_MAX_VARYING_VECTORS,value,0);varyingLimit=value[0];
         requiredVertexVectors=count*9+(useMultiview?16:4);
         if(vertexLimit<requiredVertexVectors)throw new IllegalStateException("Debug avatar batch exceeds vertex uniform limits");
-        if(varyingLimit<5)throw new IllegalStateException("Debug avatar batch requires five varying vectors");
+        if(varyingLimit<(atlas?6:5))throw new IllegalStateException("Debug avatar batch exceeds varying limits");
         GLES30.glGetIntegerv(GLES30.GL_MAX_VERTEX_ATTRIBS,value,0);
-        if(value[0]<4)throw new IllegalStateException("Debug avatar batch requires four vertex attributes");
+        if(value[0]<(atlas?5:4))throw new IllegalStateException("Debug avatar batch exceeds vertex attribute limits");
         for(int i=0;i<count;i++) {
             var e=layout.entries().get(i);var primitive=asset.meshes().get(e.mesh).primitives().get(e.primitive);
             var material=asset.materials().get(primitive.materialIndex());material.baseColor().get(colors,i*4,4);
             params[i*4]=material.unlit()?1:0;params[i*4+1]=material.roughness();
+            params[i*4+2]=material.textured()?1:0;
         }
         try {
-            single=new Program(false,count);multiview=useMultiview?new Program(true,count):null;
+            single=new Program(false,count,atlas);multiview=useMultiview?new Program(true,count,atlas):null;
             GLES30.glGenBuffers(buffers.length,buffers,0);
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[0]);
             GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,layout.vertexCount()*24,null,GLES30.GL_DYNAMIC_DRAW);
@@ -44,6 +47,8 @@ final class AvatarBatchGpu {
             GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,ids.capacity()*4,ids,GLES30.GL_STATIC_DRAW);
             IntBuffer indices=direct(layout.indices());GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,buffers[3]);
             GLES30.glBufferData(GLES30.GL_ELEMENT_ARRAY_BUFFER,indices.capacity()*4,indices,GLES30.GL_STATIC_DRAW);
+            if(atlas){FloatBuffer uv=direct(layout.uvs());GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[4]);
+                GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,uv.capacity()*4,uv,GLES30.GL_STATIC_DRAW);}
             checkGl("batch construction");
         } catch(RuntimeException|Error failure){dispose();throw failure;}
     }
@@ -71,6 +76,7 @@ final class AvatarBatchGpu {
         GLES30.glUseProgram(program.id);GLES30.glUniformMatrix4fv(program.vp,viewCount,false,viewProjections,0);
         GLES30.glUniformMatrix4fv(program.world,count,false,worlds,0);GLES30.glUniformMatrix3fv(program.normal,count,false,normals,0);
         GLES30.glUniform4fv(program.color,count,colors,0);GLES30.glUniform4fv(program.params,count,params,0);
+        if(atlas)GLES30.glUniform1i(program.sampler,0);
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glFrontFace(GLES30.GL_CCW);GLES30.glCullFace(GLES30.GL_BACK);GLES30.glDisable(GLES30.GL_BLEND);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[0]);
@@ -80,9 +86,10 @@ final class AvatarBatchGpu {
         GLES30.glEnableVertexAttribArray(2);GLES30.glVertexAttribPointer(2,4,GLES30.GL_FLOAT,false,16,0);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[2]);
         GLES30.glEnableVertexAttribArray(3);GLES30.glVertexAttribIPointer(3,1,GLES30.GL_UNSIGNED_INT,4,0);
+        if(atlas){GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[4]);GLES30.glEnableVertexAttribArray(4);GLES30.glVertexAttribPointer(4,2,GLES30.GL_FLOAT,false,8,0);}
         GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,buffers[3]);
         GLES30.glDrawElements(GLES30.GL_TRIANGLES,layout.indexCount(),GLES30.GL_UNSIGNED_INT,0);
-        for(int i=0;i<4;i++)GLES30.glDisableVertexAttribArray(i);
+        for(int i=0;i<(atlas?5:4);i++)GLES30.glDisableVertexAttribArray(i);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
     }
     JSONObject status()throws Exception {
@@ -90,7 +97,8 @@ final class AvatarBatchGpu {
                 .put("vertices",layout.vertexCount()).put("indices",layout.indexCount()).put("extra_id_bytes",layout.vertexCount()*4)
                 .put("max_vertex_uniform_vectors",vertexLimit).put("required_vertex_uniform_vectors",requiredVertexVectors)
                 .put("max_fragment_uniform_vectors",fragmentLimit).put("required_fragment_uniform_vectors",0)
-                .put("max_varying_vectors",varyingLimit).put("required_varying_vectors",5)
+                .put("max_varying_vectors",varyingLimit).put("required_varying_vectors",atlas?6:5)
+                .put("albedo_atlas",atlas).put("static_uv_bytes",atlas?layout.vertexCount()*8:0)
                 .put("material_selection_stage","vertex_flat");
     }
     /** Only the owning current EGL context may delete these names. */
@@ -116,18 +124,29 @@ final class AvatarBatchGpu {
                 "flat in highp vec4 vMaterialColor;\nflat in highp vec2 vMaterialParams;")
                 .replace("void main(){","void main(){vec4 uColor=vMaterialColor;float uUnlit=vMaterialParams.x;float uRoughness=vMaterialParams.y;");
     }
+    static String vertexSource(boolean multiview,int count,boolean atlas){
+        String source=vertexSource(multiview,count);if(!atlas)return source;
+        return AvatarGpuScene.atlasVertex(source).replace("flat out highp vec2 vMaterialParams;","flat out highp vec3 vMaterialParams;")
+                .replace("vMaterialParams=uParams[int(aPrimitive)].xy;","vMaterialParams=uParams[int(aPrimitive)].xyz;");
+    }
+    static String fragmentSource(int count,boolean atlas){
+        String source=fragmentSource(count);if(!atlas)return source;
+        return AvatarGpuScene.atlasFragment(source).replace("flat in highp vec2 vMaterialParams;","flat in highp vec3 vMaterialParams;")
+                .replace("uniform float uUseTexture;","").replace("uUseTexture>0.5","vMaterialParams.z>0.5");
+    }
     private static final class Program {
-        final int id,vp,world,normal,color,params;
-        Program(boolean multiview,int count) {
+        final int id,vp,world,normal,color,params,sampler;
+        Program(boolean multiview,int count,boolean atlas) {
             int vs=0,fs=0,created=0;
             try {
-                vs=AvatarGpuScene.shader(GLES30.GL_VERTEX_SHADER,vertexSource(multiview,count));
-                fs=AvatarGpuScene.shader(GLES30.GL_FRAGMENT_SHADER,fragmentSource(count));
+                vs=AvatarGpuScene.shader(GLES30.GL_VERTEX_SHADER,vertexSource(multiview,count,atlas));
+                fs=AvatarGpuScene.shader(GLES30.GL_FRAGMENT_SHADER,fragmentSource(count,atlas));
                 created=GLES30.glCreateProgram();GLES30.glAttachShader(created,vs);GLES30.glAttachShader(created,fs);GLES30.glLinkProgram(created);
                 int[] ok=new int[1];GLES30.glGetProgramiv(created,GLES30.GL_LINK_STATUS,ok,0);
                 if(ok[0]==0)throw new IllegalStateException("Avatar batch program: "+GLES30.glGetProgramInfoLog(created));
                 id=created;vp=location(id,"uViewProjection");world=location(id,"uWorld[0]");normal=location(id,"uNormal[0]");
                 color=location(id,"uColors[0]");params=location(id,"uParams[0]");
+                sampler=atlas?location(id,"uAtlas"):-1;
             } catch(RuntimeException|Error failure){if(created!=0)GLES30.glDeleteProgram(created);throw failure;}
             finally {if(vs!=0)GLES30.glDeleteShader(vs);if(fs!=0)GLES30.glDeleteShader(fs);}
         }

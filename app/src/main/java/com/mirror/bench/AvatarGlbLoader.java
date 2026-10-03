@@ -16,6 +16,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.CRC32;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -23,7 +26,8 @@ import org.json.JSONTokener;
 
 /**
  * CPU-only GLB 2.0 profile v1a. Morph triangles, rigid nodes and opaque factor-only materials.
- * No skin, animation, cameras, textures/images/samplers, external URI or unknown extensions.
+ * No skin, animation, cameras, external URI or unknown extensions. An explicit mirrorAlbedoAtlas=1
+ * root profile additionally permits one bounded embedded RGB8 PNG and TEXCOORD_0 base colour.
  * This is an importer, not a renderer or a claim that an asset is a complete facial rig.
  * Format: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
  */
@@ -96,11 +100,22 @@ public final class AvatarGlbLoader {
         final List<AvatarAsset.Mesh> meshes=new ArrayList<>();
         final List<AvatarAsset.Material> materials=new ArrayList<>();
         int primitiveCount,geometryVertices,geometryTriangles;
+        boolean atlasProfile;
+        AvatarAsset.AlbedoAtlas atlas;
         Parser(JSONObject root,ByteBuffer bin,long budget){this.root=root;this.bin=bin;this.budget=budget;}
         AvatarAsset parse()throws JSONException,FormatException {
             JSONObject asset=obj(root,"asset");require("2.0".equals(string(asset,"version","")),"asset.version: only 2.0 supported");
             require(!asset.has("minVersion")||"2.0".equals(string(asset,"minVersion","")),"asset.minVersion unsupported");
-            for(String key:new String[]{"skins","animations","cameras","textures","images","samplers"})
+            if(root.has("extras")){
+                JSONObject extras=obj(root,"extras");
+                if(extras.has("mirrorAlbedoAtlas")){
+                    intValue(extras.get("mirrorAlbedoAtlas"),1,1,"albedo profile");atlasProfile=true;
+                }
+            }
+            for(String key:new String[]{"skins","animations","cameras"})
+                require(!root.has(key),key+": unsupported in factor-only morph profile");
+            require(!root.has("samplers"),"samplers: unsupported; atlas uses fixed linear clamp sampling");
+            if(!atlasProfile)for(String key:new String[]{"textures","images"})
                 require(!root.has(key),key+": unsupported in factor-only morph profile");
             extensions(root,"root",0);
             for(String key:new String[]{"extensionsUsed","extensionsRequired"})
@@ -114,6 +129,7 @@ public final class AvatarGlbLoader {
             views=array(root,"bufferViews",false,1024);accessors=array(root,"accessors",true,1024);
             for(int i=0;i<views.length();i++)view(i);
             for(int i=0;i<accessors.length();i++)accessor(i);
+            if(atlasProfile)atlas=albedoAtlas();
             JSONArray mats=array(root,"materials",false,8);
             for(int i=0;i<mats.length();i++)materials.add(material(mats.getJSONObject(i),"materials["+i+"]"));
             // A missing primitive material uses glTF defaults; its metallic factor is unsupported here.
@@ -123,6 +139,22 @@ public final class AvatarGlbLoader {
         }
         void reserve(long bytes,String path)throws FormatException {
             require(bytes>=0&&bytes<=budget-charged,path+": decoded memory budget exceeded");charged+=bytes;
+        }
+        AvatarAsset.AlbedoAtlas albedoAtlas()throws JSONException,FormatException {
+            JSONArray images=array(root,"images",true,2),textures=array(root,"textures",true,2);
+            require(images.length()==1&&textures.length()==1,"atlas: exactly one image and texture required");
+            JSONObject image=images.getJSONObject(0),texture=textures.getJSONObject(0);
+            require(!image.has("uri"),"image URI unsupported");
+            onlyKeys(image,Set.of("name","bufferView","mimeType"),"atlas image");
+            onlyKeys(texture,Set.of("name","source"),"atlas texture");
+            intValue(texture.get("source"),0,0,"atlas texture source");
+            require("image/png".equals(string(image,"mimeType","")),"atlas: PNG only");
+            JSONObject v=view(integer(image,"bufferView",0,views.length()-1,-1));
+            require(!v.has("byteStride")&&!v.has("target"),"atlas image bufferView must be packed");
+            int length=integer(v,"byteLength",1,4*1024*1024,-1),offset=integer(v,"byteOffset",0,Integer.MAX_VALUE,0);
+            reserve(length,"atlas PNG");byte[] data=new byte[length];bin.duplicate().position(offset).get(data);
+            int[] size=validatePng(data);reserve(4L*size[0]*size[1],"atlas RGBA decode");
+            return new AvatarAsset.AlbedoAtlas(data,size[0],size[1]);
         }
         JSONObject view(int index)throws JSONException,FormatException {
             require(index>=0&&index<views.length(),"bufferView index out of range");JSONObject v=views.getJSONObject(index);
@@ -244,6 +276,7 @@ public final class AvatarGlbLoader {
                 }
                 int material=integer(pr,"material",0,materials.size()-1,-1);
                 require(material>=0,pp+": explicit supported material required (default metallic material unsupported)");
+                require(!materials.get(material).textured()||uv!=null,pp+": textured material requires UV TEXCOORD_0");
                 output.add(new AvatarAsset.Primitive(positions,normals,uv,colors,ids,morphs,material));
             }
             List<String> names=new ArrayList<>();
@@ -265,13 +298,19 @@ public final class AvatarGlbLoader {
             require(emissive[0]==0&&emissive[1]==0&&emissive[2]==0,path+": emissive factor unsupported");
             boolean unlit=m.has("extensions")&&obj(m,"extensions").has(UNLIT);
             JSONObject p=m.has("pbrMetallicRoughness")?obj(m,"pbrMetallicRoughness"):new JSONObject();
-            require(!p.has("baseColorTexture")&&!p.has("metallicRoughnessTexture"),path+": texture unsupported");
+            require(!p.has("metallicRoughnessTexture"),path+": texture unsupported");
+            boolean textured=p.has("baseColorTexture");
+            if(textured){
+                require(atlasProfile,path+": texture unsupported");JSONObject t=obj(p,"baseColorTexture");
+                onlyKeys(t,Set.of("index","texCoord"),path+".baseColorTexture");
+                intValue(t.get("index"),0,0,path+".baseColorTexture index");integer(t,"texCoord",0,0,0);
+            }
             float[] color=vector(p,"baseColorFactor",4,new float[]{1,1,1,1},path);
             for(float v:color)require(v>=0&&v<=1,path+": baseColorFactor range");
             float metal=number(p,"metallicFactor",1),rough=number(p,"roughnessFactor",1);
             require(metal>=0&&metal<=1&&rough>=0&&rough<=1,path+": PBR factor range");
             require(unlit||metal==0,path+": metallic material unsupported by v1a lit profile");reserve(16,path);
-            return new AvatarAsset.Material(string(m,"name",""),color,rough,unlit);
+            return new AvatarAsset.Material(string(m,"name",""),color,rough,unlit,textured);
         }
         AvatarAsset nodes()throws JSONException,FormatException {
             JSONArray source=array(root,"nodes",true,128);int n=source.length();require(n>0,"nodes: empty");
@@ -300,7 +339,7 @@ public final class AvatarGlbLoader {
             require(totals[0]>0,"selected scene: no drawable mesh");
             List<AvatarAsset.Node> output=new ArrayList<>();
             for(int i=0;i<n;i++)output.add(new AvatarAsset.Node(names[i],mesh[i],children[i],local[i],world[i],weights[i]));
-            return new AvatarAsset(meshes,output,materials,roots,totals[1],totals[2],charged);
+            return new AvatarAsset(meshes,output,materials,roots,totals[1],totals[2],charged,atlas);
         }
         void world(int i,int[] parent,float[][] local,float[][] output,int[] state,int depth)throws FormatException {
             require(depth<=64,"node depth budget");require(state[i]!=1,"nodes: cycle detected");if(state[i]==2)return;state[i]=1;
@@ -336,6 +375,48 @@ public final class AvatarGlbLoader {
         }
     }
 
+    /** Exact RGB8/noninterlaced PNG subset; streaming inflate is bounded by IHDR dimensions. */
+    private static int[] validatePng(byte[] data)throws FormatException {
+        require(data.length>=45,"atlas PNG: truncated");
+        byte[] signature={(byte)137,80,78,71,13,10,26,10};
+        for(int i=0;i<8;i++)require(data[i]==signature[i],"atlas PNG: signature");
+        ByteBuffer b=ByteBuffer.wrap(data).order(ByteOrder.BIG_ENDIAN);b.position(8);
+        int width=0,height=0;long expected=0,decoded=0;boolean header=false,idat=false,end=false;
+        Inflater inflater=new Inflater();byte[] output=new byte[8192];
+        try {
+            while(b.remaining()>0){
+                require(!end&&b.remaining()>=12,"atlas PNG: trailing or truncated chunk");
+                long length=uint(b.getInt());require(length<=b.remaining()-8,"atlas PNG: chunk length");
+                int type=b.getInt(),start=b.position(),n=(int)length;
+                CRC32 crc=new CRC32();crc.update(data,start-4,n+4);long stored=uint(b.getInt(start+n));
+                require(crc.getValue()==stored,"atlas PNG: CRC mismatch");
+                if(type==0x49484452){
+                    require(!header&&!idat&&start==16&&n==13,"atlas PNG: IHDR chunk");
+                    width=b.getInt(start);height=b.getInt(start+4);
+                    require(width>0&&width<=2048&&height>0&&height<=2048,"atlas PNG: dimensions outside profile");
+                    require(data[start+8]==8&&data[start+9]==2,"atlas PNG: RGB8 required");
+                    require(data[start+10]==0&&data[start+11]==0&&data[start+12]==0,"atlas PNG: compression/filter/interlace unsupported");
+                    expected=(3L*width+1)*height;header=true;
+                } else if(type==0x49444154){
+                    require(header&&!end&&n>0&&!inflater.finished(),"atlas PNG: IDAT chunk order");idat=true;
+                    require(inflater.needsInput(),"atlas PNG: inflate unconsumed chunk");inflater.setInput(data,start,n);
+                    while(!inflater.needsInput()&&!inflater.finished()){
+                        int got=inflater.inflate(output);require(got>0||inflater.finished(),"atlas PNG: inflate stalled/dictionary");
+                        require(decoded+got<=expected,"atlas PNG: inflate exceeds dimensions");
+                        long stride=3L*width+1;
+                        for(int i=0;i<got;i++)if((decoded+i)%stride==0)require(Byte.toUnsignedInt(output[i])<=4,"atlas PNG: invalid row filter");
+                        decoded+=got;
+                    }
+                    if(inflater.finished())require(inflater.getRemaining()==0,"atlas PNG: trailing inflate bytes");
+                } else if(type==0x49454e44){
+                    require(header&&idat&&n==0&&inflater.finished()&&decoded==expected,"atlas PNG: inflate truncated at IEND");end=true;
+                } else throw new FormatException("atlas PNG: unsupported chunk "+Integer.toHexString(type));
+                b.position(start+n+4);
+            }
+            require(end,"atlas PNG: missing IEND");return new int[]{width,height};
+        } catch(DataFormatException e){throw new FormatException("atlas PNG: inflate invalid",e);}
+        finally {inflater.end();}
+    }
     private static float[] transform(JSONObject node,String path)throws JSONException,FormatException {
         if(node.has("matrix")){
             require(!node.has("translation")&&!node.has("rotation")&&!node.has("scale"),path+": matrix and TRS are mutually exclusive");

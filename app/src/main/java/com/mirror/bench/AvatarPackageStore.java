@@ -295,11 +295,11 @@ public final class AvatarPackageStore {
                 AvatarFraming framing=AvatarGeometryBounds.fromAsset(asset,rig);
                 JSONObject report=new JSONObject();report.put("schema_version",1).put("package_id",id).put("bundle_sha256",bundle).put("display_name",rig.displayName())
                         .put("model_sha256",hashes.get("character.glb")).put("manifest_sha256",hashes.get("avatar.json"))
-                        .put("profile","morph-rigid-factor-only-v1").put("coverage",rig.completeSourceCoverage()?"complete_sources":"partial")
+                        .put("profile",asset.albedoAtlas()==null?"morph-rigid-factor-only-v1":"morph-rigid-albedo-atlas-v1").put("coverage",rig.completeSourceCoverage()?"complete_sources":"partial")
                         .put("missing_sources",new JSONArray(rig.missingSources())).put("vertices",asset.vertexCount()).put("triangles",asset.triangleCount())
                         .put("decoded_geometry_bytes",asset.decodedBytes()).put("deformer_source_cache_bytes",deformer.sourceCacheBytes())
                         .put("loader_rig_validated",true).put("neutral_deformation_validated",true).put("framing_validated",true)
-                        .put("gpu_validated",false).put("artwork_validated",false).put("texture_supported",false).put("skin_supported",false)
+                        .put("gpu_validated",false).put("artwork_validated",false).put("texture_supported",asset.albedoAtlas()!=null).put("skin_supported",false)
                         .put("thumbnail_decoded",false).put("file_sha256",new JSONObject(hashes));
                 Ticket ticket=new Ticket(id,hashes.get("character.glb"),hashes.get("avatar.json"),bundle);String generated=report.toString(2);
                 rememberParsed(new Parsed(ticket,asset,framing,manifest,generated));

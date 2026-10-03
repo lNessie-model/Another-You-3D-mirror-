@@ -3,6 +3,9 @@ package com.mirror.bench;
 import android.content.res.AssetManager;
 import android.opengl.GLES30;
 import android.opengl.Matrix;
+import android.opengl.GLUtils;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -41,6 +44,7 @@ final class AvatarGpuScene {
     private double deformMs,uploadMs;
     private double rigMs,morphMs,meanRigMs,meanMorphMs,meanCopyMs,meanUploadMs,meanPoseAgeMs,maxPoseAgeMs;
     private final int primitiveCount;
+    private int atlasTexture;
 
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview) throws Exception {
         return builtin(assets,multiview,false);
@@ -60,6 +64,16 @@ final class AvatarGpuScene {
         if(!hash.equalsIgnoreCase(json.getString("modelSha256")))throw new IllegalArgumentException("Avatar GLB digest differs from manifest");
         AvatarAsset asset=AvatarGlbLoader.load(glb);
         return fromAsset(asset,new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,drawMode);
+    }
+    /** Debug-only caller uses this fixed app-private diagnostic directory; never selects a stored avatar. */
+    static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,DrawMode mode)throws Exception {
+        java.io.File directory=new java.io.File(files,"tripo-head-check");byte[] manifest,glb;
+        try(InputStream in=new java.io.FileInputStream(new java.io.File(directory,"avatar.json"))){manifest=readBounded(in,262_144);}
+        JSONObject json=new JSONObject(new String(manifest,StandardCharsets.UTF_8));
+        if(!"character.glb".equals(json.getString("model")))throw new IllegalArgumentException("Diagnostic head model filename");
+        try(InputStream in=new java.io.FileInputStream(new java.io.File(directory,"character.glb"))){glb=readBounded(in,AvatarGlbLoader.MAX_FILE_BYTES);}
+        String hash=sha256(glb);if(!hash.equalsIgnoreCase(json.getString("modelSha256")))throw new IllegalArgumentException("Diagnostic head digest mismatch");
+        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,false,mode);
     }
     /** Inputs are a validated CPU asset/manifest and its verified model digest; no package-store dependency. */
     static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous) throws Exception {
@@ -82,7 +96,9 @@ final class AvatarGpuScene {
         deformer=new AvatarDeformer(asset,rig.normalPolicy().equals("authored")?AvatarDeformer.NormalPolicy.AUTHORED:AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
         weights=new float[asset.meshes().size()][];primitives=new List[weights.length];
         try {
-        if(drawMode!=DrawMode.BATCHED){program=new Program(false);multiviewProgram=multiview?new Program(true):null;}
+        boolean atlas=asset.albedoAtlas()!=null;
+        if(atlas)uploadAtlas(asset.albedoAtlas());
+        if(drawMode!=DrawMode.BATCHED){program=new Program(false,atlas);multiviewProgram=multiview?new Program(true,atlas):null;}
         int count=0;
         for(int m=0;m<weights.length;m++) {
             weights[m]=new float[asset.meshes().get(m).targetCount()];
@@ -104,6 +120,7 @@ final class AvatarGpuScene {
         if(batch!=null){batch.dispose();batch=null;}
         for(int buffer:allocatedBuffers)GLES30.glDeleteBuffers(1,new int[]{buffer},0);
         allocatedBuffers.clear();
+        if(atlasTexture!=0){GLES30.glDeleteTextures(1,new int[]{atlasTexture},0);atlasTexture=0;}
         if(program!=null){GLES30.glDeleteProgram(program.id);program=null;}
         if(multiviewProgram!=null){GLES30.glDeleteProgram(multiviewProgram.id);multiviewProgram=null;}
     }
@@ -197,6 +214,7 @@ final class AvatarGpuScene {
         // Uniform root coordinate scale is absorbed by this normalized automatic fit, not extra zoom.
         framing.copyFitMatrix(aspect,fit);
         GLES30.glUseProgram(active.id);
+        if(atlasTexture!=0){bindAtlas();GLES30.glUniform1i(active.sampler,0);}
         GLES30.glUniformMatrix4fv(active.viewProjection,viewCount,false,viewProjections,0);
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glFrontFace(GLES30.GL_CCW);GLES30.glCullFace(GLES30.GL_BACK);
@@ -212,6 +230,9 @@ final class AvatarGpuScene {
                 var material=asset.materials().get(primitive.source.materialIndex());
                 GLES30.glUniform4fv(active.color,1,primitive.materialColor,0);
                 GLES30.glUniform1f(active.unlit,material.unlit()?1:0);GLES30.glUniform1f(active.roughness,material.roughness());
+                if(atlasTexture!=0){GLES30.glUniform1f(active.useTexture,material.textured()?1:0);
+                    if(primitive.uvBuffer!=0){GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,primitive.uvBuffer);GLES30.glEnableVertexAttribArray(4);GLES30.glVertexAttribPointer(4,2,GLES30.GL_FLOAT,false,8,0);}
+                    else {GLES30.glDisableVertexAttribArray(4);GLES30.glVertexAttrib2f(4,0,0);}}
                 GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,primitive.dynamicBuffer);
                 GLES30.glEnableVertexAttribArray(0);GLES30.glVertexAttribPointer(0,3,GLES30.GL_FLOAT,false,24,0);
                 GLES30.glEnableVertexAttribArray(1);GLES30.glVertexAttribPointer(1,3,GLES30.GL_FLOAT,false,24,12);
@@ -224,12 +245,15 @@ final class AvatarGpuScene {
             }
         }
         for(int i=0;i<3;i++)GLES30.glDisableVertexAttribArray(i);
+        if(atlasTexture!=0){GLES30.glDisableVertexAttribArray(4);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);}
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
     }
     /** VERIFY keeps independent legacy buffers; both draws share one prepared CPU pose. */
     void drawBatched(float[] viewProjections,int viewCount,float aspect) {
         if(batch==null)throw new IllegalStateException("Avatar batch backend not initialized");
+        if(atlasTexture!=0)bindAtlas();
         batch.draw(viewProjections,viewCount,aspect,framing,displayedWorlds);
+        if(atlasTexture!=0)GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);
     }
     JSONObject status() throws Exception {
         JSONObject value;
@@ -249,6 +273,7 @@ final class AvatarGpuScene {
                 .put("draw_backend",drawMode.name().toLowerCase(java.util.Locale.ROOT));
         }
         AvatarBatchGpu currentBatch=batch;
+        if(asset.albedoAtlas()!=null)value.put("albedo_atlas",new JSONObject().put("width",asset.albedoAtlas().width()).put("height",asset.albedoAtlas().height()).put("encoded_bytes",asset.albedoAtlas().encodedBytes()));
         if(currentBatch!=null)value.put("batch",currentBatch.status());
         if(poseWorker!=null) {
             var s=poseWorker.status();value.put("pose_worker",new JSONObject().put("submitted_inputs",s.submittedInputs)
@@ -263,12 +288,13 @@ final class AvatarGpuScene {
     private final class GpuPrimitive {
         final AvatarAsset.Primitive source;final AvatarDeformer.PrimitiveOutput output;
         final FloatBuffer upload;final float[] materialColor=new float[4];
-        final int dynamicBuffer,colorBuffer,indexBuffer,indexCount;long lastRevision=-1;
+        final int dynamicBuffer,colorBuffer,indexBuffer,indexCount,uvBuffer;long lastRevision=-1;
         GpuPrimitive(AvatarAsset.Primitive source,AvatarDeformer.PrimitiveOutput output) {
             this.source=source;this.output=output;upload=output.interleaved();
             asset.materials().get(source.materialIndex()).baseColor().get(materialColor);
-            if(drawMode==DrawMode.BATCHED){dynamicBuffer=0;colorBuffer=0;indexBuffer=0;indexCount=source.indices().remaining();return;}
-            int[] names=new int[source.colors()==null?2:3];GLES30.glGenBuffers(names.length,names,0);
+            if(drawMode==DrawMode.BATCHED){dynamicBuffer=0;colorBuffer=0;indexBuffer=0;uvBuffer=0;indexCount=source.indices().remaining();return;}
+            boolean hasUv=asset.albedoAtlas()!=null&&source.texCoords()!=null;
+            int[] names=new int[2+(source.colors()==null?0:1)+(hasUv?1:0)];GLES30.glGenBuffers(names.length,names,0);
             for(int name:names)allocatedBuffers.add(name);
             dynamicBuffer=names[0];indexBuffer=names[1];
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,dynamicBuffer);
@@ -281,18 +307,21 @@ final class AvatarGpuScene {
                 GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,colorBuffer);
                 GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,colors.remaining()*4,colors,GLES30.GL_STATIC_DRAW);
             } else colorBuffer=0;
+            if(hasUv){uvBuffer=names[names.length-1];FloatBuffer uv=directFloats(source.texCoords());
+                GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,uvBuffer);GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,uv.remaining()*4,uv,GLES30.GL_STATIC_DRAW);}
+            else uvBuffer=0;
         }
     }
     private static final class Program {
-        final int id,viewProjection,world,normal,color,unlit,roughness;
-        Program(boolean multiview) {
-            String vertex=VERTEX;
+        final int id,viewProjection,world,normal,color,unlit,roughness,sampler,useTexture;
+        Program(boolean multiview,boolean atlas) {
+            String vertex=atlas?atlasVertex(VERTEX):VERTEX;
             if(multiview)vertex=vertex.replace("#version 300 es","#version 300 es\n#extension GL_OVR_multiview2 : require\nlayout(num_views=4) in;")
                     .replace("uniform mat4 uViewProjection;","uniform mat4 uViewProjection[4];")
                     .replace("uViewProjection*", "uViewProjection[gl_ViewID_OVR]*");
             int vs=0,fs=0,created=0;
             try {
-                vs=shader(GLES30.GL_VERTEX_SHADER,vertex);fs=shader(GLES30.GL_FRAGMENT_SHADER,FRAGMENT);
+                vs=shader(GLES30.GL_VERTEX_SHADER,vertex);fs=shader(GLES30.GL_FRAGMENT_SHADER,atlas?atlasFragment(FRAGMENT):FRAGMENT);
                 created=GLES30.glCreateProgram();GLES30.glAttachShader(created,vs);GLES30.glAttachShader(created,fs);GLES30.glLinkProgram(created);
                 int[] ok=new int[1];GLES30.glGetProgramiv(created,GLES30.GL_LINK_STATUS,ok,0);
                 if(ok[0]==0)throw new IllegalStateException("Avatar program: "+GLES30.glGetProgramInfoLog(created));
@@ -302,8 +331,32 @@ final class AvatarGpuScene {
             viewProjection=GLES30.glGetUniformLocation(id,"uViewProjection");world=GLES30.glGetUniformLocation(id,"uWorld");
             normal=GLES30.glGetUniformLocation(id,"uNormal");color=GLES30.glGetUniformLocation(id,"uColor");
             unlit=GLES30.glGetUniformLocation(id,"uUnlit");roughness=GLES30.glGetUniformLocation(id,"uRoughness");
+            sampler=atlas?GLES30.glGetUniformLocation(id,"uAtlas"):-1;useTexture=atlas?GLES30.glGetUniformLocation(id,"uUseTexture"):-1;
+            if(atlas&&(sampler<0||useTexture<0)){GLES30.glDeleteProgram(id);throw new IllegalStateException("Missing avatar atlas uniforms");}
         }
     }
+    private void bindAtlas(){GLES30.glActiveTexture(GLES30.GL_TEXTURE0);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,atlasTexture);}
+    private void uploadAtlas(AvatarAsset.AlbedoAtlas atlas){
+        Bitmap bitmap=null;
+        try(InputStream input=atlas.openStream()){
+            BitmapFactory.Options options=new BitmapFactory.Options();options.inScaled=false;options.inPremultiplied=false;options.inPreferredConfig=Bitmap.Config.ARGB_8888;
+            bitmap=BitmapFactory.decodeStream(input,null,options);
+            if(bitmap==null||bitmap.getWidth()!=atlas.width()||bitmap.getHeight()!=atlas.height()||bitmap.getConfig()!=Bitmap.Config.ARGB_8888)
+                throw new IllegalStateException("Atlas PNG decode differs from validated RGB8 dimensions/config");
+            int[] name=new int[1];GLES30.glGenTextures(1,name,0);atlasTexture=name[0];bindAtlas();
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_S,GLES30.GL_CLAMP_TO_EDGE);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_T,GLES30.GL_CLAMP_TO_EDGE);
+            GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,1,GLES30.GL_SRGB8_ALPHA8,atlas.width(),atlas.height());
+            GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D,0,0,0,bitmap,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE);
+            checkGl("avatar atlas upload");GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);
+        } catch(java.io.IOException e){throw new IllegalStateException("Atlas stream failed",e);}
+        finally {if(bitmap!=null)bitmap.recycle();}
+    }
+    static String atlasVertex(String source){return source.replace("layout(location=2) in vec4 aColor;","layout(location=2) in vec4 aColor;\nlayout(location=4) in vec2 aUV;\nout vec2 vUV;").replace("void main(){","void main(){vUV=aUV;");}
+    static String atlasFragment(String source){return source.replace("in vec3 vNormal;","in vec2 vUV;uniform sampler2D uAtlas;uniform float uUseTexture;\nin vec3 vNormal;")
+            .replace("vec3 base=clamp(uColor.rgb*vColor.rgb,0.0,1.0);","vec3 albedo=uUseTexture>0.5?texture(uAtlas,vUV).rgb:vec3(1.0);\nvec3 base=clamp(uColor.rgb*vColor.rgb*albedo,0.0,1.0);");}
     static int shader(int kind,String source){int id=GLES30.glCreateShader(kind);try{GLES30.glShaderSource(id,source);GLES30.glCompileShader(id);int[] ok=new int[1];GLES30.glGetShaderiv(id,GLES30.GL_COMPILE_STATUS,ok,0);if(ok[0]==0)throw new IllegalStateException("Avatar shader: "+GLES30.glGetShaderInfoLog(id));return id;}catch(RuntimeException|Error failure){GLES30.glDeleteShader(id);throw failure;}}
     private static void checkGl(String label){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(label+" GL error "+code);}
     private static IntBuffer directInts(IntBuffer input){IntBuffer b=ByteBuffer.allocateDirect(input.remaining()*4).order(ByteOrder.nativeOrder()).asIntBuffer();b.put(input);b.flip();return b;}
