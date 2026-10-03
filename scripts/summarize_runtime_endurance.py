@@ -17,7 +17,7 @@ def mean(values):
     return statistics.fmean(values) if values else None
 
 
-def presentation_bin(stamps, intervals, left, right, gaps):
+def presentation_bin(stamps, intervals, left, right, gaps, ambiguous=()):
     periods = duration_ns = active_ns = 0
     for interval in intervals:
         start, end = max(left, interval["start_ns"]), min(right, interval["end_ns"])
@@ -29,9 +29,11 @@ def presentation_bin(stamps, intervals, left, right, gaps):
             periods += b - a - 1
             duration_ns += stamps[b - 1] - stamps[a]
     lost_ns = sum(max(0, min(right, gap["end_ns"]) - max(left, gap["start_ns"])) for gap in gaps)
-    return dict(presented_fps=periods * 1e9 / duration_ns if duration_ns else None,
+    ambiguity_count = sum(min(right, item["end_ns"]) > max(left, item["start_ns"]) for item in ambiguous)
+    return dict(presented_fps=periods * 1e9 / duration_ns if duration_ns and not ambiguity_count else None,
                 interactive_seconds=active_ns / 1e9, sampled_seconds=duration_ns / 1e9,
-                surface_gap_seconds=lost_ns / 1e9, rate_is_lower_bound=bool(lost_ns))
+                surface_gap_seconds=lost_ns / 1e9, rate_is_lower_bound=bool(lost_ns),
+                ambiguous_surface_interval_count=ambiguity_count)
 
 
 def summarize(report, bin_minutes=5):
@@ -57,7 +59,8 @@ def summarize(report, bin_minutes=5):
                 usage.append(100 * (sum(delta) - delta[3] - delta[4]) / sum(delta))
         fresh = [s["result_age_ms"] for s in statuses if s.get("state") == "INTERACTIVE"
                  and left <= s["updated_monotonic_ns"] < right]
-        row = presentation_bin(stamps, evidence["intervals"], left, right, evidence["surface_history_gaps"])
+        row = presentation_bin(stamps, evidence["intervals"], left, right, evidence["surface_history_gaps"],
+                               evidence.get("ambiguous_surface_intervals", []))
         row.update(start_minute=(left-start)/60e9, end_minute=(right-start)/60e9,
                    resource_samples=len(selected), cpu_percent_whole_machine=mean(usage),
                    cpu0_mhz_min=min(clock) if clock else None, cpu0_mhz_mean=mean(clock),
@@ -78,6 +81,7 @@ def summarize(report, bin_minutes=5):
                 meets_30_fps=evidence["meets_30_fps"], complete_active_evidence=evidence["complete_active_evidence"],
                 rate_is_lower_bound=evidence["rate_is_lower_bound"],
                 surface_history_gaps=evidence["surface_history_gaps"],
+                ambiguous_surface_intervals=evidence.get("ambiguous_surface_intervals", []),
                 unconfirmed_tail_seconds=evidence["unconfirmed_tail_seconds"],
                 state_history_gap_count=len(evidence["state_history_gaps"]),
                 collection_error_count=len(report["collection_errors"]), status_error_count=len(errors),
@@ -91,16 +95,22 @@ def summarize(report, bin_minutes=5):
 
 
 def markdown(summary):
+    def metric(value, spec=""):
+        return "—" if value is None else format(value, spec)
+
     print("| 分钟 | 互动呈现 FPS | CPU 占用 % | CPU0 MHz 均值 / 最低 | 温度 °C 均值 / 峰值 | PSS MiB 均值 / 峰值 | 结果年龄峰值 ms |")
     print("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
     for row in summary["bins"]:
         mark = "†" if row["rate_is_lower_bound"] else ""
-        print(f'| {row["start_minute"]:.0f}–{row["end_minute"]:.0f} | {row["presented_fps"]:.3f}{mark} '
-              f'| {row["cpu_percent_whole_machine"]:.2f} '
-              f'| {row["cpu0_mhz_mean"]:.0f} / {row["cpu0_mhz_min"]:.0f} '
-              f'| {row["temperature_c_mean"]:.2f} / {row["temperature_c_max"]:.3f} '
-              f'| {row["app_pss_mib_mean"]:.2f} / {row["app_pss_mib_peak"]:.2f} '
-              f'| {row["fresh_age_ms_max"]} |')
+        if row.get("ambiguous_surface_interval_count", 0):
+            mark += "‡"
+        print(f'| {row["start_minute"]:.0f}–{row["end_minute"]:.0f} | {metric(row["presented_fps"], ".3f")}{mark} '
+              f'| {metric(row["cpu_percent_whole_machine"], ".2f")} '
+              f'| {metric(row["cpu0_mhz_mean"], ".0f")} / {metric(row["cpu0_mhz_min"], ".0f")} '
+              f'| {metric(row["temperature_c_mean"], ".2f")} / {metric(row["temperature_c_max"], ".3f")} '
+              f'| {metric(row["app_pss_mib_mean"], ".2f")} / {metric(row["app_pss_mib_peak"], ".2f")} '
+              f'| {metric(row["fresh_age_ms_max"])} |')
+    print("\n—：未确认或未采到；†：呈现历史有缺口；‡：重叠显示图层使呈现帧率无法确认。")
 
 
 def main():
