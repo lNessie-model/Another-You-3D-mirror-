@@ -41,9 +41,13 @@ class Glb:
         assert result.width<=8192 and result.height<=8192
         return np.asarray(result.convert('RGB'),dtype=np.float64)/255
     def bake_base_colour(self,primitive):
-        uv=self.read(primitive['attributes']['TEXCOORD_0']);material=self.doc['materials'][primitive['material']]
+        return self.sample_base_colour(self.read(primitive['attributes']['TEXCOORD_0']),primitive['material'])
+    def sample_base_colour(self,uv,material_index):
+        material=self.doc['materials'][material_index]
         pbr=material['pbrMetallicRoughness'];texture=self.doc['textures'][pbr['baseColorTexture']['index']]
-        image=srgb_to_linear(self.image(texture['source']));h,w=image.shape[:2]
+        if not hasattr(self,'_colour_images'):self._colour_images={}
+        if texture['source'] not in self._colour_images:self._colour_images[texture['source']]=srgb_to_linear(self.image(texture['source']))
+        image=self._colour_images[texture['source']];h,w=image.shape[:2]
         # glTF UV origin is the upper-left image corner. Sample repeating texels at their centres.
         x=(uv[:,0]%1)*w-.5;y=(uv[:,1]%1)*h-.5;ix=np.floor(x).astype(int);iy=np.floor(y).astype(int)
         fx=x-ix;fy=y-iy
@@ -51,6 +55,31 @@ class Glb:
         rgb+=image[(iy+1)%h,ix%w]*(1-fx[:,None])*fy[:,None]+image[(iy+1)%h,(ix+1)%w]*fx[:,None]*fy[:,None]
         factor=np.array(pbr.get('baseColorFactor',[1,1,1,1]))
         return np.c_[rgb*factor[:3],np.full(len(rgb),factor[3])].astype('<f4')
+
+def refine_texture_samples(positions,normals,uv,indices,sampler,*,max_vertices=20000,levels=4,region=None):
+    """Insert interior samples only: surface boundaries and winding remain unchanged."""
+    positions=np.array(positions);normals=np.array(normals);uv=np.array(uv);indices=np.array(indices,dtype=np.int32)
+    assert len(positions)<=max_vertices<=20000 and 0<=levels<=6
+    colours=sampler(uv)
+    bary=np.array([[1/3,1/3,1/3],[.6,.2,.2],[.2,.6,.2],[.2,.2,.6]])
+    for _ in range(levels):
+        remaining=min(max_vertices-len(positions),(30000-len(indices))//2)
+        if remaining<=0:break
+        candidates=indices if region is None else indices[region(positions[indices].mean(axis=1))]
+        if len(candidates)==0:break
+        samples=np.einsum('sc,fcv->fsv',bary,uv[candidates]);actual=sampler(samples.reshape(-1,2)).reshape(len(candidates),len(bary),4)
+        expected=np.einsum('sc,fcv->fsv',bary,colours[candidates]);errors=np.max(abs(actual[:,:,:3]-expected[:,:,:3]),axis=2)
+        best=errors.argmax(axis=1);score=errors[np.arange(len(candidates)),best]
+        chosen=np.where(score>.04)[0];chosen=chosen[np.argsort(score[chosen])[::-1][:remaining]]
+        if len(chosen)==0:break
+        selected=candidates[chosen];weights=bary[best[chosen]];off=len(positions)
+        new_positions=np.einsum('fc,fcv->fv',weights,positions[selected]);new_normals=np.einsum('fc,fcv->fv',weights,normals[selected])
+        new_normals/=np.linalg.norm(new_normals,axis=1)[:,None];new_uv=np.einsum('fc,fcv->fv',weights,uv[selected])
+        new_indices=np.arange(off,off+len(selected));replacement=np.concatenate([np.c_[selected[:,0],selected[:,1],new_indices],np.c_[selected[:,1],selected[:,2],new_indices],np.c_[selected[:,2],selected[:,0],new_indices]])
+        removed={tuple(t) for t in selected};keep=np.array([tuple(t) not in removed for t in indices])
+        positions=np.concatenate([positions,new_positions]);normals=np.concatenate([normals,new_normals]);uv=np.concatenate([uv,new_uv]);colours=np.concatenate([colours,actual[chosen,best[chosen]]])
+        indices=np.concatenate([indices[keep],replacement])
+    return positions,normals,uv,indices,colours
 
 def write_glb(path,positions,normals,colours,indices,*,head_pivot=(0,0,0),morphs=None):
     positions=np.asarray(positions,dtype='<f4');normals=np.asarray(normals,dtype='<f4');colours=np.asarray(colours,dtype='<f4')
@@ -83,7 +112,7 @@ def write_glb(path,positions,normals,colours,indices,*,head_pivot=(0,0,0),morphs
     raw=struct.pack('<III',0x46546c67,2,28+len(encoded)+len(binary))+struct.pack('<II',len(encoded),0x4e4f534a)+encoded+struct.pack('<II',len(binary),0x004e4942)+binary
     Path(path).write_bytes(raw)
 
-def bake_head(source,output):
+def bake_head(source,output,detail_levels=0):
     import hashlib
     source=Path(source);output=Path(output);output.mkdir(parents=True,exist_ok=True)
     glb=Glb(source)
@@ -96,17 +125,22 @@ def bake_head(source,output):
     normals=rotate_x_front(glb.read(primitive['attributes']['NORMAL'])).astype('<f4')
     normals/=np.linalg.norm(normals,axis=1)[:,None]
     colours=glb.bake_base_colour(primitive);indices=glb.read(primitive['indices']).reshape(-1,3)
+    uv=glb.read(primitive['attributes']['TEXCOORD_0']);source_vertices=len(positions)
+    if detail_levels:
+        positions,normals,uv,indices,colours=refine_texture_samples(positions,normals,uv,indices,lambda q:glb.sample_base_colour(q,primitive['material']),levels=detail_levels,
+                region=lambda q:(q[:,2]>.025)&(abs(q[:,0])<.08)&(q[:,1]>-.10)&(q[:,1]<.075))
     pivot=np.array([0,float(positions[:,1].min())+.025,0],dtype=np.float32)
     path=output/'head-base.glb';write_glb(path,positions-pivot,normals,colours,indices,head_pivot=pivot)
-    np.savez_compressed(output/'head-base.npz',positions=positions,normals=normals,colours=colours,indices=indices,head_pivot=pivot,scale=scale)
+    np.savez_compressed(output/'head-base.npz',positions=positions,normals=normals,colours=colours,indices=indices,uv=uv,head_pivot=pivot,scale=scale)
     report={'source':str(source.resolve()),'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'output':str(path.resolve()),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
        'observed_source_front':'+X','rotation':'proper rotation: original (x,y,z) -> (-z,y,x)','scale':float(scale),'vertices':len(positions),'triangles':len(indices),
        'texture_conversion':'linear base-colour texels sampled bilinearly at vertices; normal/ORM textures not retained','facial_targets':0,'head_pivot':pivot.tolist(),
+       'added_texture_detail_vertices':len(positions)-source_vertices,'detail_levels':detail_levels,
        'scope':'Compatible geometry stage only; not an importable completed facial avatar'}
     (output/'base-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     return report
 
 if __name__=='__main__':
     import argparse
-    parser=argparse.ArgumentParser();parser.add_argument('--source',required=True);parser.add_argument('--out',required=True)
-    args=parser.parse_args();print(json.dumps(bake_head(args.source,args.out),ensure_ascii=False,indent=2))
+    parser=argparse.ArgumentParser();parser.add_argument('--source',required=True);parser.add_argument('--out',required=True);parser.add_argument('--detail-levels',type=int,default=0)
+    args=parser.parse_args();print(json.dumps(bake_head(args.source,args.out,args.detail_levels),ensure_ascii=False,indent=2))

@@ -45,4 +45,19 @@ class HeadAdapterTests(unittest.TestCase):
             self.assertFalse(any(k in actual.doc for k in ('skins','textures','images','animations')))
             self.assertEqual(actual.doc['materials'][0]['pbrMetallicRoughness']['metallicFactor'],0)
 
+    def test_interior_texture_detail_can_be_sampled_without_changing_the_surface(self):
+        positions=np.array([[0,0,0],[1,0,0],[0,1,0]],dtype=float)
+        normals=np.array([[0,0,1]]*3,dtype=float);uv=positions[:,:2].copy()
+        def sampler(values):
+            colour=np.zeros((len(values),4));colour[:,3]=1
+            colour[np.linalg.norm(values-[1/3,1/3],axis=1)<.01,0]=1
+            return colour
+        result=adapter.refine_texture_samples(positions,normals,uv,np.array([[0,1,2]]),sampler,max_vertices=4,levels=1)
+        p,n,u,f,c=result
+        self.assertEqual(len(p),4);self.assertEqual(len(f),3)
+        self.assertAlmostEqual(float(np.cross(p[f[:,1]]-p[f[:,0]],p[f[:,2]]-p[f[:,0]])[:,2].sum()),1)
+        self.assertGreater(c[-1,0],.99)
+        np.testing.assert_array_equal(p[:3],positions)
+        np.testing.assert_allclose(np.linalg.norm(n,axis=1),1)
+
 if __name__=='__main__':unittest.main()
