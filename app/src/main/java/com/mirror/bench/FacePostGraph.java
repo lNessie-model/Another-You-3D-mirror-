@@ -66,8 +66,8 @@ final class FacePostGraph implements AutoCloseable {
                     packet=packets.get(1);
                     var geometries=PacketGetter.getProtoVector(packet,FaceGeometry.parser());
                     if(geometries.size()!=1)throw new IllegalArgumentException("Expected one face geometry");
-                    var matrix=geometries.get(0).getPoseTransformMatrix(); float[] transform=new float[matrix.getPackedDataCount()];
-                    for(int i=0;i<transform.length;i++) transform[i]=matrix.getPackedData(i);
+                    var matrix=geometries.get(0).getPoseTransformMatrix();
+                    float[] transform=FacePoseMatrix.copyValidated(matrix);
                     var points=PacketGetter.getProto(packets.get(2),NormalizedLandmarkList.parser());
                     float[] coords=new float[points.getLandmarkCount()*3];
                     for(int i=0;i<points.getLandmarkCount();i++) {

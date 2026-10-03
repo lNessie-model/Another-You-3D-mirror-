@@ -52,7 +52,24 @@ public final class RendererPacingTest {
         Method old=InterlaceRenderer.class.getDeclaredMethod("recordFrame",long.class,long.class,boolean.class,long.class);
         old.setAccessible(true);old.invoke(benchmark,1L,2L,false,1L);
         check(snapshot(benchmark).frames==0,"legacy benchmark bypasses pacing aggregation");
+        detailedProductionPublication();
         System.out.println("PASS: "+checks+" renderer pacing/lifecycle publication assertions");
+    }
+    private static void detailedProductionPublication() throws Exception {
+        InterlaceRenderer renderer=new InterlaceRenderer(20,.25f,true);renderer.setRuntimeMode(true);renderer.setTargetFps(31);
+        ViewSubmissionTiming timing=(ViewSubmissionTiming)field(renderer,"runtimeViewTiming");
+        timing.begin(0,1);timing.setupComplete(1);timing.attachmentsComplete(2);timing.cameraComplete(4);
+        timing.sceneComplete(7);timing.groupComplete(8);timing.finish(10);
+        long captured=epoch(renderer);frame(renderer,31,captured,100);
+        FramePacingStats.BucketSnapshot b=snapshot(renderer).bucket(31);
+        check(b.viewDetailFrames==1&&b.viewGroups==1,"production publisher consumes complete GL-owner detail");
+        check(b.viewDetail(3).totalMs==3/1e6&&b.viewDetailWork.totalMs==10/1e6,"actual scene-draw/detail values published");
+        renderer.setTargetFps(35);frame(renderer,31,captured,200);
+        check(snapshot(renderer).transitionFrames==1&&snapshot(renderer).bucket(31).viewDetailFrames==1,
+                "target switch cannot publish detailed stages to old bucket");
+        timing.reset();frame(renderer,35,epoch(renderer),300);
+        check(snapshot(renderer).bucket(35).frames==1&&snapshot(renderer).bucket(35).viewDetailFrames==0,
+                "non-avatar/absent detail cannot reuse previous frame scratch");
     }
     private static void frame(InterlaceRenderer renderer,int fps,long epoch,long entry) throws Exception {
         Method method=InterlaceRenderer.class.getDeclaredMethod("recordPacedRuntimeFrame",int.class,long.class,

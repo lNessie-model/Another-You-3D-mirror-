@@ -33,6 +33,7 @@ final class CameraFrameSource implements FrameInput {
     private CameraCaptureSession session;
     private ImageReader reader;
     private String id;
+    private String fingerprint;
     private Range<Integer> fpsRange;
     private long startCaptures,startReceived,startReplaced,startFailures;
 
@@ -55,6 +56,15 @@ final class CameraFrameSource implements FrameInput {
             Size[] sizes=configurations==null?null:configurations.getOutputSizes(ImageFormat.YUV_420_888);
             if(sizes==null||!Arrays.asList(sizes).contains(new Size(width,height)))
                 throw new IllegalArgumentException("Unsupported camera dimensions");
+            // Descriptor binding, not a USB serial number: identical devices can share this identity.
+            String[] sizeNames=Arrays.stream(sizes).map(Size::toString).sorted().toArray(String[]::new);
+            String description=id+"|"+characteristics.get(CameraCharacteristics.LENS_FACING)
+                    +"|"+characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION)
+                    +"|"+characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
+                    +"|"+String.join(",",sizeNames);
+            byte[] digest=java.security.MessageDigest.getInstance("SHA-256").digest(description.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder encoded=new StringBuilder(64);for(byte b:digest)encoded.append(String.format(java.util.Locale.ROOT,"%02x",b&255));
+            fingerprint=encoded.toString();
             Range<Integer>[] ranges=characteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
             if(ranges==null||ranges.length==0) throw new IllegalStateException("Camera exposes no frame rate ranges");
             fpsRange=ranges[0];
@@ -169,8 +179,10 @@ final class CameraFrameSource implements FrameInput {
     @Override public void beginMeasurement() {
         startCaptures=captures.get(); startReceived=received.get(); startReplaced=replaced.get(); startFailures=failures.get();
     }
+    String cameraId(){return id;}
+    String fingerprint(){return fingerprint;}
     @Override public JSONObject summary(double seconds) throws Exception {
-        return new JSONObject().put("camera_id",id).put("fps_range",fpsRange.toString())
+        return new JSONObject().put("camera_id",id).put("camera_descriptor_sha256",fingerprint).put("fps_range",fpsRange.toString())
                 .put("capture_results",captures.get()-startCaptures).put("received_images",received.get()-startReceived)
                 .put("capture_fps",(captures.get()-startCaptures)/seconds).put("received_fps",(received.get()-startReceived)/seconds)
                 .put("pending_frames_replaced",replaced.get()-startReplaced).put("capture_failures",failures.get()-startFailures)

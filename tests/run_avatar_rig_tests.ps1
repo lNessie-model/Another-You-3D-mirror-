@@ -18,6 +18,8 @@ $sources=@(
  'app\src\main\java\com\mirror\bench\AvatarGeometryBounds.java',
  'app\src\main\java\com\mirror\bench\BlendshapeSchema.java',
  'app\src\main\java\com\mirror\bench\InteractionController.java',
+ 'app\src\main\java\com\mirror\bench\FaceControlCalibration.java',
+ 'app\src\main\java\com\mirror\bench\FaceControlMapper.java',
  'app\src\main\java\com\mirror\bench\FaceFrame.java',
  'tests\AvatarRigTest.java', 'tests\AvatarRigReviewTest.java', 'tests\AvatarRigV2Test.java',
  'tests\BlendshapeSchemaTest.java', 'tests\InteractionControllerTest.java'

@@ -10,6 +10,7 @@
         <activity android:name=".CalibrationActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PanelPreviewActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CameraLifecycleCheckActivity" android:exported="true" android:screenOrientation="portrait" />
+        <activity android:name=".CameraTransformCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".NpuCropCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".MirrorActivity" android:label="互动魔镜" android:exported="true" android:screenOrientation="portrait">
             <intent-filter>

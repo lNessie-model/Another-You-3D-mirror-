@@ -52,7 +52,12 @@ public final class MirrorActivity extends Activity {
     private GLSurfaceView surface;
     private InterlaceRenderer renderer;
     private TextView status;
-    private MirrorSettings settings;
+    private volatile MirrorSettings settings;
+    private volatile CameraControlSettings requestedCamera;
+    private volatile CameraCalibrationPanel cameraPanel;
+    private volatile CameraCalibrationPanel.Input cameraInput;
+    private volatile CameraObservation cameraObservation;
+    private record CameraObservation(CameraCalibrationPanel.Input input,FaceFrame frame) {}
     private int runtimeViewWidth,runtimeViewHeight;
     private InputOptions options;
     private RuntimeWorker worker;
@@ -73,6 +78,7 @@ public final class MirrorActivity extends Activity {
     @Override public void onCreate(Bundle savedState) {
         super.onCreate(savedState);
         settings = MirrorSettings.load(this);
+        requestedCamera=settings.camera;
         permissionPrompted = savedState != null && savedState.getBoolean("permission_prompted", false);
         try { options = InputOptions.read(getIntent().getExtras(),
                 (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0); }
@@ -140,6 +146,7 @@ public final class MirrorActivity extends Activity {
     }
     @Override protected void onPause() {
         resumed = false;
+        if(cameraPanel!=null)cameraPanel.dismiss();
         main.removeCallbacks(tick);
         cancelWorker();
         renderer.setInteractiveFace(new float[4], FaceFrame.identity(), false);
@@ -183,6 +190,7 @@ public final class MirrorActivity extends Activity {
         synchronized(events){events.clear();}
         lastEventState=null;reportedPreflightError="";
         synchronized(interaction) {
+            interaction.setCalibration(FaceControlCalibration.defaults());
             interaction.reset();
             if(!configurationError.isEmpty())runtimeError=configurationError;
             else if(options.needsCamera()&&!hasCameraPermission())runtimeError="摄像头未授权，请在维护页面重试";
@@ -222,6 +230,7 @@ public final class MirrorActivity extends Activity {
         if (!renderer.hasRuntimeFrame()) return;
         reportedPreflightError = "";
         worker = new RuntimeWorker(statusEpoch);
+        cameraInput=null;cameraObservation=null;
         worker.start();
     }
     private void reportPreflightFault(String error) {
@@ -231,7 +240,7 @@ public final class MirrorActivity extends Activity {
         // No input worker exists in these cases, so it cannot produce the usual status file.
         queueFaultStatus("MirrorPreflightFaultReport");
     }
-    private void cancelWorker() { if (worker != null) worker.cancel(); }
+    private void cancelWorker() { synchronized(interaction){if (worker != null) worker.cancel();cameraInput=null;cameraObservation=null;} }
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
@@ -251,6 +260,14 @@ public final class MirrorActivity extends Activity {
             if (renderFault || progressFault != null) interaction.setError();
             else startIfReady(false);
             snapshot = interaction.sample(SystemClock::elapsedRealtimeNanos);
+            CameraCalibrationPanel panel=cameraPanel;
+            if(panel!=null){CameraObservation observation=cameraObservation;
+                panel.tick(cameraInput,observation==null?null:observation.frame(),observation==null||observation.input()==null?null:observation.input().token,snapshot);}
+            else if(snapshot.state()==InteractionController.State.WAITING&&lastEventState!=InteractionController.State.WAITING){
+                FaceControlCalibration previous=interaction.calibration();
+                if(previous.hasNeutralPose()||previous.personalBaseline()!=null)
+                    interaction.setCalibration(new FaceControlCalibration(previous.revision()+1,previous.mirror(),null,null));
+            }
             now = SystemClock.elapsedRealtimeNanos();
             boolean active = !maintenance && !renderFault && progressFault == null && worker != null && !worker.cancelled
                     && snapshot.state() == InteractionController.State.INTERACTIVE && snapshot.facePresent();
@@ -331,6 +348,7 @@ public final class MirrorActivity extends Activity {
         panel.addView(views);
         Button calibrationButton=new Button(this);calibrationButton.setText("屏幕校准 / 20视点测试图");panel.addView(calibrationButton);
         Button avatarButton=new Button(this);avatarButton.setText("角色管理 / 导入与预览");panel.addView(avatarButton);
+        Button cameraButton=new Button(this);cameraButton.setText("相机与动作校准");panel.addView(cameraButton);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("魔镜维护").setView(panel)
                 .setPositiveButton("保存并运行", (d, which) -> {
                     int fps = MirrorSettings.ANALYSIS_RATES[rates.getSelectedItemPosition()];
@@ -371,8 +389,53 @@ public final class MirrorActivity extends Activity {
             startActivityForResult(new Intent(this,AvatarManagementActivity.class),AVATAR_MANAGEMENT);
             dialog.dismiss();
         });
+        cameraButton.setOnClickListener(ignored->{dialog.dismiss();showCameraCalibration();});
         dialog.show();
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(settings.writable);
+    }
+    private void showCameraCalibration(){
+        if(cameraPanel!=null||!resumed)return;
+        if(!options.input.equals("camera")){
+            android.widget.Toast.makeText(this,"当前是测试录像输入，请重新以实时相机启动后校准。",android.widget.Toast.LENGTH_LONG).show();return;
+        }
+        final CameraControlSettings original=requestedCamera;
+        FaceControlCalibration oldCalibration=interaction.calibration();
+        final FaceControlCalibration originalCalibration=new FaceControlCalibration(oldCalibration.revision(),oldCalibration.mirror(),null,null);
+        cameraPanel=new CameraCalibrationPanel(this,original,originalCalibration,settings.writable,new CameraCalibrationPanel.Host(){
+            @Override public void changeInput(CameraControlSettings controls){
+                synchronized(interaction){
+                    requestedCamera=controls;cameraInput=null;cameraObservation=null;
+                    interaction.setCalibration(new FaceControlCalibration(controls.revision,controls.mirrorInteraction,null,null));
+                    interaction.reset();cancelWorker();
+                }
+            }
+            @Override public boolean changeCalibration(CameraCalibrationPanel.Input expected,FaceControlCalibration calibration){
+                synchronized(interaction){
+                    if(!resumed||cameraPanel==null||expected==null||expected!=cameraInput||worker==null||worker.cancelled)return false;
+                    requestedCamera=expected.effective.withMirror(calibration.mirror(),calibration.revision());
+                    interaction.setCalibration(calibration);return true;
+                }
+            }
+            @Override public void save(CameraCalibrationPanel owner,CameraCalibrationPanel.Input expected,CameraControlSettings controls){
+                synchronized(interaction){
+                    if(!resumed||cameraPanel!=owner||expected==null||expected!=cameraInput||worker==null||worker.cancelled)
+                        throw new IllegalStateException("相机输入已改变，请重新检查方向和动作");
+                    MirrorSettings.saveCamera(MirrorActivity.this,controls);settings=MirrorSettings.load(MirrorActivity.this);requestedCamera=settings.camera;
+                }
+            }
+            @Override public void closed(CameraCalibrationPanel panel,boolean saved,boolean inputChanged){
+                synchronized(interaction){
+                    if(cameraPanel!=panel)return;cameraPanel=null;
+                    if(!saved){requestedCamera=original;
+                        CameraCalibrationPanel.Input current=cameraInput;
+                        boolean matching=current!=null&&original.matches(current.effective.cameraId,current.effective.fingerprint,WIDTH,HEIGHT);
+                        interaction.setCalibration(new FaceControlCalibration(originalCalibration.revision()+1,matching&&original.mirrorInteraction,null,null));
+                        if(inputChanged){cameraInput=null;cameraObservation=null;interaction.reset();cancelWorker();}
+                    }
+                }
+            }
+        });
+        startIfReady(false);
     }
     private String maintenanceMetrics() {
         try {
@@ -452,6 +515,8 @@ public final class MirrorActivity extends Activity {
                 while (!cancelled) {
                     FrameInput source = null, reference = null;
                     YuvConverter converter = null, referenceConverter = null;
+                    CameraBitmapNormalizer normalizer=null;
+                    CameraCalibrationPanel.Input openedInput=null;
                     NpuFacePipeline npu = null;
                     try {
                         progress(RuntimeProgressWatchdog.Stage.OPENING_CAMERA);
@@ -460,6 +525,18 @@ public final class MirrorActivity extends Activity {
                         if (cancelled) { closeCameraAsync(); break; }
                         progress(RuntimeProgressWatchdog.Stage.INITIALIZING);
                         converter = new YuvConverter(MirrorActivity.this, WIDTH, HEIGHT, true, true);
+                        CameraControlSettings effective=CameraControlSettings.DEFAULT;
+                        CameraControlSettings requestedControls=requestedCamera;
+                        if(options.input.equals("camera")&&source instanceof CameraFrameSource camera){
+                            boolean match=requestedControls.cameraId.equals(camera.cameraId())&&requestedControls.fingerprint.equals(camera.fingerprint())
+                                    &&requestedControls.width==WIDTH&&requestedControls.height==HEIGHT;
+                            effective=new CameraControlSettings(camera.cameraId(),camera.fingerprint(),WIDTH,HEIGHT,match?requestedControls.rotationDegrees:0,
+                                    match&&requestedControls.reflectInput,match&&requestedControls.mirrorInteraction,requestedControls.revision);
+                            openedInput=new CameraCalibrationPanel.Input(effective,!requestedControls.cameraId.isEmpty()&&!match?
+                                    "保存的相机描述或尺寸不匹配，已暂用默认方向；请重新核对安装。":"");
+                        }
+                        normalizer=new CameraBitmapNormalizer(WIDTH,HEIGHT,effective.rotationDegrees,effective.reflectInput);
+                        final CameraCalibrationPanel.Input attemptInput=openedInput;
                         if (options.input.equals("camera_replay")) {
                             reference = replay();
                             referenceConverter = new YuvConverter(MirrorActivity.this, WIDTH, HEIGHT, true, false);
@@ -471,6 +548,8 @@ public final class MirrorActivity extends Activity {
                         Stats attempt = new Stats(SystemClock.elapsedRealtimeNanos()); stats = attempt;
                         synchronized(interaction) {
                             if(cancelled||ownerEpoch!=statusEpoch)break;
+                            interaction.setCalibration(new FaceControlCalibration(effective.revision,effective.mirrorInteraction,null,null));
+                            interaction.reset();cameraInput=attemptInput;cameraObservation=null;
                             runtimeError = ""; interaction.clearError();
                         }
                         recordEvent(ownerEpoch,attempt.startedNs, "input_open", options.input);
@@ -488,6 +567,10 @@ public final class MirrorActivity extends Activity {
                                 input = referenceConverter.bitmap;
                             }
                             if (cancelled) break;
+                            long normalizing=SystemClock.elapsedRealtimeNanos();input=normalizer.apply(input);
+                            attempt.normalized((SystemClock.elapsedRealtimeNanos()-normalizing)/1e6);
+                            CameraCalibrationPanel activePanel=cameraPanel;
+                            if(activePanel!=null&&attemptInput!=null)activePanel.offerPreview(attemptInput,input);
                             boolean blackout = options.blackout(started - attempt.startedNs);
                             if (blackout) input.eraseColor(Color.BLACK);
                             attempt.converted(converted.conversionMs(), referenceMs);
@@ -503,6 +586,9 @@ public final class MirrorActivity extends Activity {
                                 synchronized(interaction) {
                                     if(cancelled||ownerEpoch!=statusEpoch)return;
                                     interaction.accept(frame);
+                                    cameraObservation=new CameraObservation(attemptInput,frame);
+                                    CameraCalibrationPanel currentPanel=cameraPanel;
+                                    if(currentPanel!=null)currentPanel.offerRaw(attemptInput,frame);
                                 }
                                 attempt.completed(detected != null, (completed - frameReceived) / 1e6,
                                         (completed - inferenceStart) / 1e6, detected == null ? 0 : detected.landmarks().length / 3);
@@ -519,7 +605,7 @@ public final class MirrorActivity extends Activity {
                             InteractionController.Snapshot current = snapshot;
                             boolean active = current != null && (current.state() == InteractionController.State.INTERACTIVE
                                     || current.state() == InteractionController.State.GRACE);
-                            int fps = active ? settings.activeFps : 3;
+                            int fps = cameraPanel!=null ? 20 : active ? settings.activeFps : 3;
                             progress(RuntimeProgressWatchdog.Stage.PACING);
                             long rest = 1_000_000_000L / fps - (SystemClock.elapsedRealtimeNanos() - started);
                             if (rest > 0) Thread.sleep(rest / 1_000_000L, (int) (rest % 1_000_000L));
@@ -533,7 +619,7 @@ public final class MirrorActivity extends Activity {
                         boolean currentOwner;
                         synchronized(interaction) {
                             currentOwner=!cancelled&&ownerEpoch==statusEpoch;
-                            if(currentOwner){runtimeError=concise(error);interaction.setError();recoveries++;}
+                            if(currentOwner){runtimeError=concise(error);interaction.setError();cameraInput=null;cameraObservation=null;recoveries++;}
                         }
                         if (currentOwner) {
                             recordEvent(ownerEpoch,SystemClock.elapsedRealtimeNanos(), "fault", runtimeError);
@@ -542,8 +628,9 @@ public final class MirrorActivity extends Activity {
                         }
                     } finally {
                         // Every borrowed Image was closed by convert(); only this worker owns these resources.
+                        synchronized(interaction){if(cameraInput==openedInput){cameraInput=null;cameraObservation=null;}}
                         progress(RuntimeProgressWatchdog.Stage.RELEASING);
-                        close(source); close(reference); close(npu); close(converter); close(referenceConverter);
+                        close(source); close(reference); close(npu); close(normalizer); close(converter); close(referenceConverter);
                         sourceOwned = null;
                     }
                     if (cancelled) break;
@@ -627,6 +714,10 @@ public final class MirrorActivity extends Activity {
                 .put("processing_fault", progressFault != null).put("processing_timeout", progressFaultJson())
                 .put("runtime_stage", worker == null ? "STOPPED" : worker.watchdog.stage().name())
                 .put("recoveries", recoveries).put("analysis_active_target_fps", settings.activeFps).put("analysis_idle_target_fps", 3)
+                .put("camera_calibration_open",cameraPanel!=null).put("camera_controls",cameraControlsJson())
+                .put("control_revision",current==null?0:current.calibrationRevision())
+                .put("control_error",current==null?"":current.calibrationError())
+                .put("control_rejected_frames",current==null?0:current.calibrationRejectedFrames())
                 .put("view_width", runtimeViewWidth).put("view_height", runtimeViewHeight).put("view_count", 20)
                 .put("debug_render_overrides",new JSONObject().put("synchronous",options.synchronousAvatar)
                         .put("batched",options.batchedAvatar).put("view_preset",options.viewPreset==null?JSONObject.NULL:options.viewPreset)
@@ -644,6 +735,16 @@ public final class MirrorActivity extends Activity {
             value.put("state_events", states);
         }
         return value;
+    }
+    private JSONObject cameraControlsJson() throws Exception {
+        CameraCalibrationPanel.Input current=cameraInput;
+        CameraControlSettings controls=current==null?CameraControlSettings.DEFAULT:current.effective;
+        return new JSONObject().put("camera_id",controls.cameraId).put("descriptor_sha256",controls.fingerprint)
+                .put("input_rotation_degrees",controls.rotationDegrees).put("reflect_normalized_input",controls.reflectInput)
+                .put("mirror_interaction",interaction.calibration().mirror()).put("warning",current==null?"":current.warning)
+                .put("neutral_head_session_only",interaction.calibration().hasNeutralPose())
+                .put("personal_baseline_session_only",interaction.calibration().personalBaseline()!=null)
+                .put("descriptor_is_unique_device_serial",false);
     }
     private void writeStatus(RuntimeStatusOrder.Epoch owner,Stats measurements, FrameInput source, JSONObject npu, boolean blackout) {
         RuntimeStatusOrder.Ticket ticket=statusTicket(owner);
@@ -696,8 +797,8 @@ public final class MirrorActivity extends Activity {
 
     private static final class Stats {
         final long startedNs;
-        private long converted, submissions, completions, faces;
-        private double conversionMs, referenceMs, submissionMs, completeMs, receivedMs;
+        private long converted, submissions, completions, faces,normalized;
+        private double conversionMs, referenceMs, submissionMs, completeMs, receivedMs,normalizationMs;
         private int landmarks;
         Stats(long now) { startedNs = now; }
         synchronized void converted(double conversion, double reference) {
@@ -705,6 +806,7 @@ public final class MirrorActivity extends Activity {
             referenceMs += (reference - referenceMs) / converted;
         }
         synchronized void submitted(double value) { submissions++; submissionMs += (value - submissionMs) / submissions; }
+        synchronized void normalized(double value){normalized++;normalizationMs+=(value-normalizationMs)/normalized;}
         synchronized void completed(boolean face, double received, double complete, int count) {
             completions++; if (face) faces++; landmarks = Math.max(landmarks, count);
             receivedMs += (received - receivedMs) / completions; completeMs += (complete - completeMs) / completions;
@@ -716,6 +818,7 @@ public final class MirrorActivity extends Activity {
                     .put("analysis_fps", completions / seconds).put("face_fps", faces / seconds)
                     .put("face_fraction", completions == 0 ? 0 : faces / (double) completions)
                     .put("conversion_mean_ms", conversionMs).put("reference_conversion_mean_ms", referenceMs)
+                    .put("normalization_mean_ms",normalizationMs).put("normalized_frames",normalized)
                     .put("submission_mean_ms", submissionMs).put("inference_completion_mean_ms", completeMs)
                     .put("received_to_completed_mean_ms", receivedMs).put("landmarks", landmarks)
                     .put("blendshapes", faces > 0 ? 52 : 0).put("retained_timing_samples", 0)

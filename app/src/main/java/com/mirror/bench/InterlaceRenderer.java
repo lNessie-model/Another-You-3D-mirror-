@@ -95,6 +95,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private long pacingMeasurementGeneration;
     // GL-thread scratch timestamps only; reset at every callback before drawViews.
     private long runtimePrepareStart,runtimePrepareEnd;
+    private final ViewSubmissionTiming runtimeViewTiming=new ViewSubmissionTiming();
     private String calibration="diagnostic constants; not a verified optical panel calibration";
     private final float[] projection=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
 
@@ -402,9 +403,13 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 GLES30.glDeleteSync(fences[fenceSlot]); fences[fenceSlot]=0;
             }
             boolean split=!runtimeMode&&profileStages&&!pipeline&&measuring&&workMs.size()%30==0;
-            if(runtimeMode)runtimePrepareStart=runtimePrepareEnd=SystemClock.elapsedRealtimeNanos();
+            if(runtimeMode) {
+                runtimePrepareStart=runtimePrepareEnd=SystemClock.elapsedRealtimeNanos();
+                runtimeViewTiming.reset();
+            }
             if(scene) drawViews();
             long viewsEnd=runtimeMode?SystemClock.elapsedRealtimeNanos():0;
+            if(runtimeMode&&runtimeViewTiming.isStarted())runtimeViewTiming.finish(viewsEnd);
             long sceneEnd=before;
             if(split) { GLES30.glFinish(); sceneEnd=SystemClock.elapsedRealtimeNanos(); }
             drawInterlace(lookup);
@@ -429,9 +434,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             long before,long after,long pacerWait,int parkCalls,long fenceWait,boolean fenceCalled,
             long entryLate,long startLate,boolean deadlineRebased,long preViews,long avatarPrepare,
             long viewSubmission,long interlaceSubmission,long submitTail) {
-        framePacing.recordStages(frameTarget,frameEpoch,entered,before,after,pacerWait,parkCalls,fenceWait,
+        framePacing.recordDetailedStages(frameTarget,frameEpoch,entered,before,after,pacerWait,parkCalls,fenceWait,
                 fenceCalled,entryLate,startLate,deadlineRebased,frameEpoch!=pacingEpoch,
-                preViews,avatarPrepare,viewSubmission,interlaceSubmission,submitTail);
+                preViews,avatarPrepare,viewSubmission,interlaceSubmission,submitTail,
+                runtimeViewTiming.isComplete()?runtimeViewTiming:null);
         recordRuntimeFrame(before,after);
     }
     private synchronized void recordFrame(long before,long after,boolean split,long sceneEnd) {
@@ -478,6 +484,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         for(int i=0;i<stats.bucketCapacity();i++) {
             FramePacingStats.BucketSnapshot b=stats.bucket(i);
             if(b.frames==0)continue;
+            JSONObject viewDetails=new JSONObject().put("frames",b.viewDetailFrames)
+                    .put("missing_frames",b.frames-b.viewDetailFrames).put("groups",b.viewGroups)
+                    .put("covered_view_submission",pacingMetric(b.viewDetailWork));
+            for(int stage=0;stage<ViewSubmissionTiming.STAGES;stage++)
+                viewDetails.put(ViewSubmissionTiming.stageName(stage),pacingMetric(b.viewDetail(stage)));
             buckets.put(new JSONObject().put("target_fps",b.targetFps).put("frames",b.frames)
                     .put("boundary_frames",b.boundaryFrames).put("park_calls",b.parkCalls)
                     .put("fence_calls",b.fenceCalls).put("deadline_rebases",b.deadlineRebases)
@@ -489,6 +500,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                     .put("stages",new JSONObject().put("frames",b.stageFrames).put("missing_frames",b.frames-b.stageFrames)
                             .put("pre_views",pacingMetric(b.preViews)).put("avatar_prepare",pacingMetric(b.avatarPrepare))
                             .put("view_submission",pacingMetric(b.viewSubmission))
+                            .put("view_submission_detail",viewDetails)
                             .put("interlace_submission",pacingMetric(b.interlaceSubmission))
                             .put("submit_tail",pacingMetric(b.submitTail)).put("covered_callback_work",pacingMetric(b.stageWork))));
         }
@@ -502,6 +514,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("stage_definitions","pre_views: face update and previous fence; avatar_prepare: current callback pose submit/acquire/upload; view_submission: framebuffer/camera/multiview draw/invalidate; interlace_submission: output draw; submit_tail: new fence/flush/error check")
                 .put("stage_overlap","fence_wait is CPU wall time inside glClientWaitSync, already included in pre_views and callback_work; background worker rig/morph/copy are separate concurrent applied-pose metrics, not callback stages")
                 .put("stage_no_pose_policy","callbacks with no new worker result still contribute prepare wall time; no avatar means zero prepare")
+                .put("view_detail_scope","runtime avatar callbacks only; setup + all groups' attach_clear/camera_matrices/scene_draw/invalidate + tail exactly cover view_submission; means use callback count, not group count; unavailable/legacy/non-avatar callbacks are missing, not zero samples")
+                .put("view_detail_boundaries","setup: after prepare through framebuffer/viewport setup; attach_clear: attachment and clear per group; camera_matrices: lookAt/frustum/multiply/copy; scene_draw: complete AvatarGpuScene.draw CPU call; invalidate: depth invalidation per group; tail: loop exit, optional atlas work and return; control/timer overhead belongs to its enclosing segment")
                 .put("gap_scope","previous measured work end to next callback entry: publication, EGL swap, framework and OS scheduling; not isolated swap or GPU time")
                 .put("boundary_policy","first/context/resume/resize/target-change/transition boundaries exclude gap, interval and deadline debt")
                 .put("physical_presentation_fps",false);
@@ -843,7 +857,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
         if(runtimeMode)runtimePrepareStart=SystemClock.elapsedRealtimeNanos();
         avatarScene.prepare(runtimeBlendshapes,runtimeAngles);
-        if(runtimeMode)runtimePrepareEnd=SystemClock.elapsedRealtimeNanos();
+        if(runtimeMode) {
+            runtimePrepareEnd=SystemClock.elapsedRealtimeNanos();
+            runtimeViewTiming.begin(runtimePrepareEnd,views/(multiview?4:1));
+        }
         boolean drawAtlas=atlas&&!atlasCopy;
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiview?multiviewFbo:(drawAtlas?atlasFbo:fbo));
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glViewport(0,0,viewWidth,viewHeight);
@@ -853,6 +870,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
         // Sampling resolution can be anisotropic; projection follows the physical display shape.
         int group=multiview?4:1;float aspect=(float)width/height;
+        if(runtimeMode)runtimeViewTiming.setupComplete(SystemClock.elapsedRealtimeNanos());
         for(int v=0;v<views;v+=group) {
             if(multiview) {
                 MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,texture,v,4);
@@ -864,6 +882,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             if(!drawAtlas) {
                 GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
             }
+            if(runtimeMode)runtimeViewTiming.attachmentsComplete(SystemClock.elapsedRealtimeNanos());
             for(int relative=0;relative<group;relative++) {
                 float eye=views==1?0:((v+relative)/(float)(views-1)-.5f)*.4f;
                 Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
@@ -872,8 +891,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 Matrix.multiplyMM(mvp,0,projection,0,view,0);
                 System.arraycopy(mvp,0,multiviewMatrices,relative*16,16);
             }
+            if(runtimeMode)runtimeViewTiming.cameraComplete(SystemClock.elapsedRealtimeNanos());
             avatarScene.draw(multiviewMatrices,group,aspect);
+            if(runtimeMode)runtimeViewTiming.sceneComplete(SystemClock.elapsedRealtimeNanos());
             if(discardDepth&&!drawAtlas)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
+            if(runtimeMode)runtimeViewTiming.groupComplete(SystemClock.elapsedRealtimeNanos());
         }
         if(discardDepth&&drawAtlas)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
         if(atlas&&atlasCopy) {
