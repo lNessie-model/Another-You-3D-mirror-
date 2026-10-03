@@ -39,7 +39,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private volatile boolean avatarShutdown;
     private volatile long avatarResumeGeneration;
     private long consumedAvatarResumeGeneration;
-    private volatile boolean runtimeFrameReady;
+    private final RuntimeGlLifecycle runtimeGlLifecycle=new RuntimeGlLifecycle();
     private final float[] runtimeBlendshapes=new float[52];
     private volatile InteractiveFace interactiveFace=InteractiveFace.NEUTRAL;
     private final float[] runtimeWeights=new float[4],runtimeAngles=new float[3];
@@ -166,9 +166,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     void closeRuntimeAvatar(){avatarShutdown=true;AvatarGpuScene previous=avatarScene;if(previous!=null)previous.stopCpu();}
     /** UI thread signals lifecycle explicitly; only the GL thread resets pose progress. */
-    synchronized void resumeRuntimeAvatar(){runtimeFrameReady=false;avatarResumeGeneration++;pacingEpoch++;}
+    synchronized void resumeRuntimeAvatar(){runtimeGlLifecycle.invalidate();avatarResumeGeneration++;pacingEpoch++;}
+    void pauseRuntimeAvatar(){runtimeGlLifecycle.invalidate();}
     /** Successful GL submission, not proof of a physical presentation timestamp. */
-    boolean hasRuntimeFrame(){return runtimeFrameReady&&error.isEmpty();}
+    boolean hasRuntimeFrame(){return runtimeGlLifecycle.snapshot().ready()&&error.isEmpty();}
     void setInteractiveSnapshot(InteractionController.Snapshot snapshot,boolean active) {
         interactiveFace=active?new InteractiveFace(snapshot.renderWeights(),snapshot.blendshapes52(),snapshot.pose(),SystemClock.elapsedRealtimeNanos())
                 :InteractiveFace.NEUTRAL;
@@ -260,9 +261,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
-        runtimeFrameReady=false;
+        glContextGeneration=runtimeGlLifecycle.contextCreated();
         // EGL owns destruction of the lost context: never delete/reuse its numeric framebuffer names.
-        glContextGeneration++;persistentFbos=null;persistentFboCount=0;multiviewFboActual="uninitialized";
+        persistentFbos=null;persistentFboCount=0;multiviewFboActual="uninitialized";
         cameraVpCache.invalidate();cameraVpActual="uninitialized";
         synchronized(this) {
             surfaceInitialized=true;
@@ -333,7 +334,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         } catch(Throwable problem) { fail(problem); }
     }
     @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
-        runtimeFrameReady=false;
+        runtimeGlLifecycle.invalidate();
         cameraVpCache.invalidate();cameraVpActual="uninitialized";
         synchronized(this) {pacingEpoch++;}
         this.width=width; this.height=height;
@@ -396,6 +397,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     @Override public void onDrawFrame(GL10 ignored) {
         if(!error.isEmpty()||texture==0) return;
+        long enteredGlEpoch=runtimeGlLifecycle.frameEpoch();
         try {
             long entered=runtimeMode?SystemClock.elapsedRealtimeNanos():0;
             long frameEpoch=pacingEpoch;
@@ -449,6 +451,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             } else GLES30.glFinish();
             checkGl();
             long after=SystemClock.elapsedRealtimeNanos();
+            if(runtimeMode)runtimeGlLifecycle.successfulFrame(enteredGlEpoch);
             if(runtimeMode) recordPacedRuntimeFrame(frameTargetFps,frameEpoch,entered,before,after,pacerWait,
                     parkCalls,fenceWait,fenceCalled,entryLate,
                     frameTargetFps>0?Math.max(0,before-scheduledStart):0,deadlineRebased,
@@ -477,7 +480,6 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
     }
     private void recordRuntimeFrame(long before,long after) {
-        runtimeFrameReady=true;
         // Constant-space aggregates replace the benchmark's per-frame arrays for an unlimited session.
         runtimeFrames++;
         if(runtimeWindowStart==0) runtimeWindowStart=before;
@@ -490,6 +492,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
     }
     synchronized JSONObject runtimeStatus() throws Exception {
+        RuntimeGlLifecycle.Snapshot glState=runtimeGlLifecycle.snapshot();
         return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",avatarAssets==null)
                 .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
                 .put("multiview_fbo_actual",multiviewFboActual).put("persistent_fbo_count",persistentFboCount)
@@ -501,7 +504,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("view_width",viewWidth).put("view_height",viewHeight)
                 .put("projection_aspect",avatarAssets==null?(float)viewWidth/Math.max(1,viewHeight):(float)width/Math.max(1,height))
                 .put("frames",runtimeFrames).put("fps",runtimeFps).put("frame_work_mean_ms",runtimeWorkMeanMs)
-                .put("runtime_gl_frame_ready",hasRuntimeFrame())
+                .put("runtime_gl_frame_ready",glState.ready()&&error.isEmpty())
+                .put("context_generation",glState.contextGeneration()).put("frame_generation",glState.frameGeneration())
                 .put("frame_pacing",framePacingStatus())
                 .put("render_target_fps",targetFps).put("face_active",runtimeFaceActive).put("error",error)
                 .put("panel_calibration",calibration).put("optical_alignment_verified",false)

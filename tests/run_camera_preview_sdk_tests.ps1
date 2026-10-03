@@ -12,7 +12,7 @@ $sources=$names | ForEach-Object {Join-Path $projectRoot "app\src\main\java\com\
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp $AndroidJar -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'Camera preview real SDK compilation failed'}
 # Freshly compile the production method compared by reflection. Built classes only link unrelated Activity dependencies.
-$sources=@((Join-Path $projectRoot 'app\src\main\java\com\mirror\bench\InterlaceRenderer.java'),(Join-Path $projectRoot 'tests\CameraPreviewPoseParityTest.java'))
+$sources=@((Join-Path $projectRoot 'app\src\main\java\com\mirror\bench\RuntimeGlLifecycle.java'),(Join-Path $projectRoot 'app\src\main\java\com\mirror\bench\InterlaceRenderer.java'),(Join-Path $projectRoot 'tests\CameraPreviewPoseParityTest.java'))
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp "$classes;$AndroidJar;$built" -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'Camera preview production parity compilation failed'}
 & (Join-Path $JavaHome 'bin\java.exe') -cp "$classes;$AndroidJar;$built" com.mirror.bench.CameraPreviewPoseParityTest

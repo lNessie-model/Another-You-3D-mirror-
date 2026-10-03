@@ -216,6 +216,114 @@ def pause_exclusions(actions, statuses):
     return intervals
 
 
+def analyze_gl_context_recovery(statuses, actions, requested):
+    """A functional gate only: real callback generations + resumed input progress, not GPU pixels/FPS."""
+    result = dict(requested=bool(requested), verified=False, reason="not_requested",
+                  waiting_for_new_frame_observed=False,
+                  scope="Same Activity HOME/resume, new onSurfaceCreated generation and successful GL submission; "
+                        "two fresh complete-face/input progress samples. Not physical presentation or pixel equivalence.")
+    if not requested:
+        return result
+    def fail(reason):
+        result["reason"] = reason
+        return result
+    homes = [a for a in actions if a.get("action") == "home"]
+    resumes = [a for a in actions if a.get("action") == "resume"]
+    if len(homes) != 1 or len(resumes) != 1:
+        return fail("requires_one_completed_home_resume")
+    clocks = [a.get(k) for a in (homes[0], resumes[0])
+              for k in ("device_elapsed_before_ns", "device_elapsed_after_ns")]
+    if not all(type(t) is int for t in clocks) or clocks != sorted(clocks):
+        return fail("missing_or_invalid_action_clocks")
+    rows = sorted([r for r in statuses if type(r.get("updated_elapsed_ns")) is int],
+                  key=lambda r: r["updated_elapsed_ns"])
+    before = [r for r in rows if r["updated_elapsed_ns"] <= clocks[0]
+              and r.get("renderer", {}).get("runtime_gl_frame_ready") is True]
+    after = [r for r in rows if r["updated_elapsed_ns"] >= clocks[2]]
+    if not before or not after:
+        return fail("missing_before_or_after_status")
+    previous = before[-1]
+    old_gl = previous.get("renderer", {})
+    activity = previous.get("activity_instance_id")
+    old_context = old_gl.get("context_generation")
+    uuid = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    def identity(value, pattern):
+        return isinstance(value, str) and re.fullmatch(pattern, value) is not None
+    def release_policy(row):
+        p = row.get("gl_context_policy", {})
+        return (p.get("release_on_pause_requested") is True and p.get("preserve_on_pause_requested") is False
+                and p.get("preserve_on_pause_actual") is False)
+    if (not identity(activity, uuid)
+            or type(old_context) is not int or old_context < 1
+            or old_gl.get("frame_generation") != old_context):
+        return fail("missing_initial_context_identity")
+    if (not identity(previous.get("runtime_session_id"), uuid)
+            or type(previous.get("runtime_epoch")) is not int or previous["runtime_epoch"] < 1
+            or not identity(old_gl.get("avatar", {}).get("model_sha256"), r"[0-9a-f]{64}")
+            or previous.get("input") not in ("camera", "camera_replay", "replay")
+            or old_gl.get("multiview_fbo_actual") not in ("legacy", "persistent_groups")
+            or old_gl.get("camera_vp_actual") not in ("per_frame", "cached")
+            or any(type(previous.get(k)) is not int or previous[k] < 1 or previous[k] != old_gl.get(k)
+                   for k in ("view_count", "view_width", "view_height"))):
+        return fail("missing_initial_profile_identity")
+    if not release_policy(previous):
+        return fail("initial_release_policy_not_confirmed")
+    result.update(activity_instance_id=activity, context_before=old_context)
+    usable = []
+    for r in after:
+        gl = r.get("renderer", {})
+        if r.get("activity_instance_id") != activity:
+            return fail("activity_recreated_or_identity_missing")
+        if not release_policy(r):
+            return fail("release_policy_not_confirmed")
+        if r.get("state") == "ERROR" or any(r.get(k) for k in ("error", "render_error", "control_error", "render_fault", "processing_fault")) or gl.get("error") or r.get("source", {}).get("error"):
+            return fail("error_after_resume")
+        if r.get("runtime_session_id") == previous.get("runtime_session_id"):
+            continue  # A read immediately after am start may still contain the preceding epoch.
+        if (not identity(r.get("runtime_session_id"), uuid) or type(r.get("runtime_epoch")) is not int
+                or r["runtime_epoch"] <= previous["runtime_epoch"]):
+            return fail("invalid_resumed_session_identity")
+        if gl.get("runtime_gl_frame_ready") is False and r.get("state") == "WAITING":
+            result["waiting_for_new_frame_observed"] = True
+        if r.get("state") != "INTERACTIVE":
+            continue
+        age = r.get("result_age_ms")
+        generation = gl.get("context_generation")
+        if (gl.get("runtime_gl_frame_ready") is not True or type(generation) is not int
+                or generation <= old_context or gl.get("frame_generation") != generation):
+            return fail("new_context_frame_not_confirmed")
+        if r.get("face_present") is not True or type(age) is not int or not 0 <= age <= 500:
+            return fail("fresh_face_not_confirmed")
+        if any(r.get(k) != previous.get(k) or gl.get(k) != old_gl.get(k)
+               for k in ("view_count", "view_width", "view_height")):
+            return fail("view_profile_changed")
+        if (gl.get("avatar", {}).get("model_sha256") != old_gl.get("avatar", {}).get("model_sha256")
+                or any(gl.get(k) != old_gl.get(k) for k in ("multiview_fbo_actual", "camera_vp_actual"))):
+            return fail("render_identity_changed")
+        if r.get("input") != previous.get("input") or r.get("metrics", {}).get("landmarks") != 478 or r.get("metrics", {}).get("blendshapes") != 52:
+            return fail("complete_input_not_confirmed")
+        usable.append(r)
+    if len(usable) < 2:
+        return fail("insufficient_resumed_progress_samples")
+    first, last = usable[0], usable[-1]
+    if (first.get("runtime_session_id") != last.get("runtime_session_id")
+            or first["renderer"]["context_generation"] != last["renderer"]["context_generation"]):
+        return fail("resumed_owner_changed_again")
+    counters = [("renderer", "frames"), ("metrics", "completed_frames"), ("metrics", "face_frames"),
+                ("npu", "mesh_calls"), ("npu", "post_calls")]
+    if last.get("input") in ("camera", "camera_replay"):
+        counters.append(("source", "received_images"))
+    for section, name in counters:
+        left, right = first.get(section, {}).get(name), last.get(section, {}).get(name)
+        if type(left) is not int or type(right) is not int or not 0 < left < right:
+            return fail("resumed_counter_not_growing:" + section + "." + name)
+    result.update(verified=True, reason="verified", context_after=last["renderer"]["context_generation"],
+                  runtime_session_before=previous.get("runtime_session_id"), runtime_session_after=last.get("runtime_session_id"),
+                  progress_samples=len(usable), first_progress_elapsed_ns=first["updated_elapsed_ns"],
+                  last_progress_elapsed_ns=last["updated_elapsed_ns"])
+    return result
+
+
 def analyze_run(samples, statuses, windows, actions):
     for sample in samples:
         stamp = map_clock(sample.get("device_elapsed_ns"), statuses)
@@ -260,6 +368,7 @@ def arguments():
     parser.add_argument("--avatar-synchronous", action="store_true", help="Debug-only same-APK control: deform on the GL thread")
     parser.add_argument("--avatar-batched", action="store_true", help="Debug-only opt-in merged avatar draw calls")
     parser.add_argument("--persistent-fbos", action="store_true", help="Debug-only opt-in persistent multiview FBO groups; defaults to legacy attachments")
+    parser.add_argument("--release-gl-on-pause", action="store_true", help="Debug-only release EGL on real HOME/onPause; default preserves existing policy")
     parser.add_argument("--cached-camera-vp", action="store_true", help="Debug-only opt-in static avatar camera matrix cache; defaults to per-frame calculation")
     parser.add_argument("--view-preset", choices=("240x720", "320x576", "400x720"), help="Debug-only view size override; never saves preferences")
     parser.add_argument("--view-count", type=int, choices=(16, 20), help="Debug-only independent view count; default application profile is 20, never saves preferences")
@@ -355,9 +464,12 @@ def run(args):
 
     def save():
         payload.update(analyze_run(samples, statuses, windows, actions))
+        payload["gl_context_recovery"] = analyze_gl_context_recovery(statuses, actions, args.release_gl_on_pause)
         payload["presentation"]["collection_complete"] = payload["collection_status"] == "completed" and not failures
         if not payload["presentation"]["collection_complete"]:
             payload["presentation"]["meets_30_fps"] = False
+            if args.release_gl_on_pause:
+                payload["gl_context_recovery"].update(verified=False, reason="collection_incomplete")
         temporary = destination.with_suffix(".json.tmp")
         temporary.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
         temporary.replace(destination)
@@ -421,6 +533,8 @@ def run(args):
         extras += " --ez test_persistent_fbos true"
     if args.cached_camera_vp:
         extras += " --ez test_cached_camera_vp true"
+    if args.release_gl_on_pause:
+        extras += " --ez test_release_gl_on_pause true"
     if args.view_preset:
         extras += " --es test_view_preset " + args.view_preset
     if args.view_count is not None:

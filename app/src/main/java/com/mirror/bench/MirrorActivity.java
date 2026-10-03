@@ -48,6 +48,8 @@ public final class MirrorActivity extends Activity {
     private static final RuntimeStatusOrder STATUS_ORDER = new RuntimeStatusOrder();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final InteractionController interaction = new InteractionController();
+    private final String activityInstanceId=java.util.UUID.randomUUID().toString();
+    private boolean preserveEglOnPauseActual;
     private final ArrayDeque<JSONObject> events = new ArrayDeque<>();
     private GLSurfaceView surface;
     private InterlaceRenderer renderer;
@@ -116,7 +118,8 @@ public final class MirrorActivity extends Activity {
         surface = new GLSurfaceView(this);
         surface.setEGLContextClientVersion(3);
         surface.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
-        surface.setPreserveEGLContextOnPause(true);
+        surface.setPreserveEGLContextOnPause(!options.releaseGlOnPause);
+        preserveEglOnPauseActual=surface.getPreserveEGLContextOnPause();
         surface.setRenderer(renderer);
         FrameLayout root = new FrameLayout(this);
         root.addView(surface, new FrameLayout.LayoutParams(-1, -1));
@@ -148,6 +151,7 @@ public final class MirrorActivity extends Activity {
     }
     @Override protected void onPause() {
         resumed = false;
+        renderer.pauseRuntimeAvatar();
         if(cameraPanel!=null)cameraPanel.dismiss();
         main.removeCallbacks(tick);
         cancelWorker();
@@ -739,6 +743,11 @@ public final class MirrorActivity extends Activity {
         InteractionController.Snapshot current = snapshot;
         long elapsedNs = SystemClock.elapsedRealtimeNanos(), monotonicNs = System.nanoTime();
         JSONObject value = new JSONObject().put("schema_version", 1).put("input", options.input)
+                .put("activity_instance_id",activityInstanceId)
+                .put("gl_context_policy",new JSONObject().put("release_on_pause_requested",options.releaseGlOnPause)
+                        .put("preserve_on_pause_requested",!options.releaseGlOnPause)
+                        .put("preserve_on_pause_actual",preserveEglOnPauseActual)
+                        .put("actual_scope","GLSurfaceView getter configuration; context generations prove recreation"))
                 .put("runtime_session_id",ticket.epoch().id()).put("runtime_epoch",ticket.epoch().number())
                 .put("session_started_elapsed_ns",ticket.epoch().startedNs()).put("status_sequence",ticket.sequence())
                 .put("status_capture_elapsed_ns",ticket.capturedNs())
@@ -760,6 +769,7 @@ public final class MirrorActivity extends Activity {
                 .put("debug_render_overrides",new JSONObject().put("synchronous",options.synchronousAvatar)
                         .put("persistent_fbos",options.persistentFbos)
                         .put("cached_camera_vp",options.cachedCameraVp)
+                        .put("release_gl_on_pause",options.releaseGlOnPause)
                         .put("batched",options.batchedAvatar).put("view_preset",options.viewPreset==null?JSONObject.NULL:options.viewPreset)
                         .put("active_target_fps",options.activeTargetFps).put("view_count",options.viewCount))
                 .put("optical_calibration", new JSONObject().put("pitch", settings.panel.pitch())
@@ -870,11 +880,11 @@ public final class MirrorActivity extends Activity {
         final String input, recordId;
         final double replayFps;
         final long blackoutAfterNs, blackoutDurationNs;
-        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp;
+        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause;
         final String viewPreset;
         final int activeTargetFps,viewCount;
         private InputOptions(String input, String recordId, double replayFps, int after, int duration,
-                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount) {
+                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
@@ -883,8 +893,9 @@ public final class MirrorActivity extends Activity {
             this.persistentFbos=persistentFbos;
             this.cachedCameraVp=cachedCameraVp;
             this.viewCount=viewCount;
+            this.releaseGlOnPause=releaseGlOnPause;
         }
-        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false,false,20); }
+        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false,false,20,false); }
         static InputOptions read(Bundle extras, boolean debug) {
             if (extras == null) return defaults();
             String input = text(extras, "runtime_input", "camera");
@@ -917,7 +928,7 @@ public final class MirrorActivity extends Activity {
             if(value(extras,"test_active_target_fps")!=null&&(!debug||(target!=31&&target!=35)))
                 throw new IllegalArgumentException("Frame pacing override requires debug Integer 31 or 35");
             int views=RuntimeViewCount.read(extras,debug);
-            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views);
+            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug));
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {
