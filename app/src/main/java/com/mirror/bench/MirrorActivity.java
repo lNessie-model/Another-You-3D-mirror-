@@ -925,10 +925,17 @@ public final class MirrorActivity extends Activity {
             this.npuBlendshapes=npuBlendshapes;
         }
         static InputOptions defaults() { return defaults(20); }
-        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,false,false,RuntimeViewCount.read(null,false,savedViews),false,false); }
+        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,true,false,RuntimeViewCount.read(null,false,savedViews),false,true); }
         static InputOptions read(Bundle extras, boolean debug) { return read(extras,debug,20); }
         static InputOptions read(Bundle extras, boolean debug,int savedViews) {
             if (extras == null) return defaults(savedViews);
+            // Only these existing Mirror test options are overrides. Presence (including null)
+            // is different from absence; ordinary extras keep the same product defaults.
+            for(String key:new String[]{"test_avatar_synchronous","test_avatar_batched","test_persistent_fbos",
+                    "test_cached_camera_vp","test_release_gl_on_pause","test_npu_blendshapes","test_view_preset",
+                    "test_view_count","test_active_target_fps","test_blackout_after_s","test_blackout_duration_s"})
+                if(extras.containsKey(key)&&(!debug||value(extras,key)==null))
+                    throw new IllegalArgumentException("Explicit test option requires a non-null debug value: "+key);
             String input = text(extras, "runtime_input", "camera");
             if (!input.equals("camera") && !input.equals("replay") && !input.equals("camera_replay"))
                 throw new IllegalArgumentException("runtime_input must be camera, replay, or camera_replay");
@@ -959,7 +966,9 @@ public final class MirrorActivity extends Activity {
             if(value(extras,"test_active_target_fps")!=null&&(!debug||(target!=31&&target!=35)))
                 throw new IllegalArgumentException("Frame pacing override requires debug Integer 31 or 35");
             int views=RuntimeViewCount.read(extras,debug,savedViews);
-            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug),RuntimeExpressionBackend.read(extras,debug));
+            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,
+                    persistent==null||Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug),
+                    !extras.containsKey("test_npu_blendshapes")||RuntimeExpressionBackend.read(extras,debug));
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {
