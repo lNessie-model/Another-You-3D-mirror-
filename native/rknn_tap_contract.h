@@ -3,13 +3,31 @@
 #include <string.h>
 #include "rknn_api.h"
 #define TAP_COUNT 5u
-#define TAP_TOTAL 929u
 #define TAP_INPUT 292u
+#ifndef MIRROR_TAP_PROFILE
+#define MIRROR_TAP_PROFILE 0
+#endif
+#if MIRROR_TAP_PROFILE == 0
+#define TAP_TOTAL 929u
+#define TAP_KIND "fixed_front_end_five_tap_diagnostic"
 static const char *const tap_labels[TAP_COUNT]={"input_echo","centered","scale","normalized","final52"};
 static const char *const tap_names[TAP_COUNT]={"diagnostic_input_echo","model_1/tf.math.subtract/Sub","model_1/tf.math.reduce_mean_1/Mean","model_1/tf.math.truediv_1/truediv","StatefulPartitionedCall:0"};
 static const uint32_t tap_elements[TAP_COUNT]={292,292,1,292,52};
 static const uint32_t tap_ranks[TAP_COUNT]={3,3,3,3,1};
 static const uint32_t tap_dims[TAP_COUNT][4]={{1,146,2,0},{1,146,2,0},{1,1,1,0},{1,146,2,0},{52,0,0,0}};
+static const unsigned tap_terminal_singleton[TAP_COUNT]={0,1,1,1,0};
+#elif MIRROR_TAP_PROFILE == 1
+#define TAP_TOTAL 7036u
+#define TAP_KIND "fixed_stem_five_tap_diagnostic"
+static const char *const tap_labels[TAP_COUNT]={"normalized","stem_input","stem_projection","token_embedding","final52"};
+static const char *const tap_names[TAP_COUNT]={"model_1/tf.math.truediv_1/truediv","diagnostic_stem_input","diagnostic_stem_projection","model_1/GhumMarkerPoserMlpMixerGeneral/MLPMixer/AddExtraTokens/concat","StatefulPartitionedCall:0"};
+static const uint32_t tap_elements[TAP_COUNT]={292,292,192,6208,52};
+static const uint32_t tap_ranks[TAP_COUNT]={3,4,4,4,1};
+static const uint32_t tap_dims[TAP_COUNT][4]={{1,146,2,0},{1,146,1,2},{1,96,1,2},{1,64,1,97},{52,0,0,0}};
+static const unsigned tap_terminal_singleton[TAP_COUNT]={1,0,0,0,0};
+#else
+#error Only fixed front (0) and stem (1) diagnostic profiles are supported
+#endif
 static int tap_name_is(const rknn_tensor_attr *a,const char *expected){
     return memchr(a->name,0,sizeof(a->name))&&strcmp(a->name,expected)==0;
 }
@@ -22,7 +40,7 @@ static int tap_output_valid(unsigned index,const rknn_tensor_attr *a){
     if(!a||index>=TAP_COUNT||a->index!=index||!tap_name_is(a,tap_names[index])
        ||a->type!=RKNN_TENSOR_FLOAT16||a->n_elems!=tap_elements[index]||a->size!=tap_elements[index]*2
        ||(a->fmt!=RKNN_TENSOR_NCHW&&a->fmt!=RKNN_TENSOR_NHWC&&a->fmt!=RKNN_TENSOR_UNDEFINED))return 0;
-    int expanded=(index==1||index==2||index==3)&&a->n_dims==4&&a->dims[3]==1;
+    int expanded=tap_terminal_singleton[index]&&a->n_dims==4&&a->dims[3]==1;
     if(a->n_dims!=tap_ranks[index]&&!expanded)return 0;
     for(unsigned i=0;i<tap_ranks[index];i++)if(a->dims[i]!=tap_dims[index][i])return 0;
     return 1;

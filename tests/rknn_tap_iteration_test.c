@@ -17,7 +17,7 @@ static int release(rknn_context c,uint32_t n,rknn_output *out){(void)c;(void)out
 static void trace(void *u,const char *name,int begin,int rc){(void)u;(void)name;(void)rc;check(begin==(traces%2==0));traces++;}
 static void reset(void){memset(calls,0,sizeof(calls));traces=released_count=0;fail_api=bad_size=bad_index=partial_get=nonfinite=0;for(unsigned i=0;i<TAP_TOTAL;i++)storage[i]=(float)i;}
 int main(void){
-    tap_api api={set,run,get,release};tap_iteration_result result;float input[292]={0},dest[929];
+    tap_api api={set,run,get,release};tap_iteration_result result;float input[292]={0},dest[TAP_TOTAL];
     reset();check(tap_run_iteration(&api,1,input,3,dest,&result,trace,NULL));check(released_count==5&&calls[3]==1&&traces==8);for(unsigned i=0;i<TAP_TOTAL;i++)check(dest[i]==(float)i);
     for(int api_index=1;api_index<=4;api_index++){reset();fail_api=api_index;check(!tap_run_iteration(&api,1,input,3,dest,&result,trace,NULL));check(calls[0]==1);check(calls[1]==(api_index>=2));check(calls[2]==(api_index>=3));check(calls[3]==(api_index==4));}
     reset();fail_api=3;partial_get=1;check(!tap_run_iteration(&api,1,input,3,dest,&result,trace,NULL));check(calls[3]==1&&released_count==5&&result.get_rc==-7);

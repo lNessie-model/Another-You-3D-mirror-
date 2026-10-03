@@ -4,6 +4,7 @@ import json
 import math
 from pathlib import Path
 import sys
+from typing import NamedTuple
 import numpy as np
 from blendshape_device_check import (CHANNELS, RUNTIME_SHA, TFLITE_SHA, THRESHOLDS,
     sha, file_sha, read_json, write_json, require, hash_listing, distribution, errors)
@@ -21,22 +22,60 @@ LOCAL_FILES = (*DEVICE_FILES, 'compiled-contract.json', 'original-tflite52.f32',
 BASELINE_SHA = '66b35d13c997d989811bc3b9cd5477c4b2334939349673ea4fa51f45df3bcd11'
 
 
-def fixed_contract():
-    return dict(schema_version=1, kind=KIND, case_count=92, warmup=5,
+class TapProfile(NamedTuple):
+    kind: str
+    labels: tuple
+    names: tuple
+    elements: tuple
+    shapes: tuple
+    model: str
+    graph: str
+    echo: bool
+    @property
+    def device_files(self): return (self.model,'inputs.f32','rknn_tap_probe')
+    @property
+    def local_files(self): return (*self.device_files,'compiled-contract.json','original-tflite52.f32',*(f'reference-{s}.f32' for s in self.labels))
+    @property
+    def total(self): return sum(self.elements)
+
+
+FRONT_PROFILE=TapProfile(KIND,LABELS,NAMES,ELEMENTS,SHAPES,'front-taps.rknn','front-taps.onnx',True)
+STEM_PROFILE=TapProfile('fixed_stem_five_tap_diagnostic',
+    ('normalized','stem_input','stem_projection','token_embedding','final52'),
+    ('model_1/tf.math.truediv_1/truediv','diagnostic_stem_input','diagnostic_stem_projection',
+     'model_1/GhumMarkerPoserMlpMixerGeneral/MLPMixer/AddExtraTokens/concat','StatefulPartitionedCall:0'),
+    (292,292,192,6208,52),([[1,146,2],[1,146,2,1]],[[1,146,1,2]],[[1,96,1,2]],[[1,64,1,97]],[[52]]),
+    'stem-taps.rknn','stem-taps.onnx',False)
+
+
+def profile_for_kind(kind):
+    for profile in (FRONT_PROFILE,STEM_PROFILE):
+        if kind==profile.kind:return profile
+    raise ValueError('Unknown fixed tap profile')
+
+
+def fixed_contract(profile=FRONT_PROFILE):
+    result=dict(schema_version=1, kind=profile.kind, case_count=92, warmup=5,
         input=dict(name=INPUT_NAME, allowed_runtime_shapes=[[1,146,2]], allowed_runtime_types=[1],
             allowed_runtime_formats=[3], elements=292, feed_type=0, pass_through=0, feed_format='queried_format'),
-        outputs=[dict(index=i,label=label,name=NAMES[i],elements=ELEMENTS[i],
-            allowed_runtime_names=[NAMES[i]],allowed_runtime_shapes=SHAPES[i],allowed_runtime_types=[1],
-            want_float=1,returned_bytes=ELEMENTS[i]*4,device_output_file=f'output-{label}.f32') for i,label in enumerate(LABELS)])
+        outputs=[dict(index=i,label=label,name=profile.names[i],elements=profile.elements[i],
+            allowed_runtime_names=[profile.names[i]],allowed_runtime_shapes=[list(s) for s in profile.shapes[i]],allowed_runtime_types=[1],
+            want_float=1,returned_bytes=profile.elements[i]*4,device_output_file=f'output-{label}.f32') for i,label in enumerate(profile.labels)])
+    if profile is STEM_PROFILE:
+        result['output_elements_per_case']=profile.total
+        for output in result['outputs']:output['allowed_runtime_formats']=[0,1,3]
+    return result
 
 
 def validate_contract(c):
-    expected=fixed_contract()
+    profile=profile_for_kind(c.get('kind'));expected=fixed_contract(profile)
     for key in ('schema_version','kind','case_count','warmup'): require(c.get(key)==expected[key],f'Unknown contract {key}')
+    if profile is STEM_PROFILE: require(c.get('output_elements_per_case')==7036,'Wrong fixed stem capacity')
     for key,value in expected['input'].items(): require(c.get('input',{}).get(key)==value,f'Input contract {key}')
     require(len(c.get('outputs',[]))==5,'Expected exactly five tap outputs')
     for i,(actual,wanted) in enumerate(zip(c['outputs'],expected['outputs'])):
         for key,value in wanted.items(): require(actual.get(key)==value,f'Tap {i} contract {key}')
+    return profile
 
 
 def load_floats(path, elements):
@@ -60,14 +99,14 @@ def validate_cases(cases, inputs, reference):
 def prepare_bundle(source, compilation, compiler_log, validation, model, helper, bundle):
     source,compilation,compiler_log,validation,model,helper,bundle=map(Path,(source,compilation,compiler_log,validation,model,helper,bundle))
     require(not bundle.exists(),'Bundle already exists; never overwrite')
-    contract_path=source/'compiled-contract.json'; c=read_json(contract_path); validate_contract(c)
+    contract_path=source/'compiled-contract.json'; c=read_json(contract_path); profile=validate_contract(c)
     p=read_json(source/'diagnostic.json'); compiled=read_json(compilation); v=read_json(validation)
     require(c.get('acceptance',{}).get('final52')==THRESHOLDS and c['acceptance'].get('model_acceptance') is False and c['acceptance'].get('intermediate_metrics_only') is True,'Changed diagnostic acceptance')
     require(c.get('prepare_report_sha256')==file_sha(source/'diagnostic.json') and c.get('compile_report_sha256')==file_sha(compilation) and c.get('compiler_host_log_sha256')==file_sha(compiler_log),'Diagnostic provenance hashes do not match')
-    require(p.get('status')=='prepared' and p.get('case_count')==92 and p.get('input_shape')==[1,146,2] and p.get('input_elements')==292 and p.get('output_elements_per_case')==929,'Invalid preparation')
+    require(p.get('status')=='prepared' and p.get('case_count')==92 and p.get('input_shape')==[1,146,2] and p.get('input_elements')==292 and p.get('output_elements_per_case')==profile.total,'Invalid preparation')
     require(p.get('full52_instrumentation_changed_cases')==0 and p.get('full52_instrumentation_max_abs')==0,'Tap graph changed candidate final output')
     require(compiled.get('status')=='compiled' and compiled.get('manifest_sha256')==file_sha(source/'diagnostic.json') and all(compiled.get('steps',{}).get(s,{}).get('rc')==0 for s in ('config','load','build','export')),'Compilation incomplete or unrelated')
-    require(compiled.get('model_sha256')==p.get('model_sha256')==file_sha(source/'front-taps.onnx'),'Compiled ONNX graph mismatch')
+    require(compiled.get('model_sha256')==p.get('model_sha256')==file_sha(source/profile.graph),'Compiled ONNX graph mismatch')
     require(c.get('model_sha256')==compiled.get('artifact_sha256')==file_sha(model) and c.get('model_bytes')==compiled.get('artifact_bytes')==model.stat().st_size,'RKNN hash/size mismatch')
     require(p.get('source_validation_sha256')==file_sha(validation) and v.get('status')=='passed' and v.get('source_sha256')==TFLITE_SHA and v.get('reference')=='original TFLite, no rewritten reference','Unverified original TFLite reference')
     require(c['input'].get('file')=='inputs.f32' and c['input'].get('sha256')==p.get('input_sha256')==file_sha(source/'inputs.f32'),'Input hash mismatch')
@@ -80,20 +119,25 @@ def prepare_bundle(source, compilation, compiler_log, validation, model, helper,
     cases=validate_cases(v.get('cases',[]),inputs,original)
     require(len(p.get('outputs',[]))==5,'Missing preparation outputs')
     for i,o in enumerate(c['outputs']):
-        path=source/f'reference-{LABELS[i]}.f32'; po=p['outputs'][i]
-        require(o.get('file')==path.name and po.get('file')==path.name and po.get('name')==NAMES[i] and po.get('index')==i and po.get('elements')==ELEMENTS[i] and po.get('shape')==SHAPES[i][0],'Reference identity mismatch')
-        require(o.get('sha256')==po.get('sha256')==file_sha(path) and o.get('bytes')==po.get('bytes')==92*ELEMENTS[i]*4,'Reference hash/size mismatch')
-        require(np.isfinite(load_floats(path,ELEMENTS[i])).all(),'Nonfinite ONNX reference')
-    require((source/'reference-input_echo.f32').read_bytes()==inputs.tobytes(),'Reference echo changed input order')
+        path=source/f'reference-{profile.labels[i]}.f32'; po=p['outputs'][i]
+        require(o.get('file')==path.name and po.get('file')==path.name and po.get('name')==profile.names[i] and po.get('index')==i and po.get('elements')==profile.elements[i] and po.get('shape')==profile.shapes[i][0],'Reference identity mismatch')
+        require(o.get('sha256')==po.get('sha256')==file_sha(path) and o.get('bytes')==po.get('bytes')==92*profile.elements[i]*4,'Reference hash/size mismatch')
+        require(np.isfinite(load_floats(path,profile.elements[i])).all(),'Nonfinite ONNX reference')
+    if profile.echo: require((source/'reference-input_echo.f32').read_bytes()==inputs.tobytes(),'Reference echo changed input order')
     require(errors(load_floats(source/'reference-final52.f32',52),original)['max_absolute_error']<=1e-5,'Diagnostic ONNX failed original FP32 gate')
     require(helper.read_bytes().startswith(b'\x7fELF'),'Helper must be compiled ELF')
-    payload={'front-taps.rknn':model.read_bytes(),'rknn_tap_probe':helper.read_bytes()}
-    payload.update({name:(source/name).read_bytes() for name in LOCAL_FILES if name not in payload})
-    manifest=dict(schema_version=1,kind=KIND,contract=fixed_contract(),thresholds=THRESHOLDS,
+    provenance_paths=[contract_path,source/'diagnostic.json',compilation,compiler_log,validation,model,helper,source/profile.graph]
+    if profile is STEM_PROFILE:
+        metadata_path=helper.parent/'build.json';metadata=read_json(metadata_path)
+        require(metadata.get('profile')=='stem' and metadata.get('helper_sha256')==file_sha(helper) and metadata.get('bytes')==helper.stat().st_size,'Stem requires matching fixed stem helper build metadata')
+        provenance_paths.append(metadata_path)
+    payload={profile.model:model.read_bytes(),'rknn_tap_probe':helper.read_bytes()}
+    payload.update({name:(source/name).read_bytes() for name in profile.local_files if name not in payload})
+    manifest=dict(schema_version=1,kind=profile.kind,contract=fixed_contract(profile),thresholds=THRESHOLDS,
         runtime_sha256=RUNTIME_SHA,reference_tflite_sha256=TFLITE_SHA,cases=cases,
         scope='Diagnostic only; extra graph outputs may alter RKNN optimization; never application acceptance',
         output_formats_guard=[0,1,3],output_order='Query index and exact name/shape; preserve C-order, no transpose',
-        provenance={str(path.resolve()):file_sha(path) for path in (contract_path,source/'diagnostic.json',compilation,compiler_log,validation,model,helper,source/'front-taps.onnx')},
+        provenance={str(path.resolve()):file_sha(path) for path in provenance_paths},
         files={name:dict(sha256=sha(data),bytes=len(data)) for name,data in payload.items()})
     bundle.mkdir(parents=True,exist_ok=False)
     for name,data in payload.items(): (bundle/name).write_bytes(data)
@@ -140,9 +184,9 @@ class Events:
         self.sequence+=1
 
 
-def validate_attr(row,index,input_tensor=False):
-    shapes=[[1,146,2]] if input_tensor else SHAPES[index]
-    name=INPUT_NAME if input_tensor else NAMES[index]; n=292 if input_tensor else ELEMENTS[index]
+def validate_attr(row,index,input_tensor=False,profile=FRONT_PROFILE):
+    shapes=[[1,146,2]] if input_tensor else profile.shapes[index]
+    name=INPUT_NAME if input_tensor else profile.names[index]; n=292 if input_tensor else profile.elements[index]
     require(row.get('name')==name and row.get('dims') in shapes and row.get('n_dims')==len(row['dims']),'Tensor name/shape/rank mismatch; no layout guessing')
     require(row.get('n_elems')==n and row.get('size')==n*2 and row.get('type')==1,'Tensor type/size mismatch')
     require(row.get('fmt') in ([3] if input_tensor else [0,1,3]),'Unknown/packed tensor format')
@@ -150,24 +194,24 @@ def validate_attr(row,index,input_tensor=False):
 
 def compare_bundle(bundle,evidence,baseline_output=None):
     bundle,evidence=map(Path,(bundle,evidence)); manifest=read_json(bundle/'manifest.json')
-    require(manifest.get('schema_version')==1 and manifest.get('kind')==KIND,'Unknown bundle')
-    validate_contract(manifest.get('contract',{}))
+    require(manifest.get('schema_version')==1,'Unknown bundle')
+    profile=profile_for_kind(manifest.get('kind'));require(validate_contract(manifest.get('contract',{})) is profile,'Bundle contract profile mismatch')
     require(manifest.get('thresholds')==THRESHOLDS and manifest.get('runtime_sha256')==RUNTIME_SHA and manifest.get('reference_tflite_sha256')==TFLITE_SHA,'Changed thresholds/runtime/reference pin')
-    require(set(manifest.get('files',{}))==set(LOCAL_FILES),'Unexpected bundle files')
+    require(set(manifest.get('files',{}))==set(profile.local_files),'Unexpected bundle files')
     for name,entry in manifest['files'].items():
         require(file_sha(bundle/name)==entry['sha256'] and (bundle/name).stat().st_size==entry['bytes'],f'Local bundle hash/size: {name}')
-    validate_contract(read_json(bundle/'compiled-contract.json'))
-    refs=[load_floats(bundle/f'reference-{label}.f32',n) for label,n in zip(LABELS,ELEMENTS)]
+    require(validate_contract(read_json(bundle/'compiled-contract.json')) is profile,'Compiled contract profile mismatch')
+    refs=[load_floats(bundle/f'reference-{label}.f32',n) for label,n in zip(profile.labels,profile.elements)]
     inputs=load_floats(bundle/'inputs.f32',292); original=load_floats(bundle/'original-tflite52.f32',52)
     require(np.isfinite(inputs).all() and np.isfinite(original).all() and all(np.isfinite(r).all() for r in refs),'Nonfinite bundle reference')
     cases=validate_cases(manifest.get('cases',[]),inputs,original)
     require(cases==manifest['cases'],'Case group/index mismatch')
     before,after=(hash_listing(evidence/name) for name in ('before.sha256','after.sha256'))
-    for name in (*DEVICE_FILES,'librknnrt.so'):
+    for name in (*profile.device_files,'librknnrt.so'):
         expected=RUNTIME_SHA if name=='librknnrt.so' else manifest['files'][name]['sha256']
         require(before.get(name)==expected and after.get(name)==expected,f'Device before/after hash mismatch: {name}')
     actual=[]
-    for label,n in zip(LABELS,ELEMENTS):
+    for label,n in zip(profile.labels,profile.elements):
         path=evidence/f'output-{label}.f32'
         require(after.get(path.name)==file_sha(path),f'Pulled {path.name} hash mismatch')
         actual.append(load_floats(path,n))
@@ -178,22 +222,22 @@ def compare_bundle(bundle,evidence,baseline_output=None):
     def invalid_constant(x): raise ValueError(f'Non-JSON constant {x}')
     rows=[json.loads(line,parse_constant=invalid_constant) for line in log.read_text(encoding='utf-8-sig').splitlines() if line.strip()]
     e=Events(rows)
-    e.take('start',schema_version=1,kind=KIND,cases=92,warmup=5,input_floats=292,outputs=5,output_floats_per_case=929,runtime_path='/vendor/lib64/librknnrt.so',performance_evidence=False)
-    e.take('files_loaded',model_bytes=manifest['files']['front-taps.rknn']['bytes'],input_bytes=92*292*4)
+    e.take('start',schema_version=1,kind=profile.kind,cases=92,warmup=5,input_floats=292,outputs=5,output_floats_per_case=profile.total,runtime_path='/vendor/lib64/librknnrt.so',performance_evidence=False)
+    e.take('files_loaded',model_bytes=manifest['files'][profile.model]['bytes'],input_bytes=92*292*4)
     e.api('init');e.api('query_sdk');sdk=e.take('sdk')
     require(sdk.get('api','').startswith('1.3.0') and sdk.get('driver','').startswith('0.7.2'),'Unvalidated SDK/driver')
     e.api('query_io_count');e.take('io_count',inputs=1,outputs=5)
     e.api('query_input_attr',tensor=0);validate_attr(e.take('tensor_attr',kind='input',index=0),0,True)
     attrs=[]
     for i in range(5):
-        e.api('query_output_attr',tensor=i);a=e.take('tensor_attr',kind='output',index=i);validate_attr(a,i);attrs.append(a)
+        e.api('query_output_attr',tensor=i);a=e.take('tensor_attr',kind='output',index=i);validate_attr(a,i,profile=profile);attrs.append(a)
     e.take('feed_contract',type=0,fmt=3,pass_through=0,want_float=1,input_floats=292,output_count=5,ordering='C-order unchanged; no transpose')
     warmup_ok=True
     for phase,count in [('warmup',5),('measurement',92)]:
         for i in range(count):
             for api in APIS: e.api(api,phase,i)
-            for j,n in enumerate(ELEMENTS):
-                row=e.take('tensor_result',phase=phase,iteration=i,fixture=i,index=j,returned_index=j,label=LABELS[j],file=f'output-{LABELS[j]}.f32',elements=n,returned_bytes=4*n,offset_floats=-1 if phase=='warmup' else i*n,valid_buffer=True)
+            for j,n in enumerate(profile.elements):
+                row=e.take('tensor_result',phase=phase,iteration=i,fixture=i,index=j,returned_index=j,label=profile.labels[j],file=f'output-{profile.labels[j]}.f32',elements=n,returned_bytes=4*n,offset_floats=-1 if phase=='warmup' else i*n,valid_buffer=True)
                 nf=row.get('nonfinite');lo=row.get('minimum');hi=row.get('maximum')
                 require(type(nf) is int and 0<=nf<=n,'Invalid nonfinite count')
                 require((nf==n and lo is None and hi is None) or (nf<n and type(lo) in (int,float) and type(hi) in (int,float) and math.isfinite(lo) and math.isfinite(hi) and lo<=hi),'Invalid tensor extrema')
@@ -205,19 +249,22 @@ def compare_bundle(bundle,evidence,baseline_output=None):
             e.take('iteration',phase=phase,iteration=i,fixture=i,complete=True,return_codes={a:0 for a in APIS})
     e.api('destroy','cleanup');e.take('finish',status='success',exit_code=0,completed_measurements=92,expected_measurements=92,destroy_rc=0)
     require(e.index==len(rows),'Unexpected trailing events')
-    echo=inputs.astype('<f2').astype('<f4')
+    echo_result=dict(available=False,scope='No input echo in this fixed stem profile; no echo correctness claim')
+    if profile.echo:
+        echo=inputs.astype('<f2').astype('<f4')
+        echo_result=dict(bitwise_equal=actual[0].tobytes()==echo.tobytes(),mismatched_values=int((actual[0].view('<u4')!=echo.view('<u4')).sum()),expected='F32 input -> F16 -> F16 output -> F32, no permutation',metrics=metrics(actual[0],echo))
     taps=[]
-    for j,label in enumerate(LABELS):
+    for j,label in enumerate(profile.labels):
         taps.append(dict(index=j,label=label,metrics=metrics(actual[j],refs[j]),
             groups={g:metrics(actual[j][[c['group']==g for c in cases]],refs[j][[c['group']==g for c in cases]]) for g in ('real','synthetic')},
             cases=[dict(index=i,fixture=c['fixture'],group=c['group'],output_sha256=sha(actual[j][i].tobytes()),reference_sha256=sha(refs[j][i].tobytes()),**errors(actual[j][i],refs[j][i])) for i,c in enumerate(cases)]))
     result=dict(status='diagnostic_complete',execution_completed=True,application_eligible=False,performance_evidence=False,
         scope='Fixed graph with extra outputs; intermediate errors are measurements, not acceptance gates. Graph changes can alter RKNN optimization.',
         contract=manifest['contract'],thresholds=THRESHOLDS,sdk=sdk,output_attrs=attrs,
-        echo=dict(bitwise_equal=actual[0].tobytes()==echo.tobytes(),mismatched_values=int((actual[0].view('<u4')!=echo.view('<u4')).sum()),expected='F32 input -> F16 -> F16 output -> F32, no permutation',metrics=metrics(actual[0],echo)),
+        echo=echo_result,
         taps=taps,final52=dict(original_tflite=accuracy(actual[4],original,cases,warmup_ok),diagnostic_onnx=accuracy(actual[4],refs[4],cases,warmup_ok)),
         diagnostic_api_timing_ms={a:distribution(v) for a,v in e.timings.items()},
-        hashes={str(p.resolve()):file_sha(p) for p in [bundle/'manifest.json',evidence/'before.sha256',evidence/'after.sha256',evidence/'native-exit.json',log,*[evidence/f'output-{s}.f32' for s in LABELS]]})
+        hashes={str(p.resolve()):file_sha(p) for p in [bundle/'manifest.json',evidence/'before.sha256',evidence/'after.sha256',evidence/'native-exit.json',log,*[evidence/f'output-{s}.f32' for s in profile.labels]]})
     if baseline_output is not None:
         baseline_output=Path(baseline_output);require(file_sha(baseline_output)==BASELINE_SHA,'Unexpected original failed-v4 baseline hash')
         baseline=load_floats(baseline_output,52)
@@ -238,7 +285,7 @@ def main():
         print(json.dumps(dict(bundle=str(a.bundle),manifest_sha256=file_sha(a.bundle/'manifest.json'),files=manifest['files']),indent=2));return 0
     try:
         report=compare_bundle(a.bundle,a.evidence,a.baseline_output)
-        code=0 if report['echo']['bitwise_equal'] and all(g['passed'] for g in report['final52'].values()) else 1
+        code=0 if report['echo'].get('bitwise_equal',report['echo'].get('available') is False) and all(g['passed'] for g in report['final52'].values()) else 1
     except (ValueError,KeyError,OSError,TypeError) as error:
         report=dict(status='error',execution_completed=False,application_eligible=False,error=str(error));code=2
     write_json(a.output,report)

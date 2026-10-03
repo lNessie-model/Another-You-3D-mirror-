@@ -45,7 +45,7 @@ int main(int argc,char **argv){
     int (*init)(rknn_context*,void*,uint32_t,uint32_t,rknn_init_extend*)=NULL;
     int (*query)(rknn_context,rknn_query_cmd,void*,uint32_t)=NULL;int (*destroy)(rknn_context)=NULL;
     tap_api api={0};trace_state tracing={report,"setup",-1,-1,0,0};
-    fprintf(report,"{\"event\":\"start\",\"schema_version\":1,\"kind\":\"fixed_front_end_five_tap_diagnostic\",\"cases\":92,\"warmup\":5,\"input_floats\":292,\"outputs\":5,\"output_floats_per_case\":929,\"runtime_path\":");string(report,argv[1],4096);fputs(",\"performance_evidence\":false}\n",report);
+    fprintf(report,"{\"event\":\"start\",\"schema_version\":1,\"kind\":\"%s\",\"cases\":92,\"warmup\":5,\"input_floats\":292,\"outputs\":5,\"output_floats_per_case\":%u,\"runtime_path\":",TAP_KIND,TAP_TOTAL);string(report,argv[1],4096);fputs(",\"performance_evidence\":false}\n",report);
     for(unsigned i=0;i<TAP_COUNT;i++){
         char path[1024];int length=snprintf(path,sizeof(path),"%s/output-%s.f32",argv[5],tap_labels[i]);
         if(length<0||(size_t)length>=sizeof(path)||(files[i]=fopen(path,"wbx"))==NULL){status=3;goto finish;}
