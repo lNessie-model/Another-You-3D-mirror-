@@ -41,6 +41,8 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     private int contextGeneration;
     private boolean verifyMultiview,verifyBatch,verifyPersistentFbos,verifyCachedCameraVp,verifyMultiview16;
     private int verificationViewCount=20;
+    private int verificationViewHeight=720;
+    private boolean verificationConfigurationError;
     private TextView status;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -70,7 +72,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         scene=null;error="";runId=UUID.randomUUID().toString();startedNs=SystemClock.elapsedRealtimeNanos();contextGeneration++;
         try {
             write(new JSONObject().put("running",true).put("passed",false));
-            readVerificationViewCount(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
+            readVerificationConfiguration(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
             if((verifyMultiview?1:0)+(verifyBatch?1:0)+(verifyPersistentFbos?1:0)+(verifyCachedCameraVp?1:0)+(verifyMultiview16?1:0)>1)throw new IllegalArgumentException("Select one avatar verification per run");
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",true).put("passed",false));
             scene=AvatarGpuScene.builtin(getAssets(),false);
@@ -149,7 +151,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     }
     private void reportFailure(Throwable failure) {
         error=failure.toString();android.util.Log.e("AvatarPreview",error,failure);
-        show((verifyPersistentFbos||verifyCachedCameraVp?verificationViews()+"视点验证失败：":"预览失败：")+error);
+        show((verificationConfigurationError?"验证配置无效：":verifyPersistentFbos||verifyCachedCameraVp?verificationViews()+"视点验证失败：":"预览失败：")+error);
         try {
             write(new JSONObject().put("running",false).put("passed",false).put("error",error));
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
@@ -160,20 +162,38 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     private void readVerificationViewCount(Bundle extras,boolean debug){
         verificationViewCount=(verifyPersistentFbos||verifyCachedCameraVp)?RuntimeViewCount.read(extras,debug):20;
     }
+    private void readVerificationConfiguration(Bundle extras,boolean debug){
+        verificationConfigurationError=true;
+        verificationViewHeight=720;
+        if((verifyMultiview16||verifyPersistentFbos||verifyCachedCameraVp)&&extras!=null&&extras.containsKey("test_view_preset")){
+            Object raw=extras.get("test_view_preset");
+            if(!debug||!(raw instanceof String)||(!raw.equals("400x640")&&!raw.equals("400x720")))
+                throw new IllegalArgumentException("Avatar verification preset requires debug String 400x640 or 400x720");
+            verificationViewHeight=raw.equals("400x640")?640:720;
+        }
+        readVerificationViewCount(extras,debug);
+        if(verificationViewHeight==640&&verificationViews()!=16)throw new IllegalArgumentException("400x640 diagnostic requires sixteen views");
+        verificationConfigurationError=false;
+    }
     private int verificationViews(){return verifyMultiview16?16:(verifyPersistentFbos||verifyCachedCameraVp)?verificationViewCount:20;}
-    private String verificationFile(){return verifyMultiview16?"avatar-multiview16-check.json":verifyCachedCameraVp?(verificationViews()==16?"avatar-camera-vp16-check.json":"avatar-camera-vp-check.json"):verifyPersistentFbos?(verificationViews()==16?"avatar-persistent-fbo16-check.json":"avatar-persistent-fbo-check.json"):verifyBatch?"avatar-batch-check.json":"avatar-multiview-check.json";}
+    private String verificationFile(){
+        if(verificationConfigurationError)return "avatar-verification-config-error.json";
+        if(verificationViewHeight==640)return verifyMultiview16?"avatar-multiview16-400640-check.json":verifyCachedCameraVp?"avatar-camera-vp16-400640-check.json":"avatar-persistent-fbo16-400640-check.json";
+        return verifyMultiview16?"avatar-multiview16-check.json":verifyCachedCameraVp?(verificationViews()==16?"avatar-camera-vp16-check.json":"avatar-camera-vp-check.json"):verifyPersistentFbos?(verificationViews()==16?"avatar-persistent-fbo16-check.json":"avatar-persistent-fbo-check.json"):verifyBatch?"avatar-batch-check.json":"avatar-multiview-check.json";
+    }
     private String verificationProgressMessage(){
-        int views=verificationViews();
-        return verifyMultiview16?"正在严格核对69组动作的16个独立视点；可退出取消":verifyCachedCameraVp?"正在核对相机矩阵缓存及69组动作、"+views+"视点；可退出取消":verifyPersistentFbos?"正在核对固定帧缓冲的69组动作、"+views+"视点；可退出取消":verifyBatch?"正在核对合并绘制的69组动作、20视点；可退出取消":"正在核对69组动作的20个独立视点；可退出取消";
+        int views=verificationViews();String size=verificationViewHeight==640?" / 400×640":"";
+        return verifyMultiview16?"正在严格核对69组动作的16个独立视点"+size+"；可退出取消":verifyCachedCameraVp?"正在核对相机矩阵缓存及69组动作、"+views+"视点"+size+"；可退出取消":verifyPersistentFbos?"正在核对固定帧缓冲的69组动作、"+views+"视点"+size+"；可退出取消":verifyBatch?"正在核对合并绘制的69组动作、20视点；可退出取消":"正在核对69组动作的20个独立视点；可退出取消";
     }
     private String verificationFinishedMessage(boolean passed){
-        return passed?"69组动作、"+verificationViews()+"视点像素核对通过；光学与美术体验仍需验收":verificationViews()+"视点核对未通过，请查看报告";
+        String size=verificationViewHeight==640?" / 400×640":"";
+        return passed?"69组动作、"+verificationViews()+"视点"+size+"像素核对通过；光学与美术体验仍需验收":verificationViews()+"视点"+size+"核对未通过，请查看报告";
     }
     private void runVerification()throws Exception {
         int views=verificationViews();show(verificationProgressMessage());
-        JSONObject result=verifyMultiview16?AvatarMultiviewCheck.runSixteen(getAssets(),()->cancelled)
-                :verifyCachedCameraVp?AvatarCameraProjectionCheck.run(getAssets(),400,720,views,1200,1920,()->cancelled)
-                :verifyPersistentFbos?AvatarPersistentFboCheck.run(getAssets(),400,720,views,1200f/1920f,()->cancelled)
+        JSONObject result=verifyMultiview16?AvatarMultiviewCheck.runSixteen(getAssets(),400,verificationViewHeight,()->cancelled)
+                :verifyCachedCameraVp?AvatarCameraProjectionCheck.run(getAssets(),400,verificationViewHeight,views,1200,1920,()->cancelled)
+                :verifyPersistentFbos?AvatarPersistentFboCheck.run(getAssets(),400,verificationViewHeight,views,1200f/1920f,()->cancelled)
                 :verifyBatch?AvatarBatchCheck.run(getAssets(),400,720,20,1200f/1920f,()->cancelled)
                 :AvatarMultiviewCheck.run(getAssets(),400,720,20,1200f/1920f,()->cancelled);
         if(cancelled)result.put("passed",false).put("cancelled",true);
@@ -201,7 +221,10 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         report.put("updated_elapsed_ns",SystemClock.elapsedRealtimeNanos()).put("started_elapsed_ns",startedNs)
                 .put("run_id",runId).put("context_generation",contextGeneration).put("cancelled",cancelled)
                 .put("artwork_validated",false);
-        if(filename.equals(verificationFile()))report.put("requested_view_count",verificationViews());
+        if(filename.equals(verificationFile())){
+            if(verificationConfigurationError)report.put("configuration_valid",false);
+            else report.put("requested_view_count",verificationViews()).put("requested_view_width",400).put("requested_view_height",verificationViewHeight);
+        }
         if(cancelled)report.put("passed",false);
         AtomicFile file=new AtomicFile(new File(getFilesDir(),filename));FileOutputStream out=null;
         try{out=file.startWrite();out.write(report.toString(2).getBytes(StandardCharsets.UTF_8));file.finishWrite(out);}

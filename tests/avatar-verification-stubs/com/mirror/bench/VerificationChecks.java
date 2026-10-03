@@ -37,6 +37,9 @@ final class AvatarMultiviewCheck {
     public static JSONObject runSixteen(AssetManager assets,BooleanSupplier cancel)throws Exception {
         return VerificationCalls.run("sixteen",400,720,16,1200f/1920f,cancel);
     }
+    public static JSONObject runSixteen(AssetManager assets,int width,int height,BooleanSupplier cancel)throws Exception {
+        return VerificationCalls.run("sixteen",width,height,16,1200f/1920f,cancel);
+    }
     public static JSONObject run(AssetManager assets,int width,int height,int views,float aspect,BooleanSupplier cancel)throws Exception {
         return VerificationCalls.run("multiview",width,height,views,aspect,cancel);
     }

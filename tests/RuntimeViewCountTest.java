@@ -30,6 +30,17 @@ public final class RuntimeViewCountTest {
         bundle.putLong("test_view_count",16L);rejected(bundle,true);
         bundle.putFloat("test_view_count",16f);rejected(bundle,true);
         bundle.putString("test_view_count",null);rejected(bundle,true);rejected(bundle,false);
+        Bundle dimensions=new Bundle();dimensions.putInt("test_view_count",16);dimensions.putString("test_view_preset","400x640");
+        Object options=read.invoke(null,dimensions,true);
+        Field preset=type.getDeclaredField("viewPreset");preset.setAccessible(true);
+        check(preset.get(options).equals("400x640")&&count.getInt(options)==16);rejected(dimensions,false);
+        InterlaceRenderer configured=new InterlaceRenderer(16,.3f,true);configured.setViewSize(400,640);
+        for(String field:new String[]{"requestedViewWidth","requestedViewHeight"}){
+            Field size=InterlaceRenderer.class.getDeclaredField(field);size.setAccessible(true);
+            check(size.getInt(configured)==(field.equals("requestedViewWidth")?400:640));
+        }
+        try{AvatarMultiviewCheck.runSixteen(null,400,641,()->false);throw new AssertionError("invalid strict diagnostic dimensions");}
+        catch(IllegalArgumentException expected){checks++;}
         for(int value:new int[]{16,20}){
             InterlaceRenderer renderer=new InterlaceRenderer(value,.3f,true);renderer.setRuntimeMode(true);
             check(renderer.runtimeStatus().getInt("view_count")==value);

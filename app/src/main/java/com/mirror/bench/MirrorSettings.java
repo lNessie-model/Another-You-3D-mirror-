@@ -9,7 +9,8 @@ import java.util.Map;
 final class MirrorSettings {
     static final int SCHEMA_VERSION = 3;
     static final int[] ANALYSIS_RATES = {10, 17, 20};
-    static final String[] VIEW_PRESETS = {"240x720", "320x576", "400x720"};
+    static final String DEFAULT_VIEW_PRESET = "400x640";
+    static final String[] VIEW_PRESETS = {"240x720", "320x576", "400x720", DEFAULT_VIEW_PRESET};
     final int activeFps, viewWidth, viewHeight;
     final String viewPreset, warning;
     final PanelCalibration panel;
@@ -18,7 +19,7 @@ final class MirrorSettings {
 
     private MirrorSettings(int activeFps, String viewPreset, PanelCalibration panel, CameraControlSettings camera, boolean writable, String warning) {
         this.activeFps = allowedRate(activeFps) ? activeFps : 17;
-        this.viewPreset = allowedPreset(viewPreset) ? viewPreset : "320x576";
+        this.viewPreset = allowedPreset(viewPreset) ? viewPreset : DEFAULT_VIEW_PRESET;
         String[] dimensions = this.viewPreset.split("x");
         viewWidth = Integer.parseInt(dimensions[0]); viewHeight = Integer.parseInt(dimensions[1]);
         this.panel = panel; this.camera = camera; this.writable = writable; this.warning = warning;
@@ -28,15 +29,15 @@ final class MirrorSettings {
         int version;
         try { version = integer(values,"schema_version",0); }
         catch (RuntimeException bad) {
-            return new MirrorSettings(17,"320x576",PanelCalibration.defaults(),CameraControlSettings.DEFAULT,false,"配置版本损坏，未覆盖原配置");
+            return new MirrorSettings(17,DEFAULT_VIEW_PRESET,PanelCalibration.defaults(),CameraControlSettings.DEFAULT,false,"配置版本损坏，未覆盖原配置");
         }
         if(version < 0 || version > SCHEMA_VERSION)
-            return new MirrorSettings(17,"320x576",PanelCalibration.defaults(),CameraControlSettings.DEFAULT,false,"配置版本不兼容，未覆盖原配置");
-        int fps = 17; String preset = "320x576", warning = "";
+            return new MirrorSettings(17,DEFAULT_VIEW_PRESET,PanelCalibration.defaults(),CameraControlSettings.DEFAULT,false,"配置版本不兼容，未覆盖原配置");
+        int fps = 17; String preset = DEFAULT_VIEW_PRESET, warning = "";
         try {
-            fps = integer(values,"active_fps",17); preset = string(values,"view_preset","320x576");
+            fps = integer(values,"active_fps",17); preset = string(values,"view_preset",DEFAULT_VIEW_PRESET);
             if(!allowedRate(fps)||!allowedPreset(preset)) throw new IllegalArgumentException();
-        } catch(RuntimeException bad) { fps=17; preset="320x576"; warning="运行配置无效，暂用默认值"; }
+        } catch(RuntimeException bad) { fps=17; preset=DEFAULT_VIEW_PRESET; warning="运行配置无效，暂用默认值"; }
         PanelCalibration panel = PanelCalibration.defaults();
         if(version >= 2) try {
             panel = new PanelCalibration(decimal(values,"panel_pitch",10f), decimal(values,"panel_tan",.2777777f),
@@ -59,6 +60,7 @@ final class MirrorSettings {
         if(!allowedRate(fps)||!allowedPreset(preset)) throw new IllegalArgumentException("Unsupported runtime profile");
         return new MirrorSettings(fps,preset,panel,camera,true,"");
     }
+    MirrorSettings withDefaultProfile() { return withProfile(17,DEFAULT_VIEW_PRESET); }
     MirrorSettings withPanel(PanelCalibration value) {
         requireWritable();
         if(value == null) throw new IllegalArgumentException("Panel calibration required");

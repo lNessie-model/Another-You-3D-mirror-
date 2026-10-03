@@ -178,6 +178,16 @@ class RuntimeMetricsTests(unittest.TestCase):
         self.assertFalse(any("shared_prefs" in call[-1] for call in calls))
         self.assertEqual(payload["arguments"]["view_preset"], "400x720")
 
+    def test_400640_cli_and_same_size_start_resume_contract(self):
+        with patch.object(sys,"argv",["run_runtime_check.py","--name","offline","--output-dir",".","--view-preset","400x640"]):
+            self.assertEqual(runtime.arguments().view_preset,"400x640")
+        payload,calls=self.offline_collection(False,view_preset="400x640",view_count=16)
+        launches=[call[-1] for call in calls if call[-1].startswith("am start -n "+runtime.COMPONENT)]
+        self.assertEqual(len(launches),2)
+        self.assertTrue(all(command.count("--es test_view_preset 400x640")==1 and "--ei test_view_count 16" in command for command in launches))
+        self.assertEqual(payload["arguments"]["view_preset"],"400x640")
+        self.assertFalse(any("shared_prefs" in call[-1] for call in calls))
+
     def test_collector_preserves_actual_art_state_instead_of_assuming_speed(self):
         payload, calls = self.offline_collection(False)
         self.assertIn("status=quicken", payload["app_package_state_before_run"])

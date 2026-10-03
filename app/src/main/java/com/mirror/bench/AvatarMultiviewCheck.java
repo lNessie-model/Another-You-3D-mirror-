@@ -23,7 +23,11 @@ public final class AvatarMultiviewCheck {
     }
     /** Explicit sixteen-view profile: strict RGBA, independent serial shader versus four-view OVR. */
     public static JSONObject runSixteen(AssetManager assets,BooleanSupplier cancelled)throws Exception {
-        return runComparison(assets,400,720,16,1200f/1920f,cancelled,false,false,false,0,0,true);
+        return runSixteen(assets,400,720,cancelled);
+    }
+    public static JSONObject runSixteen(AssetManager assets,int width,int height,BooleanSupplier cancelled)throws Exception {
+        if(width!=400||(height!=640&&height!=720))throw new IllegalArgumentException("Strict sixteen-view diagnostic requires 400x640 or 400x720");
+        return runComparison(assets,width,height,16,1200f/1920f,cancelled,false,false,false,0,0,true);
     }
     static JSONObject sixteenProfile()throws Exception {
         return new JSONObject().put("verification_profile","avatar_16views_strict").put("views",16)

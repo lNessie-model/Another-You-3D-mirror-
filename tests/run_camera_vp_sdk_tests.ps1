@@ -7,7 +7,7 @@ if((Get-FileHash -LiteralPath $json -Algorithm SHA256).Hash -ne '3CF6CD6892E32E2
 New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $names=@('AvatarCameraProjectionCache','AvatarCameraProjectionCheck','PersistentMultiviewFbos','PersistentMultiviewGl','MultiviewGl','InterlaceRenderer','MirrorActivity',
     'AvatarMultiviewCheck','AvatarPersistentFboCheck','AvatarBatchCheck','AvatarPixelComparison','AvatarPoseFixtures','AvatarPreviewActivity',
-    'RuntimeViewCount','RuntimeGlLifecycle','CalibrationActivity','PanelPreviewActivity')
+    'RuntimeViewCount','RuntimeGlLifecycle','MirrorSettings','CalibrationActivity','PanelPreviewActivity')
 $sources=$names | ForEach-Object {Join-Path $root "app\src\main\java\com\mirror\bench\$_.java"}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp "$json;$AndroidJar;$built" -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'Camera VP actual SDK compilation failed'}

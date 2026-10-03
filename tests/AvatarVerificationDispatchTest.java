@@ -19,7 +19,7 @@ public final class AvatarVerificationDispatchTest {
     private static Object call(Object value,String name)throws Exception{return invoke(value,name,new Class<?>[0]);}
     private static AvatarPreviewActivity activity(String route)throws Exception {
         AvatarPreviewActivity a=(AvatarPreviewActivity)unsafe.allocateInstance(AvatarPreviewActivity.class);
-        set(a,"verificationViewCount",20);set(a,"error","");set(a,"runId","fixture-run");
+        set(a,"verificationViewCount",20);set(a,"verificationViewHeight",720);set(a,"error","");set(a,"runId","fixture-run");
         if(!route.equals("none"))set(a,route,true);
         return a;
     }
@@ -98,6 +98,57 @@ public final class AvatarVerificationDispatchTest {
         JSONObject failure=read(directory.resolve("avatar-camera-vp16-check.json"));
         check(!failure.getBoolean("passed")&&!failure.getBoolean("running"));
         check(failure.getInt("requested_view_count")==16);check(failure.getString("error").contains("Select one"));
+        for(String route:new String[]{"verifyMultiview16","verifyPersistentFbos","verifyCachedCameraVp"}){
+            var a=activity(route);Bundle b=new Bundle();b.putInt("test_view_count",16);b.putString("test_view_preset","400x640");
+            invoke(a,"readVerificationConfiguration",new Class<?>[]{Bundle.class,boolean.class},b,true);
+            String stem=route.equals("verifyMultiview16")?"avatar-multiview16":route.equals("verifyPersistentFbos")?"avatar-persistent-fbo16":"avatar-camera-vp16";
+            Path old=directory.resolve(stem+"-check.json"),report=directory.resolve(stem+"-400640-check.json");Files.writeString(old,"old 720 sentinel");
+            check(call(a,"verificationFile").equals(report.getFileName().toString()));
+            android.app.Activity.intent=new android.content.Intent(null,AvatarPreviewActivity.class).putExtra("test_view_count",16).putExtra("test_view_preset","400x640");
+            AvatarGpuScene.failure=null;a.onSurfaceCreated(null,null);JSONObject data=read(report);
+            check(data.getBoolean("running")&&data.getInt("requested_view_width")==400&&data.getInt("requested_view_height")==640);
+            call(a,"runVerification");data=read(report);
+            check(VerificationCalls.views==16&&VerificationCalls.width==400&&VerificationCalls.height==640);
+            check(data.getBoolean("passed")&&!data.getBoolean("running")&&data.getInt("requested_view_height")==640);
+            check(((String)call(a,"verificationProgressMessage")).contains("400×640"));
+            AvatarGpuScene.failure=new IllegalStateException("640 fixture failure");a.onSurfaceCreated(null,null);
+            check(!read(report).getBoolean("passed")&&read(report).getString("error").contains("640 fixture"));AvatarGpuScene.failure=null;
+            VerificationCalls.during=()->{try{set(a,"cancelled",true);}catch(Exception e){throw new AssertionError(e);}};
+            call(a,"runVerification");VerificationCalls.during=null;
+            check(read(report).getBoolean("cancelled")&&!read(report).getBoolean("passed"));
+            check(Files.readString(old).equals("old 720 sentinel"));
+            for(Object bad:new Object[]{null,640,true,"400x641","320x576"}){
+                Bundle invalid=new Bundle();invalid.putInt("test_view_count",16);
+                if(bad instanceof Integer)invalid.putInt("test_view_preset",(Integer)bad);
+                else if(bad instanceof Boolean)invalid.putBoolean("test_view_preset",(Boolean)bad);
+                else invalid.putString("test_view_preset",(String)bad);
+                try{invoke(a,"readVerificationConfiguration",new Class<?>[]{Bundle.class,boolean.class},invalid,true);throw new AssertionError("bad preset accepted");}
+                catch(InvocationTargetException expected){check(expected.getCause() instanceof IllegalArgumentException);}
+            }
+            try{invoke(a,"readVerificationConfiguration",new Class<?>[]{Bundle.class,boolean.class},b,false);throw new AssertionError("non-debug preset accepted");}
+            catch(InvocationTargetException expected){check(expected.getCause() instanceof IllegalArgumentException);}
+        }
+        for(Object bad:new Object[]{"400x641",null,640}){
+            var a=activity("verifyPersistentFbos");
+            android.content.Intent invalid=new android.content.Intent(null,AvatarPreviewActivity.class).putExtra("test_view_count",16);
+            if(bad instanceof Integer)invalid.putExtra("test_view_preset",(Integer)bad);else invalid.putExtra("test_view_preset",(String)bad);
+            android.app.Activity.intent=invalid;
+            Path old16=directory.resolve("avatar-persistent-fbo16-check.json"),old20=directory.resolve("avatar-persistent-fbo-check.json");
+            Files.writeString(old16,"valid 16 720 sentinel");Files.writeString(old20,"valid 20 720 sentinel");
+            a.onSurfaceCreated(null,null);
+            check(Files.readString(old16).equals("valid 16 720 sentinel")&&Files.readString(old20).equals("valid 20 720 sentinel"));
+            JSONObject invalidReport=read(directory.resolve("avatar-verification-config-error.json"));
+            check(!invalidReport.getBoolean("passed")&&!invalidReport.getBoolean("running"));
+            check(!invalidReport.has("requested_view_count")&&!invalidReport.has("requested_view_height"));
+            check(invalidReport.getString("error").contains("preset requires"));
+        }
+        var wrongCount=activity("verifyPersistentFbos");
+        android.app.Activity.intent=new android.content.Intent(null,AvatarPreviewActivity.class).putExtra("test_view_count",20).putExtra("test_view_preset","400x640");
+        Path twenty=directory.resolve("avatar-persistent-fbo-check.json");Files.writeString(twenty,"old 20 sentinel");
+        wrongCount.onSurfaceCreated(null,null);
+        JSONObject wrong=read(directory.resolve("avatar-verification-config-error.json"));
+        check(!wrong.getBoolean("passed")&&wrong.getString("error").contains("sixteen views"));
+        check(Files.readString(twenty).equals("old 20 sentinel"));
         System.out.println("AvatarVerificationDispatchTest: "+checks+" checks passed; SDK linkage and host dispatch/file I/O only, no GL/pixel claim");
     }
 }

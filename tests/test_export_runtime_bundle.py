@@ -220,6 +220,11 @@ class ExportBundleTest(unittest.TestCase):
         self.assertEqual(self.out.read_bytes(), b"keep-existing")
         self.assertFalse(self.trace.exists())
 
+    def test_new_legal_400640_settings_are_exported_without_defaulting_old_values(self):
+        data=b'<map><int name="schema_version" value="3"/><string name="view_preset">400x640</string></map>'
+        self.export({"files":{"shared_prefs/mirror-runtime.xml":data.decode()}})
+        self.assertEqual(json.loads(self.read()["settings.json"])["view_preset"],"400x640")
+
     def test_cli_refuses_existing_destination_with_nonzero_exit_and_actionable_error(self):
         self.out.write_bytes(b"keep-existing")
         errors = io.StringIO()

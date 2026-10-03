@@ -315,7 +315,7 @@ def settings_summary(data):
     validators = {
         "schema_version": lambda v: number(v, integer=True, minimum=0, maximum=3),
         "active_fps": lambda v: v if type(v) is int and v in (10, 17, 20) else enum(v, ()),
-        "view_preset": lambda v: enum(v, ("240x720", "320x576", "400x720")),
+        "view_preset": lambda v: enum(v, ("240x720", "320x576", "400x720", "400x640")),
         "panel_pitch": lambda v: number(v, minimum=1, maximum=4096),
         "panel_tan": lambda v: number(v, minimum=-4, maximum=4),
         "panel_phase": lambda v: number(v, minimum=-1024, maximum=1024),

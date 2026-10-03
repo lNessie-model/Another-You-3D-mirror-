@@ -353,6 +353,17 @@ public final class MirrorActivity extends Activity {
         for (int i = 0; i < MirrorSettings.VIEW_PRESETS.length; i++)
             if (MirrorSettings.VIEW_PRESETS[i].equals(settings.viewPreset)) views.setSelection(i);
         panel.addView(views);
+        Button defaultsButton=new Button(this);defaultsButton.setText("恢复运行默认（仅修改草稿）");panel.addView(defaultsButton);
+        defaultsButton.setOnClickListener(v->{
+            try {
+                MirrorSettings draft=settings.withDefaultProfile();
+                for(int i=0;i<MirrorSettings.ANALYSIS_RATES.length;i++)if(MirrorSettings.ANALYSIS_RATES[i]==draft.activeFps)rates.setSelection(i);
+                for(int i=0;i<MirrorSettings.VIEW_PRESETS.length;i++)if(MirrorSettings.VIEW_PRESETS[i].equals(draft.viewPreset))views.setSelection(i);
+                android.widget.Toast.makeText(this,"草稿为17 FPS / 400×640；保存后生效",android.widget.Toast.LENGTH_SHORT).show();
+            } catch(RuntimeException invalid) {
+                android.widget.Toast.makeText(this,"未修改草稿："+invalid.getMessage(),android.widget.Toast.LENGTH_LONG).show();
+            }
+        });
         Button calibrationButton=new Button(this);calibrationButton.setText("屏幕校准 / "+options.viewCount+"视点测试图");panel.addView(calibrationButton);
         Button avatarButton=new Button(this);avatarButton.setText("角色管理 / 导入与预览");panel.addView(avatarButton);
         Button cameraButton=new Button(this);cameraButton.setText("相机与动作校准");panel.addView(cameraButton);
