@@ -150,13 +150,16 @@ def bake_head(source,output,detail_levels=0,atlas=False):
         pbr=glb.doc['materials'][primitive['material']]['pbrMetallicRoughness'];factor=pbr.get('baseColorFactor',factor)
         texture=glb.doc['textures'][pbr['baseColorTexture']['index']]
         pixels=np.rint(glb.image(texture['source'])*255).astype(np.uint8)
-        encoded=io.BytesIO();Image.fromarray(pixels).save(encoded,format='PNG');atlas_png=encoded.getvalue()
+        encoded=io.BytesIO();Image.fromarray(pixels).save(encoded,format='PNG',optimize=True,compress_level=9);atlas_png=encoded.getvalue()
+        assert np.array_equal(np.asarray(Image.open(io.BytesIO(atlas_png))),pixels),'Lossless atlas conversion must retain every RGB texel'
     path=output/'head-base.glb';write_glb(path,positions-pivot,normals,colours,indices,head_pivot=pivot,uv=uv if atlas else None,atlas_png=atlas_png,base_colour_factor=factor)
     np.savez_compressed(output/'head-base.npz',positions=positions,normals=normals,colours=colours,indices=indices,uv=uv,head_pivot=pivot,scale=scale)
     report={'source':str(source.resolve()),'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'output':str(path.resolve()),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
        'observed_source_front':'+X','rotation':'proper rotation: original (x,y,z) -> (-z,y,x)','scale':float(scale),'vertices':len(positions),'triangles':len(indices),
        'texture_conversion':'original sRGB base-colour retained as one embedded RGB8 PNG; normal/ORM not retained' if atlas else 'linear base-colour texels sampled bilinearly at vertices; normal/ORM textures not retained','facial_targets':0,'head_pivot':pivot.tolist(),
        'added_texture_detail_vertices':len(positions)-source_vertices,'detail_levels':detail_levels,
+       'atlas_png_bytes':len(atlas_png) if atlas_png is not None else None,
+       'atlas_lossless_rgb_verified':True if atlas_png is not None else None,
        'scope':'Compatible geometry stage only; not an importable completed facial avatar'}
     (output/'base-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     return report
