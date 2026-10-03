@@ -86,6 +86,14 @@
 
 8 份 `v13-*-prefs-presence.json` 均为 `exists=false`，包括[初始](../../output/mirror-program/20261003/v13-main-prefs-presence.json)、[预览稳定](../../output/mirror-program/20261003/v13-panel-stable-prefs-presence.json)、[取消确认](../../output/mirror-program/20261003/v13-cancel-confirmed-prefs-presence.json)和[HOME 恢复](../../output/mirror-program/20261003/v13-home-resumed-prefs-presence.json)。采集脚本使用 `test -f` 的 0/1 返回值，避开了 v12 曾发生的 `cat` 错误文本误报存在。本轮只预览/取消，没有显式保存，原先不存在的安装配置文件仍未创建。
 
+## 摄像头权限拒绝尝试：未实际进入拒绝分支
+
+操作者记录了两次 `pm revoke` 返回 0，第二次显式指定 `--user 0`；但返回码不能证明授权已撤销。[撤销前 package 记录](../../output/mirror-program/20261003/v13-permission-before-package.txt)与[撤销后、尚未重新启动应用的记录](../../output/mirror-program/20261003/v13-permission-after-revoke-package.txt)均显示 `android.permission.CAMERA: granted=true`，flags 同为 `USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED`。后者的 User 0 状态为 `stopped=true`，与 force-stop 后尚未重新启动的采集顺序一致。[尝试摘要](../../output/mirror-program/20261003/v13-permission-attempt.json)据此明确标为 `not_exercised`；[revoke 输出文件](../../output/mirror-program/20261003/v13-permission-revoke-result.txt)是空文本，不能单独证明权限状态或弹窗行为。这些证据只说明本次操作未改变查询到的授权状态，不足以归因于厂商的某种具体权限策略。
+
+离线查看[名为 prompt 的截图](../../output/mirror-program/20261003/v13-permission-prompt.png)，实际是主角色画面及“等待人脸”，没有权限对话框；同名 [prompt.xml](../../output/mirror-program/20261003/v13-permission-prompt.xml)实际只有 `cat: /data/local/tmp/mirror-permission.xml: No such file or directory` 错误文本，不是有效 UI XML。因此不能将文件名或命令成功当作权限提示、拒绝后错误提示、再次授权恢复已经通过。
+
+[恢复运行状态](../../output/mirror-program/20261003/v13-permission-attempt-restored-status.json)属于新 session `7c294ba5-182e-49a0-bcfb-c435782e21c8`、sequence=2，输入 `camera`、Camera2 ID `0`，相机已有 capture/received 各 1 帧；当前 WAITING，运行、渲染、控制和 source 错误为空，面板关闭。它支持原授权状态下应用已重新打开相机，不能替代拒绝分支验证，也不是稳态性能样本。撤销前/后 package 文件 SHA-256 分别为 `a56c512de148da218f30239cfe9af87606c7ed6bef90f00b86f487e4c17af4bd` / `156162c396f96c22fb8b5c016d6325519f569e0647ecb3e2ba16c667920e15c2`；尝试摘要 SHA-256 为 `6b56267eba7b602cb6c87268d6ef7d0e8e2675aa5cf2c26a668e9e6980c2b93f`。**真正的拒绝、重试和重新授权流程仍待实测。**
+
 ## 验收结论的范围
 
 本轮通过的是短流程的可见预览、暂停主渲染而保持相机、取消恢复、再次打开以及 HOME 采集点释放/首帧恢复。没有发现这组记录中的额外 pose worker 或重复 CameraAcquire。预览提交计数和可见截图共同支持实际渲染，而不是只展示一个静态占位图，但本轮无脸意味着角色始终可处于中性状态。
