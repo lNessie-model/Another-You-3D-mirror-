@@ -208,6 +208,67 @@ def sqrt_pow(source):
     onnx.checker.check_model(model)
     return model, changes
 
+def div_multiply_pow(source):
+    """Fixed-graph division rewrite; preserve each numerator and denominator exactly."""
+    import onnx
+    from onnx import helper, numpy_helper
+    model = copy.deepcopy(source)
+    prefix = "model_1/GhumMarkerPoserMlpMixerGeneral/MLPMixer/"
+    expected = {}
+    for i in range(8):
+        parent = prefix + "MixerBlock_%d/layer_norm%d/batchnorm/Rsqrt" % (i // 2, i % 2 + 1)
+        name = parent + "__" + str(43 + 8 * i)
+        expected[name] = (name + "/literal_one", parent)
+    front = "model_1/tf.math.truediv_1/truediv"
+    expected[front] = ("model_1/tf.math.subtract/Sub", "model_1/tf.math.reduce_mean_1/Mean")
+    targets = [n for n in model.graph.node if n.op_type == "Div"]
+    require(len(targets) == 9 and {n.name for n in targets} == set(expected),
+            "Expected precisely the nine validated division nodes")
+    producers = {v: n for n in model.graph.node for v in n.output}
+    constants = {c.name: numpy_helper.to_array(c) for c in model.graph.initializer}
+    occupied = {v for n in model.graph.node for v in list(n.input) + list(n.output)}
+    occupied.update(c.name for c in model.graph.initializer)
+    node_names = {n.name for n in model.graph.node}
+    rewritten, changes = [], []
+    for node in model.graph.node:
+        if node.op_type != "Div":
+            rewritten.append(node)
+            continue
+        require(tuple(node.input) == expected[node.name] and len(node.output) == 1,
+                "Division operand identity or arity changed")
+        numerator, denominator = node.input
+        parent = producers.get(denominator)
+        if node.name == front:
+            require(parent is not None and parent.name == denominator and parent.op_type == "ReduceMean"
+                    and numerator in producers and producers[numerator].op_type == "Sub"
+                    and producers[numerator].name == numerator, "Coordinate normalization parents changed")
+        else:
+            one, half = constants.get(numerator), constants.get(denominator + "/literal_half")
+            require(one is not None and one.dtype == np.float32 and one.shape == (1,) and one[0] == 1,
+                    "LayerNorm division numerator is not literal float32 one")
+            require(parent is not None and parent.name == denominator and parent.op_type == "Pow"
+                    and len(parent.input) == 2 and parent.input[1] == denominator + "/literal_half"
+                    and half is not None and half.dtype == np.float32 and half.shape == (1,) and half[0] == .5,
+                    "LayerNorm division denominator is not the preserved half power")
+        power = node.name + "/reciprocal_pow"
+        exponent, reciprocal = power + "/literal_minus_one", power + ":0"
+        require(power not in node_names and all(v not in occupied for v in (power, exponent, reciprocal)),
+                "Division rewrite name collision")
+        occupied.update((power, exponent, reciprocal)); node_names.add(power)
+        model.graph.initializer.append(numpy_helper.from_array(np.asarray([-1.0], np.float32), exponent))
+        rewritten.append(helper.make_node("Pow", [denominator, exponent], [reciprocal], name=power))
+        node.op_type = "Mul"
+        node.input[1] = reciprocal
+        rewritten.append(node)
+        changes.append({"node": node.name, "from_op": "Div", "to_ops": ["Pow", "Mul"],
+                        "numerator": numerator, "denominator": denominator,
+                        "reciprocal_node": power, "exponent_float32": -1.0,
+                        "scope": "input_coordinate_normalization" if node.name == front else "layer_norm"})
+    del model.graph.node[:]
+    model.graph.node.extend(rewritten)
+    onnx.checker.check_model(model)
+    return model, changes
+
 def save_json(path, value):
     temporary = path.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
@@ -272,6 +333,7 @@ def prepare(args):
         div_candidate, report["reciprocal_changes"] = reciprocal_div(conv_candidate)
         neg_candidate, report["negation_changes"] = neg_multiply(div_candidate)
         pow_candidate, report["sqrt_changes"] = sqrt_pow(neg_candidate)
+        mulpow_candidate, report["division_changes"] = div_multiply_pow(pow_candidate)
         _, report["toolkit_parser"] = _toolkit()
         from rknn.base.convertor.tensorflow2onnx.tf2onnx.tflite.Model import Model
         tflite = Model.GetRootAsModel(args.source.read_bytes(), 0)
@@ -291,13 +353,14 @@ def prepare(args):
             change["source_tflite_tensor_index"] = tensor_index
             change["source_tflite_tensor_name"] = source_name
         paths = {name: directory / (name + ".onnx")
-                 for name in ("baseline", "rank4-gamma", "gamma-conv", "gamma-conv-div", "gamma-conv-div-neg", "gamma-conv-div-neg-pow")}
+                 for name in ("baseline", "rank4-gamma", "gamma-conv", "gamma-conv-div", "gamma-conv-div-neg", "gamma-conv-div-neg-pow", "gamma-conv-mulpow")}
         onnx.save(baseline, str(paths["baseline"]))
         onnx.save(candidate, str(paths["rank4-gamma"]))
         onnx.save(conv_candidate, str(paths["gamma-conv"]))
         onnx.save(div_candidate, str(paths["gamma-conv-div"]))
         onnx.save(neg_candidate, str(paths["gamma-conv-div-neg"]))
         onnx.save(pow_candidate, str(paths["gamma-conv-div-neg-pow"]))
+        onnx.save(mulpow_candidate, str(paths["gamma-conv-mulpow"]))
         report["candidates"] = {name: {"file": p.name, "sha256": sha256(p), "bytes": p.stat().st_size}
                                  for name, p in paths.items()}
         rows, report["official_indices"] = fixtures(args.quality, args.graph)
@@ -423,7 +486,7 @@ def main():
         prepare_parser.add_argument("--" + name, type=Path, required=True)
     compile_parser = modes.add_parser("compile")
     compile_parser.add_argument("--validation", type=Path, required=True)
-    compile_parser.add_argument("--candidate", choices=("baseline", "rank4-gamma", "gamma-conv", "gamma-conv-div", "gamma-conv-div-neg", "gamma-conv-div-neg-pow"), required=True)
+    compile_parser.add_argument("--candidate", choices=("baseline", "rank4-gamma", "gamma-conv", "gamma-conv-div", "gamma-conv-div-neg", "gamma-conv-div-neg-pow", "gamma-conv-mulpow"), required=True)
     compile_parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     return prepare(args) if args.mode == "prepare" else compile_validated(args)

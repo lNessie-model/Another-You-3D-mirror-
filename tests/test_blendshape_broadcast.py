@@ -21,6 +21,58 @@ def fixture():
     return helper.make_model(graph, opset_imports=[helper.make_opsetid("", 11)])
 
 class BroadcastTests(unittest.TestCase):
+    def test_div_multiply_pow_preserves_all_nine_numerators_and_broadcasts(self):
+        from blendshape_broadcast import div_multiply_pow
+        import onnxruntime as ort
+        prefix = "model_1/GhumMarkerPoserMlpMixerGeneral/MLPMixer/"
+        numerator = "model_1/tf.math.subtract/Sub"
+        denominator = "model_1/tf.math.reduce_mean_1/Mean"
+        nodes = [helper.make_node("Sub", ["points", "zero"], [numerator], name=numerator),
+                 helper.make_node("ReduceMean", ["scale"], [denominator], name=denominator, axes=[1], keepdims=1),
+                 helper.make_node("Div", [numerator, denominator], ["normalized"], name="model_1/tf.math.truediv_1/truediv")]
+        outputs = [helper.make_tensor_value_info("normalized", TensorProto.FLOAT, [1, 146, 2])]
+        constants = [numpy_helper.from_array(np.asarray([0], np.float32), "zero")]
+        for i in range(8):
+            parent = prefix + "MixerBlock_%d/layer_norm%d/batchnorm/Rsqrt" % (i//2, i%2+1)
+            name = parent + "__" + str(43 + 8*i)
+            constants += [numpy_helper.from_array(np.asarray([.5], np.float32), parent + "/literal_half"),
+                          numpy_helper.from_array(np.asarray([1.], np.float32), name + "/literal_one")]
+            nodes.append(helper.make_node("Pow", ["variance", parent+"/literal_half"], [parent], name=parent))
+            nodes.append(helper.make_node("Div", [name+"/literal_one", parent], ["out"+str(i)], name=name))
+            outputs.append(helper.make_tensor_value_info("out"+str(i), TensorProto.FLOAT, [1, 1, 97, 1]))
+        source = helper.make_model(helper.make_graph(nodes, "division", [
+            helper.make_tensor_value_info("points", TensorProto.FLOAT, [1,146,2]),
+            helper.make_tensor_value_info("scale", TensorProto.FLOAT, [1,146,1]),
+            helper.make_tensor_value_info("variance", TensorProto.FLOAT, [1,1,97,1])], outputs, constants),
+            opset_imports=[helper.make_opsetid("",11)])
+        before = source.SerializeToString()
+        candidate, changes = div_multiply_pow(source)
+        self.assertEqual(source.SerializeToString(), before)
+        self.assertEqual(len(changes),9)
+        self.assertEqual(sum(n.op_type=="Div" for n in candidate.graph.node),0)
+        self.assertEqual(sum(n.op_type=="Pow" for n in candidate.graph.node),17)
+        self.assertEqual([v.SerializeToString() for v in source.graph.initializer],
+                         [v.SerializeToString() for v in candidate.graph.initializer[:len(source.graph.initializer)]])
+        opts = ort.SessionOptions(); opts.intra_op_num_threads = opts.inter_op_num_threads = 1
+        a=ort.InferenceSession(source.SerializeToString(),opts); b=ort.InferenceSession(candidate.SerializeToString(),opts)
+        data={"points":np.linspace(-50,50,292,dtype=np.float32).reshape(1,146,2),
+              "scale":np.geomspace(1.2,83.5,146).astype(np.float32).reshape(1,146,1),
+              "variance":np.geomspace(.028**2,3.6**2,97).astype(np.float32).reshape(1,1,97,1)}
+        for expected,actual in zip(a.run(None,data),b.run(None,data)):
+            np.testing.assert_allclose(expected,actual,atol=1e-5,rtol=0)
+        source.graph.node[2].input[:] = list(reversed(source.graph.node[2].input))
+        with self.assertRaises(ValueError):div_multiply_pow(source)
+        source.ParseFromString(before);source.graph.initializer[2].CopyFrom(
+            numpy_helper.from_array(np.asarray([2.],np.float32),source.graph.initializer[2].name))
+        with self.assertRaises(ValueError):div_multiply_pow(source)
+        source.ParseFromString(before);source.graph.node.pop()
+        with self.assertRaises(ValueError):div_multiply_pow(source)
+        source.ParseFromString(before);source.graph.node[2].name="unexpected/div"
+        with self.assertRaises(ValueError):div_multiply_pow(source)
+        source.ParseFromString(before);source.graph.node.append(helper.make_node(
+            "Identity",["points"],["unused"],name="model_1/tf.math.truediv_1/truediv/reciprocal_pow"))
+        with self.assertRaises(ValueError):div_multiply_pow(source)
+
     def test_sqrt_pow_covers_norm_and_all_layer_norms(self):
         import onnxruntime as ort
         names = ["model_1/tf.compat.v1.norm/norm/Sqrt"] + [

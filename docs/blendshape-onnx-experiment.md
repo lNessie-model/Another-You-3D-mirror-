@@ -1,6 +1,6 @@
 # 52 表情网络的等义 ONNX / RKNN 1.3 编译实验
 
-2026-10-03：已在现有离线工具链生成可导出的 RKNN 候选，首个产物 `gamma-conv-div-neg` 的 92 × 52 ONNX 数值对照及编译导出通过；**随后独立板端验证在初始化阶段因不支持 Sqrt 而 SIGABRT，尚无一组 RKNN 输出。** 板端兼容性、FP16 精度、耗时及联合负载收益均未通过。编译表明确包含 CPU / NPU 混合分区，不能称为纯 NPU 模型。后续 Pow 候选的进展见末节。
+2026-10-03：已在现有离线工具链生成可导出的 RKNN 候选。首个产物在板端初始化时因 Sqrt 不支持而 SIGABRT；Pow 候选已初始化成功，但推理时因 Div 类型不支持而 SIGABRT。**目前尚无一组 RKNN 输出，板端兼容性、FP16 精度、耗时及联合负载收益均未通过。** 最新 `gamma-conv-mulpow` 已通过原 TFLite 的 92 × 52 ONNX 数值门和编译导出，等待设备验收，见末节。编译表明确包含 CPU / NPU 混合分区，不能称为纯 NPU 模型。
 
 离线转换没有修改应用默认模型、Java/native 运行流水线、驱动或系统，没有安装依赖或上传模型。设备测试由独立诊断程序加载现有 vendor runtime，未替换运行库或默认模型。目标仍是保留 478 点、52 项表情、姿态及 20 视图联合负载，为 UI 留出资源；本轮不能据此宣称 30 FPS 达标。
 
@@ -11,7 +11,7 @@
 - 输入 FLOAT32 `[1,146,2]`。146 个索引来自已缓存官方 `face_blendshapes_graph.cc`；记录样本使用 `x*640,y*480` 的像素坐标，按 x/y 相邻的 C 顺序排列。模型内部中心化及尺度归一化保留。输出是原顺序全部 52 项。
 - 原始 TFLite 是唯一数值基准。不是拿一种改写与另一种改写互相证明。
 
-全部实验材料位于 `E:/tripo/output/mirror-program/20261003/blendshape-broadcast/`。独立 `summary.json` 和 `audit_broadcast.py` 复核模型、输入、报告、日志和导出物 SHA；下文路径以该目录为基准。
+全部实验材料位于 `E:/tripo/output/mirror-program/20261003/blendshape-broadcast/`。独立 `summary.json` 和 `audit_broadcast.py` 复核最初五个候选；后续 Pow / MulPow 各目录的 `compile-audit-summary.json` 记录对应模型、输入、报告、日志和导出物 SHA，旧记录未覆盖。下文路径以该目录为基准。
 
 ## 定位与逐步结果
 
@@ -98,4 +98,29 @@ Pow 候选保存在独立 `gamma-conv-div-neg-pow-v1/`。编译进程 terminal e
 | 本版转换脚本快照 | `caee27ecaec35eff8cc86abcb70de4347bba1bf0ef45ab3bb81d49def448272b` |
 | 本版 12 项主机测试快照 | `14c6db41aac7d2d1a9da58bb8ee8d11d13fcbdcd4d252d04a5bdbb4341908404` |
 
-报告记录总耗时 56.46 秒，包含导入工具的等待；build 为 7.35 秒，均不是推理耗时。仍须重新走板端初始化及全 52 值核对；静态符号、成功导出或 ONNX 对照不能替代这一步。目前没有 Pow 候选的设备可用性、RKNN 精度或性能通过结论。
+报告记录总耗时 56.46 秒，包含导入工具的等待；build 为 7.35 秒，均不是推理耗时。后续该模型在板端初始化成功，但首轮推理遇到 Div 类型错误；没有 RKNN 精度或性能通过结论。
+
+## 板端 Div 类型拒绝与 Mul/Pow 候选
+
+`blendshape-device-v2/report.jsonl` 的 init 返回 0；SDK 1.3.0、driver 0.7.2，输入为 FLOAT16 `[1,146,2]`、292 个元素，输出为 FLOAT16 `[52]`。两者公开格式均为 `RKNN_TENSOR_UNDEFINED=3`。旧 helper 只接受 NCHW/NHWC，在推理前以 exit 12 拒绝；这不是模型初始化失败。后续 helper 仅为已观测的精确三维坐标输入放行 fmt 3，提交仍为原顺序的 292 个 FLOAT32、`pass_through=0`，无转置或归一化。
+
+`blendshape-device-v3/` 保存新 helper 的实际运行：init 返回 0、feed_contract 已记录，随后 exit 134，`outputs.f32` 为 0 字节。`logcat-pid10032.txt` 明确为 `Div: unsupported type!`，没有标出具体节点。编译表中的九处 Div 不能统称 FLOAT16：前端坐标归一化的一处为 CPU FLOAT16，八处 LayerNorm 倒数为 CPU FLOAT；现有证据不能确定具体哪一处先失败。禁止据此计算网络精度或推理耗时。
+
+下一候选 `gamma-conv-mulpow` 从前述 Pow 图继续改写全部九处 `Div(a,b)` 为 `Mul(a,Pow(b,float32 -1))`。固定九个完整节点名及分子/分母连接；八处 LayerNorm 的分子必须是原 FLOAT32 常量 1、分母保留原半次幂，前端保留中心化坐标除以平均距离的原始尺度。前置均值、平方和、方差、epsilon、所有权重和全部 52 输出不变。不会把两次 Pow 合并为一次负半次幂。
+
+独立 `div-analysis-v1.json` 记录原候选九处分母与 92 组输入的实测范围：前端平均距离为 1.171849 至 83.457321，八处 LayerNorm 分母总体为 0.028693 至 3.598871，全部有限且大于零。这只是该语料范围，不能证明任意输入；退化为零尺度的原始行为未通过新增 epsilon 或截断改变。浮点除法与乘倒数也不宣称逐位等同。
+
+新增真实 ONNX/ORT 用例覆盖九处分子、标量与逐点广播、原输入图和常量不变，以及节点缺失、操作数反向、常量不是 1、名称冲突的拒绝；共 13 项主机测试通过。完整原 TFLite 的 92 × 52 对照再次通过，最大误差 `0.000001966953278`，沿用 `atol=1e-5,rtol=0`，原始 fixture 字节未变。
+
+`gamma-conv-mulpow-v1-compile/` 已编译导出，config/load/build/export 全部 0，外层 terminal exit 0。最后完整表为 188 行（0–187），NPU 132 / CPU 56；18 个 Pow 均为 CPU FLOAT16，Div/Sqrt/Reciprocal/Neg 均为 0。CPU 其余为 Transpose 25、Reshape 7、Mul 1、Slice 2、ReduceSum 1、Input/Output 各 1；NPU 构成与上一候选相同。编译器移除了八个乘以 1 的中间 Mul，但没有重建 Div。静态分区不是占用率或设备算子可执行性证明。
+
+| 文件/身份 | SHA256 |
+| --- | --- |
+| `gamma-conv-mulpow-v1/gamma-conv-mulpow.onnx` | `fbfed69de13a93e5f0ce3c48843261651c353e66ca30ded2a9f08a33429ce287` |
+| RKNN，6,135,582 字节 | `f378b6d75b84ba81a52a566d85b05e9e4840c85c0493cc70d5129088ecc21c40` |
+| `gamma-conv-mulpow-v1/numerical-validation.json` | `8e9b99d024f723eb5c3f0e7736431b40b882da955800cd6bc242ea3863793746` |
+| `reference-fixtures.npz`（原 92 组） | `45dfa3e2781ede9599758874346e5532f8e250be2f640a6293b2f3e2bc97a6e8` |
+| 本版转换脚本快照 | `390bac720ef2070f173ef83b6bab0869ee6838a3aa0779de004167df1603d2ab` |
+| 本版 13 项主机测试快照 | `c4173dc32c48d26a7fa69e63253dffbc389dcd16a89f09a854a704aedb10bd73` |
+
+此候选尚待独立板端初始化、全部 52 值与预定 FP16 精度门验收；CPU Pow(-1) 的实际支持不能从成功编译推断。未更改应用运行模型、驱动或 vendor 库。
