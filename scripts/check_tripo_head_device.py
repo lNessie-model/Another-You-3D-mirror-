@@ -52,18 +52,28 @@ try:
     previous=adb('exec-out','run-as',PACKAGE,'cat','files/tripo-head-preview-check.json',check=False)
     try:previous_id=json.loads(previous).get('run_id')
     except ValueError:previous_id=None
-    adb('shell','am','start','-n',PACKAGE+'/.AvatarPreviewActivity','--ez','test_private_head','true')
-    limit=time.monotonic()+150;result=None
+    adb('shell','am','start','-n',PACKAGE+'/.AvatarPreviewActivity','--ez','test_private_head','true','--ez','verify_private_head','true')
+    limit=time.monotonic()+300;result=None;multi=None
     while time.monotonic()<limit:
         time.sleep(3)
         raw=adb('exec-out','run-as',PACKAGE,'cat','files/tripo-head-preview-check.json',check=False)
         try:result=json.loads(raw)
         except (ValueError,UnicodeError):continue
         if result.get('run_id')==previous_id:continue
-        if not result.get('running',True):break
+        if not result.get('running',True):
+            if not result.get('passed'):break
+            raw=adb('exec-out','run-as',PACKAGE,'cat','files/tripo-head-multiview-check.json',check=False)
+            try:multi=json.loads(raw)
+            except ValueError:continue
+            if multi.get('run_id')==result.get('run_id') and not multi.get('running',True):break
     assert result and not result.get('running',True),'Preview did not finish in bounded time'
     (OUT/'preview-result.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),'utf-8')
     assert result.get('passed'),result.get('error','Preview failed')
+    assert multi and not multi.get('running',True),'Head multiview gate did not finish'
+    (OUT/'head-multiview-result.json').write_text(json.dumps(multi,ensure_ascii=False,indent=2),'utf-8')
+    assert multi.get('passed'),multi.get('error','Head multiview or batch comparison failed')
+    for gate in ['serial_vs_ovr','individual_vs_batch']:
+        assert multi[gate]['avatar']['model_sha256']==report['head_sha256'],'Wrong multiview head'
     assert result['avatar']['model_sha256']==report['head_sha256'],'Wrong head loaded'
     assert len(result['renders'])==10
     frames=OUT/'renders';frames.mkdir()

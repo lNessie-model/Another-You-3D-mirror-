@@ -7,6 +7,13 @@ import java.util.List;
 /** Deterministic real-avatar inputs, independent of live capture, smoothing and diagnostic four-weight meshes. */
 public final class AvatarPoseFixtures {
     private AvatarPoseFixtures(){}
+    /** Bounded private-head driver smoke test; full 69-pose regression remains separate. */
+    public static List<Pose> headSmoke() {
+        String[] names={"neutral","source-eyeBlinkLeft","source-eyeBlinkRight","source-jawOpen","gaze-left","head-yaw-left","head-roll-left","head-roll-right","jaw-mouth-close-corrective"};
+        List<Pose> full=regression();ArrayList<Pose> selected=new ArrayList<>();
+        for(String name:names)selected.add(full.stream().filter(p->p.name().equals(name)).findFirst().orElseThrow());
+        return Collections.unmodifiableList(selected);
+    }
     public static List<Pose> regression() {
         ArrayList<Pose> poses=new ArrayList<>();poses.add(new Pose("neutral",-1,new float[52],new float[3]));
         for(int i=0;i<52;i++){float[] w=new float[52];w[i]=1;poses.add(new Pose("source-"+BlendshapeSchema.name(i),i,w,new float[3]));}

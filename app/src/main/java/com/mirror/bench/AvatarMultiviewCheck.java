@@ -29,6 +29,11 @@ public final class AvatarMultiviewCheck {
         if(width!=400||(height!=640&&height!=720))throw new IllegalArgumentException("Strict sixteen-view diagnostic requires 400x640 or 400x720");
         return runComparison(assets,width,height,16,1200f/1920f,cancelled,false,false,false,0,0,true);
     }
+    /** Fixed app-private head diagnostic; no stored-avatar selection or performance claims. */
+    static JSONObject runPrivateHead(java.io.File files,BooleanSupplier cancelled,boolean batch)throws Exception {
+        if(files==null)throw new IllegalArgumentException("App-private files directory required");
+        return runComparison(null,400,640,16,1200f/1920f,cancelled,batch,false,false,0,0,!batch,files);
+    }
     static JSONObject sixteenProfile()throws Exception {
         return new JSONObject().put("verification_profile","avatar_16views_strict").put("views",16)
                 .put("expected_layer_comparisons",69*16).put("reference_views_per_draw",1)
@@ -55,9 +60,14 @@ public final class AvatarMultiviewCheck {
     private static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
                                     BooleanSupplier cancelled,boolean batchComparison,boolean persistentComparison,boolean cameraComparison,
                                     int physicalWidth,int physicalHeight,boolean strictSixteen)throws Exception {
+        return runComparison(assets,width,height,views,physicalAspect,cancelled,batchComparison,persistentComparison,cameraComparison,physicalWidth,physicalHeight,strictSixteen,null);
+    }
+    private static JSONObject runComparison(AssetManager assets,int width,int height,int views,float physicalAspect,
+                                    BooleanSupplier cancelled,boolean batchComparison,boolean persistentComparison,boolean cameraComparison,
+                                    int physicalWidth,int physicalHeight,boolean strictSixteen,java.io.File privateHeadFiles)throws Exception {
         if(batchComparison&&persistentComparison)throw new IllegalArgumentException("Select one comparison");
         boolean pairedOvr=persistentComparison||cameraComparison;
-        if(assets==null||width<64||height<64||width>2048||height>2048||views<4||views>32||views%4!=0
+        if((assets==null&&privateHeadFiles==null)||width<64||height<64||width>2048||height>2048||views<4||views>32||views%4!=0
                 ||(long)width*height*views>8_388_608||!Float.isFinite(physicalAspect)||physicalAspect<=0)
             throw new IllegalArgumentException("Require 64..2048 view dimensions, 4..32 views divisible by four, <=8M layer pixels, and positive physical aspect");
         long started=System.nanoTime();JSONArray poseReports=new JSONArray();
@@ -99,7 +109,8 @@ public final class AvatarMultiviewCheck {
             GLES30.glColorMask(true,true,true,true);GLES30.glDepthMask(true);GLES30.glDepthFunc(GLES30.GL_LESS);
             GLES30.glDepthRangef(0,1);GLES30.glClearDepthf(1);GLES30.glViewport(0,0,width,height);
             // Construct after binding our VAO: constructor element-buffer bindings must not touch caller VAO state.
-            scene=AvatarGpuScene.builtin(assets,true,false,batchComparison?AvatarGpuScene.DrawMode.VERIFY:AvatarGpuScene.DrawMode.INDIVIDUAL);
+            AvatarGpuScene.DrawMode mode=batchComparison?AvatarGpuScene.DrawMode.VERIFY:AvatarGpuScene.DrawMode.INDIVIDUAL;
+            scene=privateHeadFiles==null?AvatarGpuScene.builtin(assets,true,false,mode):AvatarGpuScene.privateHeadCheck(privateHeadFiles,true,mode);
             report.put("avatar",scene.status());
             GLES30.glGenFramebuffers(fbos.length,fbos,0);GLES30.glGenTextures(textures.length,textures,0);GLES30.glGenRenderbuffers(1,depth,0);
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,textures[0]);GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,1,GLES30.GL_RGBA8,width,height);
@@ -128,7 +139,11 @@ public final class AvatarMultiviewCheck {
                 if(!gate.getBoolean("passed"))throw new IllegalStateException("Sixteen-view matrix gate failed");}
             float[] cameraView=cameraComparison?new float[16]:null,cameraProjection=cameraComparison?new float[16]:null,cameraMvp=cameraComparison?new float[16]:null;
             float[] coefficients=new float[52],angles=new float[3];String neutralCenter=null;
-            var fixtures=AvatarPoseFixtures.regression();report.put("expected_fixtures",fixtures.size()).put("isolated_source_fixtures",52);
+            var fixtures=privateHeadFiles==null?AvatarPoseFixtures.regression():AvatarPoseFixtures.headSmoke();
+            int isolated=0;for(var fixture:fixtures)if(fixture.sourceIndex()>=0)isolated++;
+            report.put("expected_fixtures",fixtures.size()).put("isolated_source_fixtures",isolated)
+                    .put("fixture_scope",privateHeadFiles==null?"full_69_pose_regression":"private_head_9_pose_smoke")
+                    .put("expected_layer_comparisons",fixtures.size()*views);
             for(var pose:fixtures) {
                 checkCancelled(cancelled);long poseStarted=System.nanoTime();
                 pose.copyWeights(coefficients);pose.copyAngles(angles);

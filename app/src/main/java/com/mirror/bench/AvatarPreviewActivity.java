@@ -41,6 +41,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     private int contextGeneration;
     private boolean verifyMultiview,verifyBatch,verifyPersistentFbos,verifyCachedCameraVp,verifyMultiview16;
     private boolean privateHead;
+    private boolean verifyPrivateHead;
     private int verificationViewCount=20;
     private int verificationViewHeight=720;
     private boolean verificationConfigurationError;
@@ -48,6 +49,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         privateHead=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0&&getIntent().getBooleanExtra("test_private_head",false);
+        verifyPrivateHead=privateHead&&getIntent().getBooleanExtra("verify_private_head",false);
         verifyMultiview=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0
                 &&getIntent().getBooleanExtra("verify_multiview",false);
         verifyBatch=(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0
@@ -76,6 +78,8 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
             write(new JSONObject().put("running",true).put("passed",false));
             readVerificationConfiguration(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
             if((verifyMultiview?1:0)+(verifyBatch?1:0)+(verifyPersistentFbos?1:0)+(verifyCachedCameraVp?1:0)+(verifyMultiview16?1:0)>1)throw new IllegalArgumentException("Select one avatar verification per run");
+            if(privateHead&&(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16))throw new IllegalArgumentException("Private head requires its own verification flag");
+            if(verifyPrivateHead)writeArtifact("tripo-head-multiview-check.json",new JSONObject().put("running",true).put("passed",false));
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",true).put("passed",false));
             scene=privateHead?AvatarGpuScene.privateHeadCheck(getFilesDir(),false,AvatarGpuScene.DrawMode.INDIVIDUAL):AvatarGpuScene.builtin(getAssets(),false);
         }
@@ -86,6 +90,12 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         if(scene==null)return;
         try {
             captureStates();
+            if(verifyPrivateHead&&!cancelled){
+                JSONObject serial=AvatarMultiviewCheck.runPrivateHead(getFilesDir(),()->cancelled,false);
+                JSONObject batch=serial.optBoolean("passed")?AvatarMultiviewCheck.runPrivateHead(getFilesDir(),()->cancelled,true):new JSONObject().put("passed",false).put("skipped","serial-vs-OVR gate failed");
+                writeArtifact("tripo-head-multiview-check.json",new JSONObject().put("running",false).put("passed",serial.optBoolean("passed")&&batch.optBoolean("passed"))
+                        .put("serial_vs_ovr",serial).put("individual_vs_batch",batch).put("performance_evidence",false));
+            }
             if((verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)&&!cancelled) {
                 runVerification();
             }
@@ -157,6 +167,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         show((verificationConfigurationError?"验证配置无效：":verifyPersistentFbos||verifyCachedCameraVp?verificationViews()+"视点验证失败：":"预览失败：")+error);
         try {
             write(new JSONObject().put("running",false).put("passed",false).put("error",error));
+            if(verifyPrivateHead)writeArtifact("tripo-head-multiview-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error));
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
         }
         catch(Exception writeError){android.util.Log.e("AvatarPreview","Could not publish failure; do not use an older report",writeError);show("失败报告写入失败；不可使用旧报告："+writeError);}

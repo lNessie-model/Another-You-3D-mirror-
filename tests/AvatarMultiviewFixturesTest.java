@@ -19,8 +19,22 @@ public final class AvatarMultiviewFixturesTest {
             weights[0]=.75f;pose.copyWeights(weights);check(weights[0]!=.75f,"fixture owns its input");
         }
         for(boolean has:covered)check(has,"all 52 input positions covered");
+        check(poses.size()==69,"full regression retains all 69 fixtures");
+        var smoke=AvatarPoseFixtures.headSmoke();
+        String[] expected={"neutral","source-eyeBlinkLeft","source-eyeBlinkRight","source-jawOpen","gaze-left","head-yaw-left","head-roll-left","head-roll-right","jaw-mouth-close-corrective"};
+        check(smoke.size()==expected.length,"bounded head smoke count");
+        for(int i=0;i<expected.length;i++) {
+            var p=smoke.get(i);check(p.name().equals(expected[i]),"head smoke order "+i);
+            String expectedName=expected[i];
+            var reference=poses.stream().filter(v->v.name().equals(expectedName)).findFirst().orElseThrow();
+            float[] referenceWeights=new float[52],referenceAngles=new float[3];
+            p.copyWeights(weights);p.copyAngles(angles);reference.copyWeights(referenceWeights);reference.copyAngles(referenceAngles);
+            check(java.util.Arrays.equals(weights,referenceWeights)&&java.util.Arrays.equals(angles,referenceAngles),"smoke preserves frozen pose values");
+            check(p.sourceIndex()==reference.sourceIndex(),"smoke preserves isolated source index");
+        }
+        try{smoke.clear();throw new AssertionError("mutable smoke list");}catch(UnsupportedOperationException expectedFailure){checks++;}
         check(combinations>=6,"gaze/jaw/combinations covered");
-        try{poses.clear();throw new AssertionError("mutable pose list");}catch(UnsupportedOperationException expected){checks++;}
+        try{poses.clear();throw new AssertionError("mutable pose list");}catch(UnsupportedOperationException expectedFailure){checks++;}
         ByteBuffer a=ByteBuffer.allocateDirect(16),b=ByteBuffer.allocateDirect(16);
         for(int i=0;i<4;i++){a.put(i*4,(byte)9);a.put(i*4+1,(byte)11);a.put(i*4+2,(byte)15);a.put(i*4+3,(byte)255);}
         b.put(a.duplicate());b.clear();
