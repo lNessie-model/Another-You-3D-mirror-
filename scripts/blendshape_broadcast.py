@@ -173,6 +173,41 @@ def neg_multiply(source):
     onnx.checker.check_model(model)
     return model, changes
 
+def sqrt_pow(source):
+    """Keep all nine nonnegative-domain square roots as Pow(x, exact float32 .5)."""
+    import onnx
+    from onnx import numpy_helper
+    model = copy.deepcopy(source)
+    targets = [n for n in model.graph.node if n.op_type == "Sqrt"]
+    require(len(targets) == 9, "Expected eight LayerNorm Sqrts and one input-norm Sqrt")
+    layer_norms = set()
+    norm_count = 0
+    occupied = {value for node in model.graph.node for value in list(node.input) + list(node.output)}
+    occupied.update(c.name for c in model.graph.initializer)
+    changes = []
+    for node in targets:
+        layer = re.fullmatch(r".*/MixerBlock_([0-3])/layer_norm([12])/batchnorm/Rsqrt", node.name)
+        if layer:
+            require(layer.groups() not in layer_norms, "Duplicate LayerNorm square-root target")
+            layer_norms.add(layer.groups())
+        else:
+            require(node.name == "model_1/tf.compat.v1.norm/norm/Sqrt", "Unexpected square-root target")
+            norm_count += 1
+        require(len(node.input) == 1 and len(node.output) == 1, "Unexpected square-root arity")
+        name = node.name + "/literal_half"
+        require(name not in occupied, "Square-root rewrite name collision")
+        occupied.add(name)
+        model.graph.initializer.append(numpy_helper.from_array(np.asarray([0.5], np.float32), name))
+        variable = node.input[0]
+        node.op_type = "Pow"
+        node.input.append(name)
+        changes.append({"node": node.name, "from_op": "Sqrt", "to_op": "Pow",
+                        "variable": variable, "exponent": name, "exponent_float32": 0.5,
+                        "scope": "layer_norm" if layer else "input_coordinate_norm"})
+    require(len(layer_norms) == 8 and norm_count == 1, "Incomplete square-root rewrite")
+    onnx.checker.check_model(model)
+    return model, changes
+
 def save_json(path, value):
     temporary = path.with_suffix(".json.tmp")
     temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
@@ -236,6 +271,7 @@ def prepare(args):
         conv_candidate, report["conv_changes"] = gamma_conv(baseline)
         div_candidate, report["reciprocal_changes"] = reciprocal_div(conv_candidate)
         neg_candidate, report["negation_changes"] = neg_multiply(div_candidate)
+        pow_candidate, report["sqrt_changes"] = sqrt_pow(neg_candidate)
         _, report["toolkit_parser"] = _toolkit()
         from rknn.base.convertor.tensorflow2onnx.tf2onnx.tflite.Model import Model
         tflite = Model.GetRootAsModel(args.source.read_bytes(), 0)
@@ -255,12 +291,13 @@ def prepare(args):
             change["source_tflite_tensor_index"] = tensor_index
             change["source_tflite_tensor_name"] = source_name
         paths = {name: directory / (name + ".onnx")
-                 for name in ("baseline", "rank4-gamma", "gamma-conv", "gamma-conv-div", "gamma-conv-div-neg")}
+                 for name in ("baseline", "rank4-gamma", "gamma-conv", "gamma-conv-div", "gamma-conv-div-neg", "gamma-conv-div-neg-pow")}
         onnx.save(baseline, str(paths["baseline"]))
         onnx.save(candidate, str(paths["rank4-gamma"]))
         onnx.save(conv_candidate, str(paths["gamma-conv"]))
         onnx.save(div_candidate, str(paths["gamma-conv-div"]))
         onnx.save(neg_candidate, str(paths["gamma-conv-div-neg"]))
+        onnx.save(pow_candidate, str(paths["gamma-conv-div-neg-pow"]))
         report["candidates"] = {name: {"file": p.name, "sha256": sha256(p), "bytes": p.stat().st_size}
                                  for name, p in paths.items()}
         rows, report["official_indices"] = fixtures(args.quality, args.graph)
@@ -386,7 +423,7 @@ def main():
         prepare_parser.add_argument("--" + name, type=Path, required=True)
     compile_parser = modes.add_parser("compile")
     compile_parser.add_argument("--validation", type=Path, required=True)
-    compile_parser.add_argument("--candidate", choices=("baseline", "rank4-gamma", "gamma-conv", "gamma-conv-div", "gamma-conv-div-neg"), required=True)
+    compile_parser.add_argument("--candidate", choices=("baseline", "rank4-gamma", "gamma-conv", "gamma-conv-div", "gamma-conv-div-neg", "gamma-conv-div-neg-pow"), required=True)
     compile_parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     return prepare(args) if args.mode == "prepare" else compile_validated(args)

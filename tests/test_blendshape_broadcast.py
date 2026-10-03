@@ -6,7 +6,7 @@ import numpy as np
 import onnx
 from onnx import helper, numpy_helper, TensorProto
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from blendshape_broadcast import explicit_gamma_rank, gamma_conv, reciprocal_div, neg_multiply
+from blendshape_broadcast import explicit_gamma_rank, gamma_conv, reciprocal_div, neg_multiply, sqrt_pow
 
 def fixture():
     nodes, initializers, outputs = [], [], []
@@ -21,6 +21,35 @@ def fixture():
     return helper.make_model(graph, opset_imports=[helper.make_opsetid("", 11)])
 
 class BroadcastTests(unittest.TestCase):
+    def test_sqrt_pow_covers_norm_and_all_layer_norms(self):
+        import onnxruntime as ort
+        names = ["model_1/tf.compat.v1.norm/norm/Sqrt"] + [
+            "model_1/model/MixerBlock_%d/layer_norm%d/batchnorm/Rsqrt" % (i // 2, i % 2 + 1)
+            for i in range(8)]
+        nodes = [helper.make_node("Sqrt", ["input"], ["out" + str(i)], name=name) for i, name in enumerate(names)]
+        outputs = [helper.make_tensor_value_info("out" + str(i), TensorProto.FLOAT, [1, 1, 1, 8]) for i in range(9)]
+        source = helper.make_model(helper.make_graph(nodes, "sqrt",
+            [helper.make_tensor_value_info("input", TensorProto.FLOAT, [1, 1, 1, 8])], outputs),
+            opset_imports=[helper.make_opsetid("", 11)])
+        before = source.SerializeToString()
+        candidate, changes = sqrt_pow(source)
+        self.assertEqual(source.SerializeToString(), before)
+        self.assertEqual(len(changes), 9)
+        self.assertTrue(all(n.op_type == "Pow" for n in candidate.graph.node))
+        opts = ort.SessionOptions(); opts.intra_op_num_threads = opts.inter_op_num_threads = 1
+        a = ort.InferenceSession(source.SerializeToString(), opts)
+        b = ort.InferenceSession(candidate.SerializeToString(), opts)
+        inputs = {"input": np.asarray([0., 1e-6, 1e-4, .1, .5, 1., 2., 100.], np.float32).reshape(1, 1, 1, 8)}
+        for expected, actual in zip(a.run(None, inputs), b.run(None, inputs)):
+            # ORT 1.6 Sqrt and Pow(.5) differ by up to 1.1920929e-7 on these inputs.
+            # Apply the pre-existing absolute gate; do not claim bitwise equivalence.
+            np.testing.assert_allclose(expected, actual, atol=1e-5, rtol=0)
+        source.graph.node[0].name = "unexpected/Sqrt"
+        with self.assertRaises(ValueError): sqrt_pow(source)
+        source.graph.node[0].name = names[0]
+        source.graph.node.pop()
+        with self.assertRaises(ValueError): sqrt_pow(source)
+
     def test_neg_multiply_keeps_float_values_and_signed_zeros(self):
         import onnxruntime as ort
         nodes, outputs = [], []

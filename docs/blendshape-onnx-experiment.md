@@ -1,8 +1,8 @@
 # 52 表情网络的等义 ONNX / RKNN 1.3 编译实验
 
-2026-10-03：已在现有离线工具链生成可导出的 RKNN 候选。原始 TFLite 与每个 ONNX 候选的 92 × 52 数值对照通过，最终 RKNN 编译、导出返回 0。**RKNN 模型尚未运行；板端兼容性、FP16 精度、耗时及联合负载收益均未验收。** 编译表明确包含 CPU / NPU 混合分区，不能称为纯 NPU 模型。
+2026-10-03：已在现有离线工具链生成可导出的 RKNN 候选，首个产物 `gamma-conv-div-neg` 的 92 × 52 ONNX 数值对照及编译导出通过；**随后独立板端验证在初始化阶段因不支持 Sqrt 而 SIGABRT，尚无一组 RKNN 输出。** 板端兼容性、FP16 精度、耗时及联合负载收益均未通过。编译表明确包含 CPU / NPU 混合分区，不能称为纯 NPU 模型。后续 Pow 候选的进展见末节。
 
-本轮没有修改应用默认模型、Java/native 运行流水线、驱动或系统，没有调用 ADB，也没有安装依赖或上传模型。目标仍是保留 478 点、52 项表情、姿态及 20 视图联合负载，为 UI 留出资源；本轮不能据此宣称 30 FPS 达标。
+离线转换没有修改应用默认模型、Java/native 运行流水线、驱动或系统，没有安装依赖或上传模型。设备测试由独立诊断程序加载现有 vendor runtime，未替换运行库或默认模型。目标仍是保留 478 点、52 项表情、姿态及 20 视图联合负载，为 UI 留出资源；本轮不能据此宣称 30 FPS 达标。
 
 ## 输入与环境
 
@@ -41,13 +41,13 @@ Div / Mul 改写只新增精确可表示的 1 和 −1，保留 Sqrt 及其输�
 
 [转换脚本](../scripts/blendshape_broadcast.py) 只接受受检查的 8 处私有 gamma、明确的变量布局和节点；未知布局、共享常量、非有限参数、名称冲突均拒绝。保留输入模型不变，每个输出目录必须是新目录。`compile` 在加载编译器之前检查完整数值报告、源 SHA、候选 SHA、92 个通过的用例及固定误差门。
 
-[主机回归](../tests/test_blendshape_broadcast.py) 共 11 项通过，包括真实 ONNX / ORT 的广播轴次序、64 参数字节保留、Div 对照、取负的正负零字节对照和拒绝路径。它们不模拟设备输出。
+[主机回归](../tests/test_blendshape_broadcast.py) 首版共 11 项通过，包括真实 ONNX / ORT 的广播轴次序、64 参数字节保留、Div 对照、取负的正负零字节对照和拒绝路径；加入 Sqrt/Pow 后共 12 项通过，舍入范围见末节。它们不模拟设备输出。
 
 曾调用 ONNX 1.7 原生 `shape_inference` 处理真实转换图，进程 exit 139；`rank4-v2-prepare-host.log` 的 faulthandler 指向该调用。后续改为读取明确、全正的 Reshape 目标维度及已有 value info，不再调用该原生推断。两种导入顺序的独立探针均正常，因此不能归因于模块导入顺序。
 
 gamma-conv / gamma-conv-div 的原生编译器 fatal 直接结束 Python，原始 `compile-report.json` 留在最后的 `running/build` 检查点。相邻 `*-compile-launch.json` 和 host log 明确记录 terminal exit 1；这些不是仍在运行的任务。保留原始报告，未将失败改成成功。
 
-## 成功产物与混合分区
+## 首个可编译产物与混合分区（板端初始化失败）
 
 最终目录 `gamma-conv-div-neg-v1-compile/`：
 
@@ -57,8 +57,8 @@ gamma-conv / gamma-conv-div 的原生编译器 fatal 直接结束 Python，原�
 | 数值门 `gamma-conv-div-neg-v1/numerical-validation.json` | `7f06f7168c47bbfad2933d1e61300c6bd03f5987ed4f7b14a21fa6811b35f8da` |
 | 最终 ONNX `gamma-conv-div-neg-v1/gamma-conv-div-neg.onnx` | `f75b7a3a8d5c8abc7404cda258f5987b5cb89c67431ad08bf1df7d4cb4094541` |
 | `gamma-conv-div-neg-v1/reference-fixtures.npz` | `45dfa3e2781ede9599758874346e5532f8e250be2f640a6293b2f3e2bc97a6e8` |
-| 转换脚本冻结版本 | `3339eef1e51f0ddc11b861ad3e9e01fc9a589372746577771e20c7284358b193` |
-| 主机测试冻结版本 | `304303f37f58b4a4d98859023d9ee9b152224769a91d2cc2c9a049f3ed59af32` |
+| 首版转换脚本快照 | `3339eef1e51f0ddc11b861ad3e9e01fc9a589372746577771e20c7284358b193` |
+| 首版主机测试快照 | `304303f37f58b4a4d98859023d9ee9b152224769a91d2cc2c9a049f3ed59af32` |
 
 成功编译共 4.38 秒，其中 build 1.93 秒。**这不是推理耗时。** host log 的最后完整算子分配表包含 186 行：
 
@@ -77,4 +77,25 @@ NPZ 的 `inputs` 为 FLOAT32 `(92,1,146,2)`，`outputs` 为原始 TFLite FLOAT32
 
 现有基线 `probe-v4/baseline-optimized.onnx` 的 SHA 是 `5c2e3eaa7d42d532d044191c9973a4508e4c34f8eea6fac25c437aa0c7fcb075`。在现有 WSL Python 中运行脚本 `prepare`，显式提供 `--source/--base/--quality/--graph/--output`，成功后再运行 `compile --validation <新目录>/numerical-validation.json --candidate gamma-conv-div-neg --output <另一新目录>`。每次保留 host stdout/stderr 及外层退出码；原生 fatal 可能跳过 Python finally。
 
-下一道验收是隔离的真实 RKNN 输出核对：92 组全部 52 项，事前确定适合 FP16 的精度门，分别报告录制与合成输入，保留逐项输出/最大误差。精度通过后，再测试 warmup 后独立耗时与原 TFLite，最后在同 APK、同输入、同 20 视图负载下比较整机 CPU/GPU/NPU、表情率、延迟、温度和渲染帧率。当前 CPU post 还包含平滑、姿态、proto/JNI 与回调等待，不能将整段 post 时间都视为这个 52 表情网络的潜在收益。
+仍须通过隔离的真实 RKNN 输出核对：92 组全部 52 项，事前确定适合 FP16 的精度门，分别报告录制与合成输入，保留逐项输出/最大误差。精度通过后，再测试 warmup 后独立耗时与原 TFLite，最后在同 APK、同输入、同 20 视图负载下比较整机 CPU/GPU/NPU、表情率、延迟、温度和渲染帧率。当前 CPU post 还包含平滑、姿态、proto/JNI 与回调等待，不能将整段 post 时间都视为这个 52 表情网络的潜在收益。
+
+## 板端 Sqrt 拒绝与下一候选
+
+`E:/tripo/output/mirror-program/20261003/blendshape-device-v1/` 保留首次设备证据：`native-exit.json` 为 exit 134，`report.jsonl` 只有 start，`outputs.f32` 为 0 字节。`logcat-pid9118.txt` 明确记录 `ERROR: unsupport Sqrt op in current`，随后 SIGABRT；模型、输入、helper 和 vendor runtime 的前后 SHA 一致。该组未到 init 返回，更未执行 92 组推理，不能计算精度或推理性能。
+
+本地板运行库含 Pow 的具体 dtype/power/dimension 诊断，编译器也有 Pow lowering，因此下一受限候选将全部 9 个 Sqrt 写为 `Pow(x,float32 0.5)`：8 个为 LayerNorm 的方差加 epsilon 后开方，1 个为输入坐标归一化的范数开方。保留前置平方、求和、平均、epsilon、全部参数与 52 输出；不通过增加 epsilon、截断输入或近似式绕过问题。
+
+这是固定源图在非负模型域上的受限改写，不是通用负值/负零等价证明。ORT 1.6 的局部 Sqrt 与 Pow 内核存在舍入差异：8 个测试值中 3 个不同，最大 0.00000011920929，**不称逐位等同**。完整网络仍沿用原先 `atol=1e-5,rtol=0`；92 × 52 对照已通过，Pow 候选最大误差 0.000002592802048。门槛未放宽。
+
+Pow 候选保存在独立 `gamma-conv-div-neg-pow-v1/`。编译进程 terminal exit 0，config/load/build/export 均返回 0，产物位于 `gamma-conv-div-neg-pow-v1-compile/`。最后完整的 186 行静态分配表仍为 NPU 132 / CPU 54；CPU 的 9 个 Sqrt 全部变为 Pow，表中没有 Sqrt，其余算子计数与上一候选一致。这仍是 CPU/NPU 混合分区，不能称纯 NPU 网络。
+
+| 文件/身份 | SHA256 |
+| --- | --- |
+| Pow ONNX | `3305e770a0c8c4210d7cbfc5e1c8fcbb13ae3ceb0c1689bd4039672c136d84b7` |
+| Pow RKNN，6,133,662 字节 | `33c72f2f6d6de12ebc48fe575445106fbb30bc12692a0b28b6b12323fbf4765f` |
+| Pow 数值门 `numerical-validation.json` | `9126795b8dda648a5697c048e239f896730222f2bad52377ee3dbe5d83a3efbb` |
+| `reference-fixtures.npz`（同前一候选） | `45dfa3e2781ede9599758874346e5532f8e250be2f640a6293b2f3e2bc97a6e8` |
+| 本版转换脚本快照 | `caee27ecaec35eff8cc86abcb70de4347bba1bf0ef45ab3bb81d49def448272b` |
+| 本版 12 项主机测试快照 | `14c6db41aac7d2d1a9da58bb8ee8d11d13fcbdcd4d252d04a5bdbb4341908404` |
+
+报告记录总耗时 56.46 秒，包含导入工具的等待；build 为 7.35 秒，均不是推理耗时。仍须重新走板端初始化及全 52 值核对；静态符号、成功导出或 ONNX 对照不能替代这一步。目前没有 Pow 候选的设备可用性、RKNN 精度或性能通过结论。
