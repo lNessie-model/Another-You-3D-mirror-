@@ -30,6 +30,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private boolean runtimeMode,surfaceInitialized;
     private android.content.res.AssetManager avatarAssets;
     private java.io.File avatarStoreRoot;
+    private java.io.File privateHeadFiles;
     private int avatarStoreApi;
     private boolean avatarBatched;
     private volatile String avatarLoadWarning="";
@@ -131,11 +132,20 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(surfaceInitialized)throw new IllegalStateException("Avatar drawing backend must be configured before GL initialization");
         avatarBatched=value;
     }
+    synchronized void setPrivateHeadDiagnostic(java.io.File files) {
+        if(surfaceInitialized||!runtimeMode)throw new IllegalStateException("Private head must be configured before runtime GL initialization");
+        privateHeadFiles=java.util.Objects.requireNonNull(files);
+    }
     String avatarWarning(){return avatarLoadWarning;}
     /** Called only before the first GL frame; disk parsing never runs on the UI thread. */
     private AvatarGpuScene loadRuntimeAvatar() throws Exception {
         avatarLoadWarning="";
         avatarPackageId="";avatarSourceKind="pending";
+        if(privateHeadFiles!=null) {
+            AvatarGpuScene.DrawMode mode=avatarBatched?AvatarGpuScene.DrawMode.BATCHED:AvatarGpuScene.DrawMode.INDIVIDUAL;
+            AvatarGpuScene scene=AvatarGpuScene.privateHeadCheck(privateHeadFiles,multiview||verifyMultiview,avatarAsynchronous,mode);
+            avatarSourceKind="private_head_test";return scene;
+        }
         AvatarPackageStore.LoadedPackage selected=null;
         if(avatarStoreRoot!=null&&AvatarPackageStore.supportsAndroidApi(avatarStoreApi)) {
             try {

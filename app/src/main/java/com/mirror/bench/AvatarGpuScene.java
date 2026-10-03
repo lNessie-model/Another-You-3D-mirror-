@@ -67,13 +67,16 @@ final class AvatarGpuScene {
     }
     /** Debug-only caller uses this fixed app-private diagnostic directory; never selects a stored avatar. */
     static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,DrawMode mode)throws Exception {
+        return privateHeadCheck(files,multiview,false,mode);
+    }
+    static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,boolean asynchronous,DrawMode mode)throws Exception {
         java.io.File directory=new java.io.File(files,"tripo-head-check");byte[] manifest,glb;
         try(InputStream in=new java.io.FileInputStream(new java.io.File(directory,"avatar.json"))){manifest=readBounded(in,262_144);}
         JSONObject json=new JSONObject(new String(manifest,StandardCharsets.UTF_8));
         if(!"character.glb".equals(json.getString("model")))throw new IllegalArgumentException("Diagnostic head model filename");
         try(InputStream in=new java.io.FileInputStream(new java.io.File(directory,"character.glb"))){glb=readBounded(in,AvatarGlbLoader.MAX_FILE_BYTES);}
         String hash=sha256(glb);if(!hash.equalsIgnoreCase(json.getString("modelSha256")))throw new IllegalArgumentException("Diagnostic head digest mismatch");
-        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,false,mode);
+        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode);
     }
     /** Inputs are a validated CPU asset/manifest and its verified model digest; no package-store dependency. */
     static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous) throws Exception {

@@ -421,6 +421,7 @@ def arguments():
     parser.add_argument("--release-gl-on-pause", action="store_true", help="Debug-only release EGL on real HOME/onPause; default preserves existing policy")
     parser.add_argument("--cached-camera-vp", action="store_true", help="Debug-only opt-in static avatar camera matrix cache; defaults to per-frame calculation")
     parser.add_argument("--npu-blendshapes", action="store_true", help="Debug-only normalized mixed CPU/NPU expression suffix; omission retains MediaPipe CPU 52")
+    parser.add_argument("--private-head", action="store_true", help="Debug-only fixed app-private head; does not change stored-avatar selection")
     parser.add_argument("--view-preset", choices=("240x720", "320x576", "400x720", "400x640"), help="Debug-only view size override; never saves preferences")
     parser.add_argument("--view-count", type=int, choices=(16, 20), help="Debug-only count override; omission uses the saved application count, never saves preferences")
     parser.add_argument("--active-target-fps", type=int, choices=(31, 35), help="Debug-only frame pacing control; leaves idle rate and preferences unchanged")
@@ -629,6 +630,8 @@ def run(args):
         extras += " --ez test_cached_camera_vp true"
     if getattr(args,"npu_blendshapes",False):
         extras += " --ez test_npu_blendshapes true"
+    if getattr(args,"private_head",False):
+        extras += " --ez test_private_head true"
     if args.release_gl_on_pause:
         extras += " --ez test_release_gl_on_pause true"
     if args.view_preset:

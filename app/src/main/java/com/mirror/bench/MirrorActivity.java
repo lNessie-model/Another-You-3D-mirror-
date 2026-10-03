@@ -102,6 +102,7 @@ public final class MirrorActivity extends Activity {
         renderer.setExplicitLod(true);
         renderer.setDiscardDepth(true, false);
         renderer.setRuntimeAvatar(getAssets(),new File(getFilesDir(),"avatars"),android.os.Build.VERSION.SDK_INT);
+        if(options.privateHead)renderer.setPrivateHeadDiagnostic(getFilesDir());
         renderer.setAvatarAsynchronous(!options.synchronousAvatar);
         renderer.setAvatarBatched(options.batchedAvatar);
         renderer.setPersistentMultiviewFbos(options.persistentFbos);
@@ -910,11 +911,11 @@ public final class MirrorActivity extends Activity {
         final String input, recordId;
         final double replayFps;
         final long blackoutAfterNs, blackoutDurationNs;
-        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause,npuBlendshapes;
+        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause,npuBlendshapes,privateHead;
         final String viewPreset;
         final int activeTargetFps,viewCount;
         private InputOptions(String input, String recordId, double replayFps, int after, int duration,
-                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause,boolean npuBlendshapes) {
+                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause,boolean npuBlendshapes,boolean privateHead) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
@@ -925,16 +926,17 @@ public final class MirrorActivity extends Activity {
             this.viewCount=viewCount;
             this.releaseGlOnPause=releaseGlOnPause;
             this.npuBlendshapes=npuBlendshapes;
+            this.privateHead=privateHead;
         }
         static InputOptions defaults() { return defaults(20); }
-        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,true,false,RuntimeViewCount.read(null,false,savedViews),false,true); }
+        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,true,false,RuntimeViewCount.read(null,false,savedViews),false,true,false); }
         static InputOptions read(Bundle extras, boolean debug) { return read(extras,debug,20); }
         static InputOptions read(Bundle extras, boolean debug,int savedViews) {
             if (extras == null) return defaults(savedViews);
             // Only these existing Mirror test options are overrides. Presence (including null)
             // is different from absence; ordinary extras keep the same product defaults.
             for(String key:new String[]{"test_avatar_synchronous","test_avatar_batched","test_persistent_fbos",
-                    "test_cached_camera_vp","test_release_gl_on_pause","test_npu_blendshapes","test_view_preset",
+                    "test_cached_camera_vp","test_release_gl_on_pause","test_npu_blendshapes","test_private_head","test_view_preset",
                     "test_view_count","test_active_target_fps","test_blackout_after_s","test_blackout_duration_s"})
                 if(extras.containsKey(key)&&(!debug||value(extras,key)==null))
                     throw new IllegalArgumentException("Explicit test option requires a non-null debug value: "+key);
@@ -970,7 +972,7 @@ public final class MirrorActivity extends Activity {
             int views=RuntimeViewCount.read(extras,debug,savedViews);
             return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,
                     persistent==null||Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug),
-                    !extras.containsKey("test_npu_blendshapes")||RuntimeExpressionBackend.read(extras,debug));
+                    !extras.containsKey("test_npu_blendshapes")||RuntimeExpressionBackend.read(extras,debug),RuntimeExpressionBackend.readPrivateHead(extras,debug));
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {

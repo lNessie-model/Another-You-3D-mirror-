@@ -3,21 +3,25 @@
 No UI clicks, system/driver changes, preference edits or stored-avatar selection.
 """
 from pathlib import Path
-import datetime,hashlib,json,shutil,subprocess,time,uuid
+import argparse,datetime,hashlib,json,shutil,subprocess,sys,time,uuid
 ROOT=Path(__file__).resolve().parents[1]
 assert datetime.datetime.now(datetime.timezone.utc)<datetime.datetime(2026,10,3,22,30,tzinfo=datetime.timezone.utc),'Deadline handoff window: no new installs'
 ADB=r'C:\Users\lNessie\platform-tools-latest-windows\platform-tools\adb.exe'
 SERIAL='6L32552009566714';PACKAGE='com.mirror.bench'
 BASE=Path(r'E:\tripo\output\mirror-program\20261003\400x640\AvatarRuntime-v20-production-npu.apk')
 BASE_SHA='21ee8a3d11e94c0ac399740364f4ba235ceea8b54d177d9bfcda44b56b01b3da'
-HEAD=Path(r'E:\tripo\assets\mirror-models-20261003\heads-v1\geralt-rig-stage1')
+parser=argparse.ArgumentParser(description='Reversible app-private head diagnostic; does not select a stored avatar')
+parser.add_argument('--head',type=Path,default=Path(r'E:\tripo\assets\mirror-models-20261003\heads-v1\geralt-rig-stage1'))
+parser.add_argument('--benchmark-seconds',type=int,default=0,choices=[0,60,90,180],help='Optional complete-face replay plus actual head interlacing, separate from diagnostic readbacks')
+args=parser.parse_args();HEAD=args.head.resolve()
+assert (HEAD/'character.glb').is_file() and (HEAD/'avatar.json').is_file()
 OUT=ROOT/'app/build'/('v22-albedo-device-'+str(uuid.uuid4()));OUT.mkdir()
 PIN=Path(r'E:\tripo\output\mirror-program\20261004');PIN.mkdir(parents=True,exist_ok=True)
 CANDIDATE=PIN/('AvatarRuntime-v22-albedo-'+OUT.name[-36:]+'.apk')
 shutil.copyfile(ROOT/'app/build/outputs/apk/debug/app-debug.apk',CANDIDATE)
 def sha(data):return hashlib.sha256(data).hexdigest()
 assert sha(BASE.read_bytes())==BASE_SHA
-commands=[];report={'started_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'candidate_apk':str(CANDIDATE),'candidate_sha256':sha(CANDIDATE.read_bytes()),'head_sha256':sha((HEAD/'character.glb').read_bytes()),'passed':False,'rollback_verified':False,'scope':'Actual-board geometry/texture/driver check only, partial face rig. Not a simultaneous FPS benchmark.'}
+commands=[];report={'started_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'candidate_apk':str(CANDIDATE),'candidate_sha256':sha(CANDIDATE.read_bytes()),'head_sha256':sha((HEAD/'character.glb').read_bytes()),'passed':False,'rollback_verified':False,'scope':'Actual-board preview and private-head 9-pose driver smoke gates; optional complete-face joint runtime benchmark reported separately. Artwork acceptance remains false.'}
 def save():
     (OUT/'audit.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),'utf-8')
     (OUT/'commands.json').write_text(json.dumps(commands,ensure_ascii=False,indent=2),'utf-8')
@@ -82,6 +86,26 @@ try:
         png=private('files/'+frame['file']);assert sha(png)==frame['sha256']
         (frames/(name+'.png')).write_bytes(png)
     report['passed']=True;report['driver_geometry_passed']=True;report['visual_acceptance']=False;save()
+    if args.benchmark_seconds:
+        report['passed']=False;save()
+        runtime=OUT/'runtime';name='head16-npu-'+str(args.benchmark_seconds)+'s'
+        argv=[sys.executable,'-X','utf8','-B',str(ROOT/'scripts/run_runtime_check.py'),'--name',name,'--input','replay','--seconds',str(args.benchmark_seconds),'--output-dir',str(runtime),
+              '--private-head','--npu-blendshapes','--view-count','16','--view-preset','400x640','--persistent-fbos','--active-target-fps','31']
+        (OUT/'runtime-command.json').write_text(json.dumps(argv,ensure_ascii=False,indent=2),'utf-8')
+        with (OUT/'runtime-stdout.log').open('wb') as stdout,(OUT/'runtime-stderr.log').open('wb') as stderr:
+            process=subprocess.run(argv,cwd=ROOT,stdout=stdout,stderr=stderr,timeout=args.benchmark_seconds+180)
+        measurement=json.loads((runtime/(name+'.json')).read_text('utf-8'))
+        assert process.returncode==0 and measurement['collection_status']=='completed','Runtime collection failed'
+        assert measurement['apk_sha256']==report['candidate_sha256'],'Wrong runtime APK'
+        active=[s for s in measurement['statuses'] if s.get('state')=='INTERACTIVE' and s.get('face_present')]
+        assert len(active)>=2,'No advancing complete-face active status samples'
+        for value in active:
+            renderer=value['renderer'];avatar=renderer['avatar']
+            assert avatar['model_sha256']==report['head_sha256'],'Runtime rendered a different model'
+            assert renderer['avatar_source']=='private_head_test','Runtime used stored/builtin fallback'
+            assert value['view_count']==16 and value['metrics']['landmarks']==478 and value['metrics']['blendshapes']==52,'Incomplete runtime workload'
+        assert active[-1]['status_sequence']>active[0]['status_sequence'],'Runtime did not advance'
+        report['runtime_measurement']=str(runtime/(name+'.json'));report['performance_measured']=True;report['passed']=True;save()
 except Exception as error:
     report['error']=str(error);save()
 finally:

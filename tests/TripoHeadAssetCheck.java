@@ -15,15 +15,22 @@ public final class TripoHeadAssetCheck {
         if(args.length>1) {
             AvatarRig rig=new AvatarRig(asset,Files.readString(Path.of(args[1])));
             AvatarDeformer deformer=new AvatarDeformer(asset,AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
+            long[] staticRevisions=new long[asset.meshes().size()];int staticMeshes=0;
+            for(int m=0;m<staticRevisions.length;m++)if(asset.meshes().get(m).targetCount()==0) {
+                staticRevisions[m]=deformer.primitives(m).get(0).revision();staticMeshes++;
+            }
             float[] input=new float[52],angles=new float[3];int poses=0;
             for(int i=1;i<52;i++) {
                 java.util.Arrays.fill(input,0);input[i]=1;rig.update(input,angles);
                 for(int m=0;m<asset.meshes().size();m++) {
                     float[] weights=new float[asset.meshes().get(m).targetCount()];rig.copyMeshWeights(m,weights);deformer.updateMesh(m,weights);
+                    if(asset.meshes().get(m).targetCount()==0&&deformer.primitives(m).get(0).revision()!=staticRevisions[m])
+                        throw new AssertionError("Head expression altered static background revision");
                 }
                 poses++;
             }
             report.put("facialRigChecked",true).put("independentPoseUpdates",poses)
+                    .put("staticMeshesUnchangedAcrossInputs",staticMeshes)
                     .put("sourceCoverageComplete",rig.completeSourceCoverage())
                     .put("limitation","Successful named input updates are not 51 artist-approved expressions or collision proof");
         }
