@@ -1,0 +1,112 @@
+"""Offline adapter: preserve originals, rotate an observed +X-facing head and bake base colour.
+
+No inference or claims of a complete facial rig. The production factor-only loader
+can validate this geometric stage; facial targets are a later separate stage.
+"""
+from pathlib import Path
+import io,json,struct
+import numpy as np
+from PIL import Image
+
+def rotate_x_front(points):
+    return np.asarray(points)@np.array([[0,0,1],[0,1,0],[-1,0,0]])
+
+def srgb_to_linear(values):
+    values=np.asarray(values,dtype=np.float64)
+    return np.where(values<=.04045,values/12.92,((values+.055)/1.055)**2.4)
+
+class Glb:
+    def __init__(self,path):
+        self.raw=Path(path).read_bytes();raw=self.raw
+        assert 28<=len(raw)<=64*1024*1024
+        assert struct.unpack_from('<III',raw)==(0x46546c67,2,len(raw))
+        size,kind=struct.unpack_from('<II',raw,12);assert kind==0x4e4f534a
+        self.doc=json.loads(raw[20:20+size]);self.start=28+size
+        n,kind=struct.unpack_from('<II',raw,20+size);assert kind==0x004e4942 and self.start+n==len(raw)
+    def read(self,index):
+        a=self.doc['accessors'][index];assert 'sparse' not in a and a['count']>0
+        v=self.doc['bufferViews'][a['bufferView']]
+        dtype=np.dtype({5121:'u1',5123:'<u2',5125:'<u4',5126:'<f4'}[a['componentType']])
+        width={'SCALAR':1,'VEC2':2,'VEC3':3,'VEC4':4}[a['type']]
+        stride=v.get('byteStride',width*dtype.itemsize);off=a.get('byteOffset',0)
+        assert off+(a['count']-1)*stride+width*dtype.itemsize<=v['byteLength']
+        result=np.ndarray((a['count'],width),dtype=dtype,buffer=self.raw,offset=self.start+v.get('byteOffset',0)+off,strides=(stride,dtype.itemsize)).copy()
+        assert np.isfinite(result).all()
+        if a.get('normalized'):result=result.astype(np.float64)/np.iinfo(dtype).max
+        return result
+    def image(self,index):
+        image=self.doc['images'][index];assert 'uri' not in image
+        view=self.doc['bufferViews'][image['bufferView']];off=self.start+view.get('byteOffset',0)
+        result=Image.open(io.BytesIO(self.raw[off:off+view['byteLength']]))
+        assert result.width<=8192 and result.height<=8192
+        return np.asarray(result.convert('RGB'),dtype=np.float64)/255
+    def bake_base_colour(self,primitive):
+        uv=self.read(primitive['attributes']['TEXCOORD_0']);material=self.doc['materials'][primitive['material']]
+        pbr=material['pbrMetallicRoughness'];texture=self.doc['textures'][pbr['baseColorTexture']['index']]
+        image=srgb_to_linear(self.image(texture['source']));h,w=image.shape[:2]
+        # glTF UV origin is the upper-left image corner. Sample repeating texels at their centres.
+        x=(uv[:,0]%1)*w-.5;y=(uv[:,1]%1)*h-.5;ix=np.floor(x).astype(int);iy=np.floor(y).astype(int)
+        fx=x-ix;fy=y-iy
+        rgb=image[iy%h,ix%w]*(1-fx[:,None])*(1-fy[:,None])+image[iy%h,(ix+1)%w]*fx[:,None]*(1-fy[:,None])
+        rgb+=image[(iy+1)%h,ix%w]*(1-fx[:,None])*fy[:,None]+image[(iy+1)%h,(ix+1)%w]*fx[:,None]*fy[:,None]
+        factor=np.array(pbr.get('baseColorFactor',[1,1,1,1]))
+        return np.c_[rgb*factor[:3],np.full(len(rgb),factor[3])].astype('<f4')
+
+def write_glb(path,positions,normals,colours,indices,*,head_pivot=(0,0,0),morphs=None):
+    positions=np.asarray(positions,dtype='<f4');normals=np.asarray(normals,dtype='<f4');colours=np.asarray(colours,dtype='<f4')
+    indices=np.asarray(indices,dtype='<u2' if len(positions)<65535 else '<u4').reshape(-1)
+    assert len(positions)<=20000 and len(indices)//3<=30000 and len(indices)%3==0
+    assert positions.shape==normals.shape==(len(positions),3) and colours.shape==(len(positions),4)
+    assert indices.max()<len(positions) and all(np.isfinite(a).all() for a in (positions,normals,colours))
+    binary=bytearray();views=[];accessors=[]
+    def add(array,kind):
+        while len(binary)%4:binary.append(0)
+        off=len(binary);binary.extend(array.tobytes());view=len(views)
+        views.append({'buffer':0,'byteOffset':off,'byteLength':array.nbytes})
+        accessor={'bufferView':view,'componentType':5126 if array.dtype.kind=='f' else 5123 if array.dtype.itemsize==2 else 5125,'count':len(array),'type':kind}
+        if kind=='VEC3':accessor.update(min=array.min(axis=0).tolist(),max=array.max(axis=0).tolist())
+        index=len(accessors);accessors.append(accessor);return index
+    primitive={'attributes':{'POSITION':add(positions,'VEC3'),'NORMAL':add(normals,'VEC3'),'COLOR_0':add(colours,'VEC4')},'indices':add(indices,'SCALAR'),'material':0,'mode':4}
+    mesh={'name':'Face','primitives':[primitive]}
+    if morphs:
+        assert len(morphs)<=64
+        primitive['targets']=[{'POSITION':add(np.asarray(delta,dtype='<f4'),'VEC3')} for delta in morphs.values()]
+        mesh.update(weights=[0.]*len(morphs),extras={'targetNames':list(morphs)})
+    logical=len(binary)
+    while len(binary)%4:binary.append(0)
+    doc={'asset':{'version':'2.0','generator':'Mirror offline head adapter'},'scene':0,'scenes':[{'nodes':[0]}],
+         'nodes':[{'name':'Root','children':[1]},{'name':'Head','translation':list(map(float,head_pivot)),'children':[2,3]},{'name':'Face','mesh':0},{'name':'JawAttachments'}],
+         'meshes':[mesh],'materials':[{'name':'BakedBaseColour','pbrMetallicRoughness':{'baseColorFactor':[1,1,1,1],'metallicFactor':0,'roughnessFactor':.75}}],
+         'buffers':[{'byteLength':logical}],'bufferViews':views,'accessors':accessors}
+    encoded=json.dumps(doc,separators=(',',':')).encode('utf-8')
+    encoded+=b' '*((-len(encoded))%4)
+    raw=struct.pack('<III',0x46546c67,2,28+len(encoded)+len(binary))+struct.pack('<II',len(encoded),0x4e4f534a)+encoded+struct.pack('<II',len(binary),0x004e4942)+binary
+    Path(path).write_bytes(raw)
+
+def bake_head(source,output):
+    import hashlib
+    source=Path(source);output=Path(output);output.mkdir(parents=True,exist_ok=True)
+    glb=Glb(source)
+    assert len(glb.doc['nodes'])==1 and set(glb.doc['nodes'][0])<=set(('mesh','name')),'Validate a transformed/multi-node source separately'
+    assert not any(glb.doc.get(k) for k in ('skins','animations','extensionsRequired'))
+    assert len(glb.doc['meshes'])==1 and len(glb.doc['meshes'][0]['primitives'])==1
+    primitive=glb.doc['meshes'][0]['primitives'][0]
+    positions=rotate_x_front(glb.read(primitive['attributes']['POSITION'])).astype('<f4')
+    scale=.24/np.ptp(positions[:,1]);positions*=scale
+    normals=rotate_x_front(glb.read(primitive['attributes']['NORMAL'])).astype('<f4')
+    normals/=np.linalg.norm(normals,axis=1)[:,None]
+    colours=glb.bake_base_colour(primitive);indices=glb.read(primitive['indices']).reshape(-1,3)
+    pivot=np.array([0,float(positions[:,1].min())+.025,0],dtype=np.float32)
+    path=output/'head-base.glb';write_glb(path,positions-pivot,normals,colours,indices,head_pivot=pivot)
+    np.savez_compressed(output/'head-base.npz',positions=positions,normals=normals,colours=colours,indices=indices,head_pivot=pivot,scale=scale)
+    report={'source':str(source.resolve()),'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'output':str(path.resolve()),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+       'observed_source_front':'+X','rotation':'proper rotation: original (x,y,z) -> (-z,y,x)','scale':float(scale),'vertices':len(positions),'triangles':len(indices),
+       'texture_conversion':'linear base-colour texels sampled bilinearly at vertices; normal/ORM textures not retained','facial_targets':0,'head_pivot':pivot.tolist(),
+       'scope':'Compatible geometry stage only; not an importable completed facial avatar'}
+    (output/'base-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+    return report
+
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser();parser.add_argument('--source',required=True);parser.add_argument('--out',required=True)
+    args=parser.parse_args();print(json.dumps(bake_head(args.source,args.out),ensure_ascii=False,indent=2))
