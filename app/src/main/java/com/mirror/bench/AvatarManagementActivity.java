@@ -44,6 +44,7 @@ public final class AvatarManagementActivity extends Activity {
     // A blocked document provider cannot multiply workers across HOME/recreated Activity instances.
     private static final ThreadPoolExecutor IO=executor("AvatarManagementIO");
     private static final ThreadPoolExecutor CLOSER=executor("AvatarDocumentClose");
+    private final StoreOwner storeOwner=new StoreOwner();
     private final AvatarManagementGate gate=new AvatarManagementGate();
     private final Handler main=new Handler(Looper.getMainLooper());
     private GLSurfaceView surface;
@@ -111,7 +112,7 @@ public final class AvatarManagementActivity extends Activity {
         surface.queueEvent(()->renderer.disposeIfContext(context));surface.onPause();
         refreshButtons();super.onPause();
     }
-    @Override protected void onDestroy(){resumed=false;main.removeCallbacks(deadlineTick);gate.pause();cancelWork();renderer.stopCpu();super.onDestroy();}
+    @Override protected void onDestroy(){storeOwner.close();resumed=false;main.removeCallbacks(deadlineTick);gate.pause();cancelWork();renderer.stopCpu();super.onDestroy();}
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
         if(request==PICK_ZIP&&result==RESULT_OK&&data!=null&&data.getData()!=null){
@@ -208,7 +209,35 @@ public final class AvatarManagementActivity extends Activity {
             }catch(Exception|LinkageError|OutOfMemoryError failure){gate.activationFailed(claim,nowNs());report(token,"未能确认切换结果，请重新读取当前角色后重试。",failure);}
         });}catch(java.util.concurrent.RejectedExecutionException rejected){gate.activationFailed(claim,nowNs());busy=false;showFailure("文件操作仍在停止，请稍后重试。",concise(rejected));}
     }
-    private AvatarPackageStore openStore()throws IOException{return AvatarPackageStore.open(new File(getFilesDir(),"avatars"),Build.VERSION.SDK_INT);}
+    private AvatarPackageStore openStore()throws IOException {
+        return storeOwner.get(()->AvatarPackageStore.open(new File(getFilesDir(),"avatars"),Build.VERSION.SDK_INT));
+    }
+    interface StoreFactory {AvatarPackageStore open()throws IOException;}
+    /** One Activity's existing IO worker retains its Store across operations and HOME.
+     * Store holds no persistent OS handle. Destroy drops this reference without interrupting
+     * a caller's local Store/asset references or waiting for filesystem work.
+     */
+    static final class StoreOwner {
+        private AvatarPackageStore store;
+        private boolean closed,opening;
+        AvatarPackageStore get(StoreFactory factory)throws IOException {
+            synchronized(this){
+                if(closed)throw new InterruptedIOException("Avatar page destroyed");
+                if(store!=null)return store;
+                if(opening)throw new AvatarPackageStore.BusyException();
+                opening=true;
+            }
+            try {
+                AvatarPackageStore created=factory.open();
+                if(created==null)throw new IOException("Avatar Store creation returned no owner");
+                synchronized(this){
+                    if(closed)throw new InterruptedIOException("Avatar page destroyed while opening Store");
+                    store=created;return created;
+                }
+            }finally{synchronized(this){opening=false;}}
+        }
+        synchronized void close(){closed=true;store=null;}
+    }
     private static CatalogSnapshot readCatalog(AvatarPackageStore store)throws InterruptedIOException {
         try{return new CatalogSnapshot(store.readCatalog(),"");}
         catch(InterruptedIOException cancelled){throw cancelled;}

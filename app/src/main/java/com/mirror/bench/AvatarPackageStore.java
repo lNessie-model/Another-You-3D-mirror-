@@ -117,6 +117,23 @@ public final class AvatarPackageStore {
             FILES=java.util.Collections.unmodifiableMap(files);
         }
         private static final String REPORT="validation.json";
+        private static final int MAX_PARSE_CACHE_ENTRIES=3;
+        private static final long MAX_PARSE_CACHE_BYTES=32L*1024*1024;
+        // Guard-owned, per Store instance. Never cache a mutable rig/deformer or trust mtime.
+        private final java.util.LinkedHashMap<String,Parsed> parseCache=new java.util.LinkedHashMap<>(4,.75f,true);
+        private long parseCacheBytes;
+        private static final class Parsed {
+            final Ticket ticket;final AvatarAsset asset;final AvatarFraming framing;final String manifest,report;
+            Parsed(Ticket t,AvatarAsset a,AvatarFraming f,String m,String r){ticket=t;asset=a;framing=f;manifest=m;report=r;}
+        }
+        private void dropParsed(String id){Parsed old=parseCache.remove(id);if(old!=null)parseCacheBytes-=old.asset.decodedBytes();}
+        private void rememberParsed(Parsed parsed){
+            dropParsed(parsed.ticket.packageId);long bytes=parsed.asset.decodedBytes();
+            if(bytes>MAX_PARSE_CACHE_BYTES)return;
+            while(!parseCache.isEmpty()&&(parseCache.size()>=MAX_PARSE_CACHE_ENTRIES||parseCacheBytes>MAX_PARSE_CACHE_BYTES-bytes))
+                dropParsed(parseCache.keySet().iterator().next());
+            parseCache.put(parsed.ticket.packageId,parsed);parseCacheBytes+=bytes;
+        }
         final Path root,packages,stage,archive,stateFile,stateTemp,lockFile;
         final Faults faults;
         File directory(){return root.toFile();}
@@ -258,14 +275,24 @@ public final class AvatarPackageStore {
                 if(json.has("license")){
                     var license=json.getJSONObject("license");if(!"LICENSE.txt".equals(license.opt("file"))||!hashes.containsKey("LICENSE.txt"))throw invalid("License must reference included LICENSE.txt");
                 }
+                String bundle=bundleHash(hashes);
+                if(published){String saved=text(folder.resolve(REPORT),32*1024);jsonDepth(saved);var report=new JSONObject(saved);
+                    if(!id.equals(report.opt("package_id"))||!bundle.equals(report.opt("bundle_sha256")))throw invalid("Published package integrity report mismatch");}
+                // Integrity and metadata checks above ALWAYS precede reuse, including validation.json.
+                Parsed cached=parseCache.get(id);
+                if(cached!=null&&cached.ticket.bundleSha256.equals(bundle)
+                        &&cached.ticket.modelSha256.equals(hashes.get("character.glb"))
+                        &&cached.ticket.manifestSha256.equals(hashes.get("avatar.json"))&&cached.manifest.equals(manifest)){
+                    AvatarRig rig=new AvatarRig(cached.asset,manifest);cancelled();
+                    return new LoadedPackage(cached.ticket,cached.asset,rig,cached.framing,manifest,cached.report,new ArrayList<>());
+                }
+                dropParsed(id);faults.at("before-avatar-parse");
                 AvatarAsset asset;try(InputStream in=Files.newInputStream(folder.resolve("character.glb"),NOFOLLOW)){asset=AvatarGlbLoader.load(in);}
                 AvatarRig rig=new AvatarRig(asset,manifest);cancelled();
                 AvatarDeformer.NormalPolicy policy=rig.normalPolicy().equals("authored")?AvatarDeformer.NormalPolicy.AUTHORED:AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED;
                 AvatarDeformer deformer=new AvatarDeformer(asset,policy);
                 for(int i=0;i<asset.meshes().size();i++){float[] weights=new float[asset.meshes().get(i).targetCount()];rig.copyMeshWeights(i,weights);deformer.updateMesh(i,weights);cancelled();}
-                AvatarFraming framing=AvatarGeometryBounds.fromAsset(asset,rig);String bundle=bundleHash(hashes);
-                if(published){String saved=text(folder.resolve(REPORT),32*1024);jsonDepth(saved);var report=new JSONObject(saved);
-                    if(!id.equals(report.opt("package_id"))||!bundle.equals(report.opt("bundle_sha256")))throw invalid("Published package integrity report mismatch");}
+                AvatarFraming framing=AvatarGeometryBounds.fromAsset(asset,rig);
                 JSONObject report=new JSONObject();report.put("schema_version",1).put("package_id",id).put("bundle_sha256",bundle).put("display_name",rig.displayName())
                         .put("model_sha256",hashes.get("character.glb")).put("manifest_sha256",hashes.get("avatar.json"))
                         .put("profile","morph-rigid-factor-only-v1").put("coverage",rig.completeSourceCoverage()?"complete_sources":"partial")
@@ -274,8 +301,10 @@ public final class AvatarPackageStore {
                         .put("loader_rig_validated",true).put("neutral_deformation_validated",true).put("framing_validated",true)
                         .put("gpu_validated",false).put("artwork_validated",false).put("texture_supported",false).put("skin_supported",false)
                         .put("thumbnail_decoded",false).put("file_sha256",new JSONObject(hashes));
-                return new LoadedPackage(new Ticket(id,hashes.get("character.glb"),hashes.get("avatar.json"),bundle),asset,rig,framing,manifest,report.toString(2),new ArrayList<>());
-            }catch(IOException e){throw e;}catch(Exception e){throw new IOException("Avatar validation failed: "+e.getMessage(),e);}
+                Ticket ticket=new Ticket(id,hashes.get("character.glb"),hashes.get("avatar.json"),bundle);String generated=report.toString(2);
+                rememberParsed(new Parsed(ticket,asset,framing,manifest,generated));
+                return new LoadedPackage(ticket,asset,rig,framing,manifest,generated,new ArrayList<>());
+            }catch(IOException e){dropParsed(id);throw e;}catch(Exception e){dropParsed(id);throw new IOException("Avatar validation failed: "+e.getMessage(),e);}
         }
         private SortedMap<String,String> hashes(Path folder,boolean published)throws IOException {
             directory(folder);SortedMap<String,String> result=new TreeMap<>();long total=0;int count=0;
@@ -387,6 +416,7 @@ public final class AvatarPackageStore {
                 if(++count>8)throw invalid("Unexpected number of retained package directories");String id=entry.getFileName().toString();packageId(id);
                 if(!state.contains(id))remove(entry);
             }}
+            for(String id:new ArrayList<>(parseCache.keySet()))if(!state.contains(id))dropParsed(id);
         }
         private void remove(Path path)throws IOException {
             Path absolute=path.toAbsolutePath().normalize();if(absolute.equals(root)||!absolute.startsWith(root))throw invalid("Cleanup escaped store root");

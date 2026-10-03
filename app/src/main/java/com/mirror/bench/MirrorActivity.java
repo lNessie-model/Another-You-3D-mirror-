@@ -510,7 +510,9 @@ public final class MirrorActivity extends Activity {
             Stats current = stats;
             JSONObject values = current == null ? new JSONObject() : current.summary(SystemClock.elapsedRealtimeNanos());
             return String.format(Locale.ROOT, "画面 %.1f FPS；有效面捕 %.1f FPS；恢复 %d 次\n"
-                    + "NPU：检测+478点；CPU：52表情+姿态\n"
+                    + (options.npuBlendshapes
+                            ? "NPU：检测+478点；52表情：CPU/NPU混合；CPU：归一化+姿态\n"
+                            : "NPU：检测+478点；CPU：52表情+姿态\n")
                     + "诊断仅保存数值，不保存人脸图像。",
                     gl.optDouble("fps"), values.optDouble("face_fps", 0), recoveries);
         } catch (Exception error) { return "统计暂不可用"; }
