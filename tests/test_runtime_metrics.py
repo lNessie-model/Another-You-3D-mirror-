@@ -169,6 +169,20 @@ class RuntimeMetricsTests(unittest.TestCase):
         self.assertTrue(all("--ez test_avatar_synchronous true" in command for command in launches))
         self.assertTrue(payload["arguments"]["avatar_synchronous"])
 
+    def test_draw_and_size_overrides_survive_resume_without_saving_preferences(self):
+        payload, calls = self.offline_collection(False, batched=True, view_preset="400x720")
+        launches = [call[-1] for call in calls if "am start -n " in call[-1]]
+        self.assertEqual(len(launches), 2)
+        self.assertTrue(all("--ez test_avatar_batched true" in command for command in launches))
+        self.assertTrue(all("--es test_view_preset 400x720" in command for command in launches))
+        self.assertFalse(any("shared_prefs" in call[-1] for call in calls))
+        self.assertEqual(payload["arguments"]["view_preset"], "400x720")
+
+    def test_collector_preserves_actual_art_state_instead_of_assuming_speed(self):
+        payload, calls = self.offline_collection(False)
+        self.assertIn("status=quicken", payload["app_package_state_before_run"])
+        self.assertFalse(any("cmd package compile" in call[-1] for call in calls))
+
     def test_surface_is_queried_before_slow_memory_and_without_draw_wait(self):
         payload, calls = self.offline_collection(False, slow_start=True, memory_delay=3,
                                                   presentation_delay=.4, no_pause=True)
@@ -220,7 +234,7 @@ class RuntimeMetricsTests(unittest.TestCase):
 
     def offline_collection(self, fail_sample, empty_pre_home=False, synchronous=False,
                            slow_start=False, memory_delay=0, presentation_delay=0, no_pause=False,
-                           final_error=None, final_status_offset=0):
+                           final_error=None, final_status_offset=0, batched=False, view_preset=None):
         clock = [100.0]
         calls = []
         foreground = [True]
@@ -237,6 +251,7 @@ class RuntimeMetricsTests(unittest.TestCase):
             if args == ("get-serialno",): return runtime.SERIAL
             if command.startswith("pm path"): return "package:/data/app/base.apk"
             if command.startswith("sha256sum"): return "a"*64 + "  /data/app/base.apk"
+            if command == "dumpsys package com.mirror.bench": return "Dexopt state:\n arm64: [status=quicken] [reason=unknown]"
             if command == "cat /proc/uptime": return f"{clock[0]+100:.2f} 100.00"
             if command == "dumpsys SurfaceFlinger --list":
                 return "SurfaceView com.mirror.bench/MirrorActivity#0" if foreground[0] else ""
@@ -278,7 +293,7 @@ class RuntimeMetricsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             args = argparse.Namespace(name="offline", input="replay", seconds=20, output_dir=Path(directory),
                                       blackout_after=0, blackout_seconds=0, pause_at=None if no_pause else 5, pause_seconds=3,
-                                      avatar_synchronous=synchronous)
+                                      avatar_synchronous=synchronous, avatar_batched=batched, view_preset=view_preset)
             with patch.object(runtime, "adb", side_effect=fake_adb), \
                  patch.object(runtime.time, "monotonic", side_effect=lambda: clock[0]), \
                  patch.object(runtime.time, "sleep", side_effect=lambda seconds: clock.__setitem__(0, clock[0]+seconds)), \

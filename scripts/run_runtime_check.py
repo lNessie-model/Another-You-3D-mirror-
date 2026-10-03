@@ -258,6 +258,8 @@ def arguments():
     parser.add_argument("--pause-at", type=int)
     parser.add_argument("--pause-seconds", type=int, default=5)
     parser.add_argument("--avatar-synchronous", action="store_true", help="Debug-only same-APK control: deform on the GL thread")
+    parser.add_argument("--avatar-batched", action="store_true", help="Debug-only opt-in merged avatar draw calls")
+    parser.add_argument("--view-preset", choices=("240x720", "320x576", "400x720"), help="Debug-only view size override; never saves preferences")
     args = parser.parse_args()
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,120}", args.name):
         parser.error("Invalid run name")
@@ -409,6 +411,10 @@ def run(args):
               f" --ei test_blackout_duration_s {args.blackout_seconds}")
     if args.avatar_synchronous:
         extras += " --ez test_avatar_synchronous true"
+    if args.avatar_batched:
+        extras += " --ez test_avatar_batched true"
+    if args.view_preset:
+        extras += " --es test_view_preset " + args.view_preset
     try:
         if adb("get-serialno") != SERIAL:
             raise RuntimeError("Wrong device serial")

@@ -39,6 +39,7 @@ import org.json.JSONObject;
 public final class MirrorActivity extends Activity {
     private static final int CAMERA_PERMISSION = 42;
     private static final int PANEL_CALIBRATION = 43;
+    private static final int AVATAR_MANAGEMENT = 44;
     private static final int WIDTH = 640, HEIGHT = 480, CAPTURE_FPS = 25;
     private static final int[] RETRY_SECONDS = {1, 2, 4, 8, 30};
     // Also serializes native resources across Activity recreation; never acquired on the UI thread.
@@ -52,6 +53,7 @@ public final class MirrorActivity extends Activity {
     private InterlaceRenderer renderer;
     private TextView status;
     private MirrorSettings settings;
+    private int runtimeViewWidth,runtimeViewHeight;
     private InputOptions options;
     private RuntimeWorker worker;
     private boolean resumed, maintenance, permissionPrompted, restarting, calibrationOpen;
@@ -87,15 +89,21 @@ public final class MirrorActivity extends Activity {
         renderer = new InterlaceRenderer(20, .3f, true);
         renderer.setRuntimeMode(true);
         renderer.setTargetFps(31);
-        renderer.setViewSize(settings.viewWidth, settings.viewHeight);
+        if(options.viewPreset==null) {runtimeViewWidth=settings.viewWidth;runtimeViewHeight=settings.viewHeight;}
+        else {
+            String[] size=options.viewPreset.split("x");
+            runtimeViewWidth=Integer.parseInt(size[0]);runtimeViewHeight=Integer.parseInt(size[1]);
+        }
+        renderer.setViewSize(runtimeViewWidth,runtimeViewHeight);
         renderer.setPipeline(true);
         renderer.setCull(true, false);
         renderer.setPreblend(true, false);
         renderer.setMultiview(true, false);
         renderer.setExplicitLod(true);
         renderer.setDiscardDepth(true, false);
-        renderer.setRuntimeAvatar(getAssets());
+        renderer.setRuntimeAvatar(getAssets(),new File(getFilesDir(),"avatars"),android.os.Build.VERSION.SDK_INT);
         renderer.setAvatarAsynchronous(!options.synchronousAvatar);
+        renderer.setAvatarBatched(options.batchedAvatar);
         renderer.setPanelCalibration(settings.panel);
         surface = new GLSurfaceView(this);
         surface.setEGLContextClientVersion(3);
@@ -155,7 +163,11 @@ public final class MirrorActivity extends Activity {
     }
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data) {
         super.onActivityResult(requestCode,resultCode,data);
-        if(requestCode==PANEL_CALIBRATION) {
+        if(requestCode==AVATAR_MANAGEMENT) {
+            // A commit may finish just as the manager pauses, before its success
+            // callback. Reload the authoritative selection even after Back/cancel.
+            calibrationOpen=false;restarting=true;recreate();
+        } else if(requestCode==PANEL_CALIBRATION) {
             calibrationOpen=false;
             if(resultCode==RESULT_OK) {restarting=true;recreate();}
         }
@@ -258,6 +270,7 @@ public final class MirrorActivity extends Activity {
                 if (worker != null && worker.cancelled) text += " · 停止中，等待资源释放";
                 else if (worker != null && worker.waitingForHardware) text += " · 等待上一运行释放设备";
                 if (!error.isEmpty()) text += " · " + error;
+                if(!renderer.avatarWarning().isEmpty())text+=" · 角色读取失败，暂用内置角色（见维护）";
                 status.setText(text);
             }
             main.postDelayed(this, 33);
@@ -300,10 +313,11 @@ public final class MirrorActivity extends Activity {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL); panel.setPadding(dp(20), dp(8), dp(20), dp(8));
         TextView details = new TextView(this);
-        details.setText("当前为镜中向导原型。20视点，原生竖屏输出。\n"
+        details.setText("20视点，原生竖屏输出。\n"
                 + "pitch="+settings.panel.pitch()+" "+settings.panel.pitchUnits()+", tan="+settings.panel.tan()
                 + ", phase="+settings.panel.phaseCycles()+"；实屏光学未确认。\n"+settings.warning+"\n"
-                + "输入：" + options.label() + "\n" + maintenanceMetrics());
+                + "输入：" + options.label() + "\n" + maintenanceMetrics()
+                + (renderer.avatarWarning().isEmpty()?"":"\n角色提示："+renderer.avatarWarning()));
         panel.addView(details);
         panel.addView(label("互动面捕目标帧率"));
         Spinner rates = spinner(new String[]{"10 FPS", "17 FPS", "20 FPS"});
@@ -316,6 +330,7 @@ public final class MirrorActivity extends Activity {
             if (MirrorSettings.VIEW_PRESETS[i].equals(settings.viewPreset)) views.setSelection(i);
         panel.addView(views);
         Button calibrationButton=new Button(this);calibrationButton.setText("屏幕校准 / 20视点测试图");panel.addView(calibrationButton);
+        Button avatarButton=new Button(this);avatarButton.setText("角色管理 / 导入与预览");panel.addView(avatarButton);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("魔镜维护").setView(panel)
                 .setPositiveButton("保存并运行", (d, which) -> {
                     int fps = MirrorSettings.ANALYSIS_RATES[rates.getSelectedItemPosition()];
@@ -331,7 +346,7 @@ public final class MirrorActivity extends Activity {
                 })
                 .setNegativeButton("返回", null)
                 .setNeutralButton("授权 / 重试", (d, which) -> {
-                    if (renderFault) {
+                    if (renderFault||!renderer.avatarWarning().isEmpty()) {
                         restarting = true;
                         recreate();
                     } else if (progressFault != null) {
@@ -349,6 +364,11 @@ public final class MirrorActivity extends Activity {
         calibrationButton.setOnClickListener(ignored -> {
             calibrationOpen=true;
             startActivityForResult(new Intent(this,CalibrationActivity.class),PANEL_CALIBRATION);
+            dialog.dismiss();
+        });
+        avatarButton.setOnClickListener(ignored -> {
+            calibrationOpen=true;
+            startActivityForResult(new Intent(this,AvatarManagementActivity.class),AVATAR_MANAGEMENT);
             dialog.dismiss();
         });
         dialog.show();
@@ -607,7 +627,9 @@ public final class MirrorActivity extends Activity {
                 .put("processing_fault", progressFault != null).put("processing_timeout", progressFaultJson())
                 .put("runtime_stage", worker == null ? "STOPPED" : worker.watchdog.stage().name())
                 .put("recoveries", recoveries).put("analysis_active_target_fps", settings.activeFps).put("analysis_idle_target_fps", 3)
-                .put("view_width", settings.viewWidth).put("view_height", settings.viewHeight).put("view_count", 20)
+                .put("view_width", runtimeViewWidth).put("view_height", runtimeViewHeight).put("view_count", 20)
+                .put("debug_render_overrides",new JSONObject().put("synchronous",options.synchronousAvatar)
+                        .put("batched",options.batchedAvatar).put("view_preset",options.viewPreset==null?JSONObject.NULL:options.viewPreset))
                 .put("optical_calibration", new JSONObject().put("pitch", settings.panel.pitch())
                         .put("pitch_units", settings.panel.pitchUnits().name()).put("tan", settings.panel.tan())
                         .put("phase_cycles", settings.panel.phaseCycles()).put("subpixel_order", settings.panel.subpixelOrder().name())
@@ -704,13 +726,16 @@ public final class MirrorActivity extends Activity {
         final String input, recordId;
         final double replayFps;
         final long blackoutAfterNs, blackoutDurationNs;
-        final boolean synchronousAvatar;
-        private InputOptions(String input, String recordId, double replayFps, int after, int duration, boolean synchronousAvatar) {
+        final boolean synchronousAvatar,batchedAvatar;
+        final String viewPreset;
+        private InputOptions(String input, String recordId, double replayFps, int after, int duration,
+                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
+            this.batchedAvatar=batchedAvatar;this.viewPreset=viewPreset;
         }
-        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false); }
+        static InputOptions defaults() { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null); }
         static InputOptions read(Bundle extras, boolean debug) {
             if (extras == null) return defaults();
             String input = text(extras, "runtime_input", "camera");
@@ -727,7 +752,15 @@ public final class MirrorActivity extends Activity {
                 throw new IllegalArgumentException("Blackout requires a debug replay input and positive duration");
             Object synchronous=value(extras,"test_avatar_synchronous");
             if(synchronous!=null&&(!(synchronous instanceof Boolean)||!debug))throw new IllegalArgumentException("Synchronous avatar override requires debug Boolean");
-            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous));
+            Object batched=value(extras,"test_avatar_batched");
+            if(batched!=null&&(!(batched instanceof Boolean)||!debug))throw new IllegalArgumentException("Batched avatar override requires debug Boolean");
+            String preset=null;
+            if(value(extras,"test_view_preset")!=null) {
+                preset=text(extras,"test_view_preset","");
+                if(!debug||!java.util.Arrays.asList(MirrorSettings.VIEW_PRESETS).contains(preset))
+                    throw new IllegalArgumentException("View preset override requires a supported debug preset");
+            }
+            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset);
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {

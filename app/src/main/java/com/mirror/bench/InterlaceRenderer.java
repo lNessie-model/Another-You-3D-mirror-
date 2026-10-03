@@ -29,6 +29,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private volatile float[] expressions={0,0,0,0};
     private boolean runtimeMode,surfaceInitialized;
     private android.content.res.AssetManager avatarAssets;
+    private java.io.File avatarStoreRoot;
+    private int avatarStoreApi;
+    private boolean avatarBatched;
+    private volatile String avatarLoadWarning="";
+    private volatile String avatarPackageId="",avatarSourceKind="pending";
     private volatile AvatarGpuScene avatarScene;
     private boolean avatarAsynchronous=true;
     private volatile boolean avatarShutdown;
@@ -103,6 +108,43 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(surfaceInitialized||!runtimeMode) throw new IllegalStateException("Avatar must be selected before runtime GL initialization");
         avatarAssets=java.util.Objects.requireNonNull(assets);
         preblend=false;
+    }
+    synchronized void setRuntimeAvatar(android.content.res.AssetManager assets,java.io.File privateRoot,int androidApi) {
+        setRuntimeAvatar(assets);
+        avatarStoreRoot=java.util.Objects.requireNonNull(privateRoot);avatarStoreApi=androidApi;
+    }
+    synchronized void setAvatarBatched(boolean value) {
+        if(surfaceInitialized)throw new IllegalStateException("Avatar drawing backend must be configured before GL initialization");
+        avatarBatched=value;
+    }
+    String avatarWarning(){return avatarLoadWarning;}
+    /** Called only before the first GL frame; disk parsing never runs on the UI thread. */
+    private AvatarGpuScene loadRuntimeAvatar() throws Exception {
+        avatarLoadWarning="";
+        avatarPackageId="";avatarSourceKind="pending";
+        AvatarPackageStore.LoadedPackage selected=null;
+        if(avatarStoreRoot!=null&&AvatarPackageStore.supportsAndroidApi(avatarStoreApi)) {
+            try {
+                AvatarPackageStore store=AvatarPackageStore.open(avatarStoreRoot,avatarStoreApi);
+                store.recover();selected=store.readCurrent();
+            }
+            catch(Exception failure) {
+                String detail=failure.getClass().getSimpleName()+": "+failure.getMessage();
+                if(detail.length()>240)detail=detail.substring(0,240);
+                avatarLoadWarning="已选角色读取失败，暂用内置角色；原角色包保留。"+detail;
+                Log.e("MirrorRuntime","Selected avatar could not be loaded; preserving package",failure);
+            }
+        }
+        AvatarGpuScene.DrawMode mode=avatarBatched?AvatarGpuScene.DrawMode.BATCHED:AvatarGpuScene.DrawMode.INDIVIDUAL;
+        // GPU failures, including an unsupported debug batch, must remain visible failures.
+        // Never turn a failed experimental renderer into an apparently successful control.
+        if(selected!=null) {
+            AvatarGpuScene scene=AvatarGpuScene.fromAsset(selected.asset,selected.manifestJson,
+                    selected.ticket.modelSha256,multiview||verifyMultiview,avatarAsynchronous,mode);
+            avatarPackageId=selected.ticket.packageId;avatarSourceKind="imported";return scene;
+        }
+        AvatarGpuScene scene=AvatarGpuScene.builtin(avatarAssets,multiview||verifyMultiview,avatarAsynchronous,mode);
+        avatarSourceKind="builtin";return scene;
     }
     synchronized void setAvatarAsynchronous(boolean value) {
         if(surfaceInitialized)throw new IllegalStateException("Avatar backend must be configured before GL initialization");
@@ -251,7 +293,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 lookupGenerator=program(calibrationShader(SCREEN_VERTEX),calibrationShader(LOOKUP_GENERATOR));
             }
             if(avatarAssets!=null) {
-                avatarScene=AvatarGpuScene.builtin(avatarAssets,multiview||verifyMultiview,avatarAsynchronous);
+                avatarScene=loadRuntimeAvatar();
                 if(avatarShutdown)avatarScene.stopCpu();
             }
             else makeMesh();
@@ -375,6 +417,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     synchronized JSONObject runtimeStatus() throws Exception {
         return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",avatarAssets==null)
+                .put("avatar_load_warning",avatarLoadWarning).put("avatar_batched_requested",avatarBatched)
+                .put("avatar_source",avatarSourceKind).put("avatar_package_id",avatarPackageId)
                 .put("avatar",avatarScene==null?JSONObject.NULL:avatarScene.status())
                 .put("output_width",width).put("output_height",height).put("view_count",views)
                 .put("view_width",viewWidth).put("view_height",viewHeight)
