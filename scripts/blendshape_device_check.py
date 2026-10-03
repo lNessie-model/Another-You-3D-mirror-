@@ -157,7 +157,9 @@ def compare_bundle(bundle, log, actual_path, before_path, after_path):
         dims = attr.get('dims', [])
         require(attr.get('rc') == 0 and 1 <= len(dims) <= 16 and all(type(d) is int and d > 0 for d in dims), 'Invalid tensor dimensions')
         require([d for d in dims if d != 1] == target and math.prod(dims) == size and attr.get('n_elems') == size, 'Tensor shape mismatch; never infer a transpose')
-    require(attrs[0].get('fmt') in (0, 1) and feed.get('fmt') == attrs[0]['fmt'] and feed.get('type') == 0 and feed.get('pass_through') == 0 and feed.get('want_float') == 1, 'Float32 input/output contract mismatch')
+    known_format = attrs[0].get('fmt') in (0, 1)
+    observed_xy = attrs[0].get('fmt') == 3 and attrs[0].get('n_dims') == 3 and attrs[0]['dims'] == [1, 146, 2]
+    require((known_format or observed_xy) and feed.get('fmt') == attrs[0]['fmt'] and feed.get('type') == 0 and feed.get('pass_through') == 0 and feed.get('want_float') == 1, 'Float32 input/output contract mismatch')
     require(finish.get('status') == 'success' and finish.get('exit_code') == 0 and finish.get('destroy_rc') == 0 and finish.get('completed_measurements') == count and finish.get('expected_measurements') == count, 'Incomplete/failed native run')
     iterations = [row for row in rows if row.get('event') == 'iteration']
     require(len(iterations) == 5 + count and len(rows) == 8 + len(iterations), 'Unexpected/missing events')

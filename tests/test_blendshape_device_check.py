@@ -99,7 +99,7 @@ class CheckTests(unittest.TestCase):
         self.rows[-1]['destroy_rc']=-1
         with self.assertRaises(ValueError):self.check_result()
     def test_unsupported_format_rejects(self):
-        self.rows[4]['fmt']=3;self.rows[6]['fmt']=3
+        self.rows[4]['fmt']=2;self.rows[6]['fmt']=2
         with self.assertRaises(ValueError):self.check_result()
     def test_multiple_cycles_keep_fixture_identity(self):
         cycle=[json.loads(json.dumps(row)) for row in self.rows[12:-1]]
@@ -118,5 +118,15 @@ class CheckTests(unittest.TestCase):
         self.refresh()
         self.log.write_text(self.log.read_text().replace('"run": 2.0','"run": 20.0'))
         with self.assertRaises(ValueError):mod.compare_bundle(self.bundle,self.log,self.actual,self.before,self.after)
+    def test_observed_undefined_xy_tensor_is_supported_without_transpose(self):
+        self.rows[4].update(fmt=3,n_dims=3,dims=[1,146,2],type=1,size=584)
+        self.rows[5].update(fmt=3,n_dims=1,dims=[52],type=1,size=104)
+        self.rows[6]['fmt']=3
+        self.assertTrue(self.check_result()['passed'])
+    def test_undefined_format_only_accepts_exact_observed_shape(self):
+        for dims in ([146,2],[146,1,2],[1,146,2,1],[1,1,146,2]):
+            with self.subTest(dims=dims):
+                self.rows[4].update(fmt=3,dims=dims,n_dims=len(dims));self.rows[6]['fmt']=3
+                with self.assertRaises(ValueError):self.check_result()
 
 if __name__=='__main__':unittest.main()

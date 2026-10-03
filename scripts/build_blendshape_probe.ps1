@@ -10,6 +10,6 @@ if(Test-Path -LiteralPath $binary){throw 'Refuse to replace an existing isolated
  -I (Join-Path $projectRoot 'native\vendor\rknn') (Join-Path $projectRoot 'native\rknn_blendshape_probe.c') `
  -o $binary -ldl -lm
 if($LASTEXITCODE){throw 'Isolated RKNN helper compilation failed.'}
-$metadata=@{target='aarch64-linux-android30';ndk=$NdkRoot;source_sha256=(Get-FileHash (Join-Path $projectRoot 'native\rknn_blendshape_probe.c') -Algorithm SHA256).Hash.ToLowerInvariant();helper_sha256=(Get-FileHash $binary -Algorithm SHA256).Hash.ToLowerInvariant();bytes=(Get-Item $binary).Length;app_modified=$false;device_executed=$false}
+$metadata=@{target='aarch64-linux-android30';ndk=$NdkRoot;source_sha256=(Get-FileHash (Join-Path $projectRoot 'native\rknn_blendshape_probe.c') -Algorithm SHA256).Hash.ToLowerInvariant();contract_sha256=(Get-FileHash (Join-Path $projectRoot 'native\rknn_blendshape_contract.h') -Algorithm SHA256).Hash.ToLowerInvariant();helper_sha256=(Get-FileHash $binary -Algorithm SHA256).Hash.ToLowerInvariant();bytes=(Get-Item $binary).Length;app_modified=$false;device_executed=$false}
 $metadata | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $OutputDirectory 'build.json') -Encoding utf8
 $metadata | ConvertTo-Json

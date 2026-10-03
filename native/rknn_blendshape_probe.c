@@ -8,6 +8,7 @@
 #include <dlfcn.h>
 #include <time.h>
 #include "rknn_api.h"
+#include "rknn_blendshape_contract.h"
 
 #define INPUT_FLOATS 292u
 #define OUTPUT_FLOATS 52u
@@ -37,13 +38,6 @@ static unsigned char *read_file(const char *path,size_t limit,size_t *size){
     if(fread(p,1,(size_t)n,f)!=(size_t)n){free(p);fclose(f);return NULL;}fclose(f);*size=(size_t)n;return p;
 }
 static int number(const char *s,unsigned *result){char *end=NULL;unsigned long n=strtoul(s,&end,10);if(!s[0]||s[0]=='-'||*end||n<1||n>100000)return 0;*result=(unsigned)n;return 1;}
-static int shape(const rknn_tensor_attr *a,int input){
-    if(!a->n_dims||a->n_dims>RKNN_MAX_DIMS||a->n_elems!=(input?INPUT_FLOATS:OUTPUT_FLOATS))return 0;
-    uint64_t product=1;unsigned kept=0;uint32_t nonsingle[2]={0,0};
-    for(uint32_t i=0;i<a->n_dims;i++){if(!a->dims[i]||a->dims[i]>INPUT_FLOATS)return 0;product*=a->dims[i];if(product>INPUT_FLOATS)return 0;
-        if(a->dims[i]!=1){if(kept>=2)return 0;nonsingle[kept++]=a->dims[i];}}
-    return product==a->n_elems&&(input?(kept==2&&nonsingle[0]==146&&nonsingle[1]==2):(kept==1&&nonsingle[0]==52));
-}
 int main(int argc,char **argv){
     unsigned cases=0,cycles=0;
     if(argc!=8||!number(argv[4],&cases)||!number(argv[5],&cycles)||cases>4096||(uint64_t)cases*cycles>100000){
@@ -80,7 +74,7 @@ int main(int argc,char **argv){
     if(rc||counts.n_input!=1||counts.n_output!=1){status=10;goto finish;}
     rknn_tensor_attr in={0},out={0};rc=query(ctx,RKNN_QUERY_INPUT_ATTR,&in,sizeof(in));attr(report,"input",rc,&in);if(rc){status=11;goto finish;}
     rc=query(ctx,RKNN_QUERY_OUTPUT_ATTR,&out,sizeof(out));attr(report,"output",rc,&out);if(rc){status=11;goto finish;}
-    if(!shape(&in,1)||!shape(&out,0)||(in.fmt!=RKNN_TENSOR_NCHW&&in.fmt!=RKNN_TENSOR_NHWC)){status=12;goto finish;}
+    if(!input_contract(&in)||!shape(&out,0)){status=12;goto finish;}
     fprintf(report,"{\"event\":\"feed_contract\",\"type\":%d,\"fmt\":%d,\"pass_through\":0,\"input_order\":\"original C-order [1,146,2], adjacent pixel x/y; no preprocessing or transpose\",\"want_float\":1}\n",RKNN_TENSOR_FLOAT32,in.fmt);
     for(unsigned index=0;index<WARMUP+cases*cycles;index++){
         int warming=index<WARMUP;unsigned iteration=warming?index:index-WARMUP,fixture=iteration%cases;
