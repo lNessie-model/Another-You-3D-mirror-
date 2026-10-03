@@ -13,6 +13,8 @@ final class CameraCalibrationPanel {
     interface Host {
         void changeInput(CameraControlSettings controls);
         boolean changeCalibration(Input expected,FaceControlCalibration calibration);
+        boolean confirmCalibration(CameraCalibrationPanel owner,Input expected,NeutralCalibrationCollector.Session session,
+                NeutralCalibrationCollector.Result result,FaceControlCalibration calibration);
         void save(CameraCalibrationPanel owner,Input expected,CameraControlSettings controls);
         void closed(CameraCalibrationPanel panel,boolean saved,boolean inputChanged);
     }
@@ -25,6 +27,8 @@ final class CameraCalibrationPanel {
     private final Host host;
     private final AlertDialog dialog;
     private final TextView identity,progress,actions;
+    private final TextView avatarStatus;
+    private final CameraCalibrationAvatarPreview avatarPreview;
     private final ImageView image;
     private final Spinner rotation;
     private final CheckBox reflect,mirror,personal,checked;
@@ -38,15 +42,22 @@ final class CameraCalibrationPanel {
     private Bitmap pendingPreview;
     private Object pendingToken;
     private long previewAt;
-    private boolean closed,binding,saved,inputChanged;
+    private boolean closed,binding,saved,inputChanged,initialized;
     private final boolean writable;
     CameraCalibrationPanel(Activity activity,CameraControlSettings initial,FaceControlCalibration initialCalibration,boolean writable,Host host){
         this.host=host;this.draft=initial;this.calibration=new FaceControlCalibration(initialCalibration.revision(),initial.mirrorInteraction,null,null);this.writable=writable;
         LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(20,8,20,8);
         identity=text(activity,"等待相机准备完成……");body.addView(identity);
-        body.addView(text(activity,"规范输入预览（不额外镜像）。请用字母 F 或文字确认正立方向；背景角色用于检查动作。"));
+        body.addView(text(activity,"左侧为规范输入（不额外镜像），用字母 F 或文字确认方向；右侧角色用于检查左右眼、张口和转头。"));
         image=new ImageView(activity);image.setAdjustViewBounds(true);image.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        body.addView(image,new LinearLayout.LayoutParams(-1,180));
+        LinearLayout previews=new LinearLayout(activity);previews.setOrientation(LinearLayout.HORIZONTAL);
+        previews.addView(image,new LinearLayout.LayoutParams(0,-1,1));
+        avatarStatus=text(activity,"角色正在加载……");
+        avatarPreview=new CameraCalibrationAvatarPreview(activity,new java.io.File(activity.getFilesDir(),"avatars"),
+                android.os.Build.VERSION.SDK_INT,value->{avatarStatus.setText(avatarLabel(value));if(initialized&&!isClosed())refreshEnabled();});
+        try{
+        previews.addView(avatarPreview,new LinearLayout.LayoutParams(0,-1,1));
+        body.addView(previews,new LinearLayout.LayoutParams(-1,360));body.addView(avatarStatus);
         rotation=new Spinner(activity);ArrayAdapter<String> adapter=new ArrayAdapter<>(activity,android.R.layout.simple_spinner_item,new String[]{"顺时针旋转 0°","顺时针旋转 90°","顺时针旋转 180°","顺时针旋转 270°"});
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);rotation.setAdapter(adapter);body.addView(rotation);
         reflect=check(activity,"校正摄像头自带的左右颠倒（旋转后）");body.addView(reflect);
@@ -74,8 +85,9 @@ final class CameraCalibrationPanel {
         collect.setOnClickListener(v->{cancelCollection();synchronized(this){collector=new NeutralCalibrationCollector(personal.isChecked());session=collector.begin(SystemClock.elapsedRealtimeNanos());}progress.setText("保持正视、放松；20 秒内完成连续采集。");});
         personal.setOnCheckedChangeListener((v,b)->cancelCollection());
         confirm.setOnClickListener(v->{if(collector==null||!collector.isCurrentReady(session,ready))return;
-            calibration=new FaceControlCalibration(nextRevision(),draft.mirrorInteraction,ready.neutralPose(),ready.personalBaseline());
-            if(!host.changeCalibration(input,calibration)){cancelCollection();progress.setText("输入会话已改变，请重新采集中性。");return;}
+            FaceControlCalibration proposed=new FaceControlCalibration(nextRevision(),draft.mirrorInteraction,ready.neutralPose(),ready.personalBaseline());
+            if(!host.confirmCalibration(this,input,session,ready,proposed)){cancelCollection();progress.setText("输入或采集状态已改变，请重新采集中性。");return;}
+            calibration=proposed;
             cancelCollection();checked.setChecked(false);progress.setText("已用于当前预览。请检查动作；退出或更换输入后个人基准失效。");});
         clear.setOnClickListener(v->{clearNeutral();progress.setText("已清除本次基准，采集已取消。");});
         checked.setOnCheckedChangeListener((v,b)->refreshEnabled());
@@ -87,11 +99,25 @@ final class CameraCalibrationPanel {
             inputChanged=true;clearNeutral();syncControls();checked.setChecked(false);host.changeInput(draft);
         });
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-            if(!readyForInput()||!checked.isChecked()||!writable)return;
+            if(!readyForInput()||!avatarReady()||!checked.isChecked()||!writable)return;
             try{host.save(this,input,draft);saved=true;dialog.dismiss();}
             catch(RuntimeException error){progress.setText("未确认保存成功："+error.getMessage()+"。草稿仍在，请重试或取消。");}
         });
         refreshEnabled();
+        initialized=true;
+        }catch(RuntimeException|Error failure){avatarPreview.close();throw failure;}
+    }
+    void startPreview(){avatarPreview.resumePreview();}
+    void preview(InteractionController.Snapshot mapped,boolean active){if(!isClosed())avatarPreview.submit(mapped,active);}
+    CameraCalibrationAvatarPreview.Status previewStatus(){return avatarPreview.status();}
+    private static String avatarLabel(CameraCalibrationAvatarPreview.Status value){
+        String state=switch(value.state()){
+            case "LOADING" -> "正在加载角色";case "WAITING_FOR_GL" -> "正在准备画面";
+            case "READY" -> "角色动作预览";case "ERROR" -> "角色预览失败";
+            case "PAUSED" -> "角色预览已暂停";case "CLOSED" -> "角色预览已关闭";default -> value.state();};
+        return state+(value.displayName().isEmpty()?"":" · "+value.displayName())
+                +(value.modelSha256().isEmpty()?"":" · "+value.modelSha256().substring(0,12))
+                +(value.error().isEmpty()?"":"\n"+value.error());
     }
     private long nextRevision(){return Math.addExact(Math.max(draft.revision,calibration.revision()),1);}
     private static TextView text(Activity a,String value){TextView v=new TextView(a);v.setText(value);v.setTextSize(13);return v;}
@@ -106,9 +132,11 @@ final class CameraCalibrationPanel {
     private void cancelCollection(){synchronized(this){if(collector!=null&&session!=null)collector.cancel(session);collector=null;session=null;ready=null;}confirm.setEnabled(false);}
     private boolean readyForInput(){return input!=null&&draft.matches(input.effective.cameraId,input.effective.fingerprint,640,480)
             &&input.effective.rotationDegrees==draft.rotationDegrees&&input.effective.reflectInput==draft.reflectInput;}
+    private boolean avatarReady(){return "READY".equals(avatarPreview.status().state());}
     private void refreshEnabled(){
         boolean ready=readyForInput();collect.setEnabled(ready);rotation.setEnabled(input!=null);reflect.setEnabled(input!=null);mirror.setEnabled(input!=null);
-        Button save=dialog.getButton(AlertDialog.BUTTON_POSITIVE);if(save!=null)save.setEnabled(ready&&writable&&checked.isChecked());
+        checked.setEnabled(ready&&avatarReady());
+        Button save=dialog.getButton(AlertDialog.BUTTON_POSITIVE);if(save!=null)save.setEnabled(ready&&avatarReady()&&writable&&checked.isChecked());
     }
     /** UI-thread update. Identity transitions revoke draft sampling; no obsolete raw frame is relabelled. */
     void tick(Input current,FaceFrame raw,Object rawToken,InteractionController.Snapshot mapped){
@@ -129,7 +157,7 @@ final class CameraCalibrationPanel {
         if(collector!=null){
             NeutralCalibrationCollector.Update update=collector.poll(session,SystemClock::elapsedRealtimeNanos);
             ready=update.result();confirm.setEnabled(collector.isCurrentReady(session,ready));
-            progress.setText(update.status()+" · "+update.samples()+" 个样本 / "+update.stableMillis()+" ms\n"+reason(update.reason())
+            progress.setText(collectorStatus(update.status())+" · "+update.samples()+" 个样本 / "+update.stableMillis()+" ms\n"+reason(update.reason())
                     +(ready==null?"":"\n采集完成，点击确认后才用于角色。"));
         }
         if(mapped!=null){
@@ -139,7 +167,15 @@ final class CameraCalibrationPanel {
             float[] w=mapped.blendshapes52();actions.setText(String.format(Locale.ROOT,"角色输入 · 左眨眼 %.2f / 右眨眼 %.2f / 张口 %.2f\n%s",w[9],w[10],w[25],mapped.calibrationError()));}
         refreshEnabled();
     }
+    private static String collectorStatus(NeutralCalibrationCollector.Status state){return switch(state){
+        case IDLE -> "尚未开始";case COLLECTING -> "采集中";case READY -> "采集完成";
+        case TIMED_OUT -> "采集超时";case CANCELLED -> "采集已取消";case STALE_SESSION -> "输入会话已改变";
+    };}
     /** Every raw result is gated here, even if a UI tick is delayed. Never accesses Android Views. */
+    synchronized boolean isCurrentReady(Input expected,NeutralCalibrationCollector.Session expectedSession,NeutralCalibrationCollector.Result result){
+        return !closed&&expected!=null&&expected==input&&session==expectedSession&&ready==result&&collector!=null
+                &&collector.isCurrentReady(expectedSession,result);
+    }
     synchronized void offerRaw(Input owner,FaceFrame frame){
         if(!closed&&owner!=null&&owner==input&&collector!=null&&session!=null){
             // A READY draft is not transferable to a newly arriving face.
@@ -174,6 +210,7 @@ final class CameraCalibrationPanel {
     void dismiss(){dialog.dismiss();}
     private void finish(){
         synchronized(this){if(closed)return;closed=true;if(pendingPreview!=null)pendingPreview.recycle();pendingPreview=null;}
-        cancelCollection();image.setImageBitmap(null);host.closed(this,saved,inputChanged);
+        cancelCollection();image.setImageBitmap(null);
+        try{avatarPreview.close();}finally{host.closed(this,saved,inputChanged);}
     }
 }
