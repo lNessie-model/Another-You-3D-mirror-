@@ -289,7 +289,7 @@ public final class AvatarPackageStore {
                 dropParsed(id);faults.at("before-avatar-parse");
                 AvatarAsset asset;try(InputStream in=Files.newInputStream(folder.resolve("character.glb"),NOFOLLOW)){asset=AvatarGlbLoader.load(in);}
                 AvatarRig rig=new AvatarRig(asset,manifest);cancelled();
-                AvatarDeformer.NormalPolicy policy=rig.normalPolicy().equals("authored")?AvatarDeformer.NormalPolicy.AUTHORED:AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED;
+                AvatarDeformer.NormalPolicy policy=AvatarDeformer.NormalPolicy.fromManifest(rig.normalPolicy());
                 AvatarDeformer deformer=new AvatarDeformer(asset,policy);
                 for(int i=0;i<asset.meshes().size();i++){float[] weights=new float[asset.meshes().get(i).targetCount()];rig.copyMeshWeights(i,weights);deformer.updateMesh(i,weights);cancelled();}
                 AvatarFraming framing=AvatarGeometryBounds.fromAsset(asset,rig);

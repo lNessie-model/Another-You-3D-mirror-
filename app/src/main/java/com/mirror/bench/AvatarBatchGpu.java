@@ -13,21 +13,24 @@ final class AvatarBatchGpu {
     private final AvatarBatchLayout layout;
     private final int[] buffers; // dynamic xyz/nxyz, original COLOR_0, integer id, index, optional static UV
     private final boolean atlas;
+    private final boolean pbr;
+    private final float[] pbrParams;
     private Program single,multiview;
     private final float[] worlds,normals,colors,params,fit=new float[16],inverse=new float[16];
     private final int vertexLimit,fragmentLimit,varyingLimit,requiredVertexVectors;
     private boolean disposed;
     AvatarBatchGpu(AvatarAsset asset,AvatarRig rig,boolean useMultiview) {
-        atlas=asset.albedoAtlas()!=null;buffers=new int[atlas?5:4];
+        atlas=asset.albedoAtlas()!=null;pbr=asset.normalMap()!=null;buffers=new int[atlas?5:4];
         boolean[] active=new boolean[asset.nodes().size()];for(int n=0;n<active.length;n++)active[n]=rig.activeNode(n);
         layout=new AvatarBatchLayout(asset,active);int count=layout.entries().size();
         worlds=new float[count*16];normals=new float[count*9];colors=new float[count*4];params=new float[count*4];
+        pbrParams=pbr?new float[count*4]:null;
         int[] value=new int[1];GLES30.glGetIntegerv(GLES30.GL_MAX_VERTEX_UNIFORM_VECTORS,value,0);vertexLimit=value[0];
         GLES30.glGetIntegerv(GLES30.GL_MAX_FRAGMENT_UNIFORM_VECTORS,value,0);fragmentLimit=value[0];
         GLES30.glGetIntegerv(GLES30.GL_MAX_VARYING_VECTORS,value,0);varyingLimit=value[0];
-        requiredVertexVectors=count*9+(useMultiview?16:4);
+        requiredVertexVectors=count*(pbr?10:9)+(useMultiview?16:4);
         if(vertexLimit<requiredVertexVectors)throw new IllegalStateException("Debug avatar batch exceeds vertex uniform limits");
-        if(varyingLimit<(atlas?6:5))throw new IllegalStateException("Debug avatar batch exceeds varying limits");
+        if(varyingLimit<(pbr?7:atlas?6:5))throw new IllegalStateException("Debug avatar batch exceeds varying limits");
         GLES30.glGetIntegerv(GLES30.GL_MAX_VERTEX_ATTRIBS,value,0);
         if(value[0]<(atlas?5:4))throw new IllegalStateException("Debug avatar batch exceeds vertex attribute limits");
         for(int i=0;i<count;i++) {
@@ -35,9 +38,10 @@ final class AvatarBatchGpu {
             var material=asset.materials().get(primitive.materialIndex());material.baseColor().get(colors,i*4,4);
             params[i*4]=material.unlit()?1:0;params[i*4+1]=material.roughness();
             params[i*4+2]=material.textured()?1:0;
+            if(pbr){pbrParams[i*4]=material.normalScale();pbrParams[i*4+1]=material.occlusionStrength();pbrParams[i*4+2]=material.metallic();pbrParams[i*4+3]=material.pbrMaps()?1:0;}
         }
         try {
-            single=new Program(false,count,atlas);multiview=useMultiview?new Program(true,count,atlas):null;
+            single=new Program(false,count,atlas,pbr);multiview=useMultiview?new Program(true,count,atlas,pbr):null;
             GLES30.glGenBuffers(buffers.length,buffers,0);
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[0]);
             GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,layout.vertexCount()*24,null,GLES30.GL_DYNAMIC_DRAW);
@@ -84,6 +88,7 @@ final class AvatarBatchGpu {
         GLES30.glUniformMatrix4fv(program.world,count,false,worlds,0);GLES30.glUniformMatrix3fv(program.normal,count,false,normals,0);
         GLES30.glUniform4fv(program.color,count,colors,0);GLES30.glUniform4fv(program.params,count,params,0);
         if(atlas)GLES30.glUniform1i(program.sampler,0);
+        if(pbr){GLES30.glUniform4fv(program.pbr,count,pbrParams,0);GLES30.glUniform1i(program.normalSampler,1);GLES30.glUniform1i(program.ormSampler,2);}
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glFrontFace(GLES30.GL_CCW);GLES30.glCullFace(GLES30.GL_BACK);GLES30.glDisable(GLES30.GL_BLEND);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[0]);
@@ -104,7 +109,7 @@ final class AvatarBatchGpu {
                 .put("vertices",layout.vertexCount()).put("indices",layout.indexCount()).put("extra_id_bytes",layout.vertexCount()*4)
                 .put("max_vertex_uniform_vectors",vertexLimit).put("required_vertex_uniform_vectors",requiredVertexVectors)
                 .put("max_fragment_uniform_vectors",fragmentLimit).put("required_fragment_uniform_vectors",0)
-                .put("max_varying_vectors",varyingLimit).put("required_varying_vectors",atlas?6:5)
+                .put("max_varying_vectors",varyingLimit).put("required_varying_vectors",pbr?7:atlas?6:5)
                 .put("albedo_atlas",atlas).put("static_uv_bytes",atlas?layout.vertexCount()*8:0)
                 .put("material_selection_stage","vertex_flat");
     }
@@ -141,19 +146,31 @@ final class AvatarBatchGpu {
         return AvatarGpuScene.atlasFragment(source).replace("flat in highp vec2 vMaterialParams;","flat in highp vec3 vMaterialParams;")
                 .replace("uniform float uUseTexture;","").replace("uUseTexture>0.5","vMaterialParams.z>0.5");
     }
+    static String vertexSource(boolean multiview,int count,boolean atlas,boolean pbr){
+        String source=vertexSource(multiview,count,atlas);if(!pbr)return source;
+        return source.replace("void main(){","flat out highp vec4 vPbrParams;\nuniform vec4 uPbrValues["+count+"];\nvoid main(){vPbrParams=uPbrValues[int(aPrimitive)];");
+    }
+    static String fragmentSource(int count,boolean atlas,boolean pbr){
+        if(!pbr)return fragmentSource(count,atlas);
+        return AvatarGpuScene.PBR_FRAGMENT.replace("uniform vec4 uColor;uniform float uUnlit;uniform float uRoughness;","flat in highp vec4 vMaterialColor;flat in highp vec3 vMaterialParams;")
+                .replace("uniform float uUseTexture;","").replace("uniform vec4 uPbrParams;","flat in highp vec4 vPbrParams;")
+                .replace("uPbrParams","vPbrParams").replace("uUseTexture>0.5","vMaterialParams.z>0.5")
+                .replace("void main(){","void main(){vec4 uColor=vMaterialColor;float uUnlit=vMaterialParams.x;float uRoughness=vMaterialParams.y;");
+    }
     private static final class Program {
-        final int id,vp,world,normal,color,params,sampler;
-        Program(boolean multiview,int count,boolean atlas) {
+        final int id,vp,world,normal,color,params,sampler,pbr,normalSampler,ormSampler;
+        Program(boolean multiview,int count,boolean atlas,boolean hasPbr) {
             int vs=0,fs=0,created=0;
             try {
-                vs=AvatarGpuScene.shader(GLES30.GL_VERTEX_SHADER,vertexSource(multiview,count,atlas));
-                fs=AvatarGpuScene.shader(GLES30.GL_FRAGMENT_SHADER,fragmentSource(count,atlas));
+                vs=AvatarGpuScene.shader(GLES30.GL_VERTEX_SHADER,vertexSource(multiview,count,atlas,hasPbr));
+                fs=AvatarGpuScene.shader(GLES30.GL_FRAGMENT_SHADER,fragmentSource(count,atlas,hasPbr));
                 created=GLES30.glCreateProgram();GLES30.glAttachShader(created,vs);GLES30.glAttachShader(created,fs);GLES30.glLinkProgram(created);
                 int[] ok=new int[1];GLES30.glGetProgramiv(created,GLES30.GL_LINK_STATUS,ok,0);
                 if(ok[0]==0)throw new IllegalStateException("Avatar batch program: "+GLES30.glGetProgramInfoLog(created));
                 id=created;vp=location(id,"uViewProjection");world=location(id,"uWorld[0]");normal=location(id,"uNormal[0]");
                 color=location(id,"uColors[0]");params=location(id,"uParams[0]");
                 sampler=atlas?location(id,"uAtlas"):-1;
+                pbr=hasPbr?location(id,"uPbrValues[0]"):-1;normalSampler=hasPbr?location(id,"uNormalMap"):-1;ormSampler=hasPbr?location(id,"uOrmMap"):-1;
             } catch(RuntimeException|Error failure){if(created!=0)GLES30.glDeleteProgram(created);throw failure;}
             finally {if(vs!=0)GLES30.glDeleteShader(vs);if(fs!=0)GLES30.glDeleteShader(fs);}
         }

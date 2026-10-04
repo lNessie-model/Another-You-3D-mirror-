@@ -41,7 +41,7 @@ public final class AvatarPoseWorkerTest {
             System.out.println("Worker asset SHA256="+sha);
             float[] input=new float[52];float[] angles=new float[3];Random random=new Random(612443);
             AvatarRig reference=new AvatarRig(real,json);
-            AvatarDeformer referenceDeformer=new AvatarDeformer(real,AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
+            AvatarDeformer referenceDeformer=new AvatarDeformer(real,AvatarDeformer.NormalPolicy.fromManifest(reference.normalPolicy()));
             try(AvatarPoseWorker worker=new AvatarPoseWorker(real,json)) {
                 AvatarPoseWorker.Frame held=null;float[] prior=null;
                 for(int pose=0;pose<64;pose++) {
@@ -124,7 +124,7 @@ public final class AvatarPoseWorkerTest {
     }
     private static void compare(AvatarAsset asset,String manifest,float[] input,float[] angles,AvatarPoseWorker.Frame frame)throws Exception {
         AvatarRig reference=new AvatarRig(asset,manifest);
-        AvatarDeformer deformer=new AvatarDeformer(asset,AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
+        AvatarDeformer deformer=new AvatarDeformer(asset,AvatarDeformer.NormalPolicy.fromManifest(reference.normalPolicy()));
         compare(asset,reference,deformer,input,angles,frame);
     }
     private static void compare(AvatarAsset asset,AvatarRig reference,AvatarDeformer deformer,float[] input,float[] angles,AvatarPoseWorker.Frame frame) {

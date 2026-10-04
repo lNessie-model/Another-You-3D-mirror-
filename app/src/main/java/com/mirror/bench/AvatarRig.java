@@ -54,9 +54,10 @@ public final class AvatarRig {
         String filename = string(json,"model");
         if (!filename.matches("[A-Za-z0-9_-]+\\.glb")) throw invalid("Model must be a sibling GLB filename");
         normalPolicy = string(json,"normalPolicy");
-        if (!normalPolicy.equals("recompute-deformed") && !normalPolicy.equals("authored")) throw invalid("Unsupported normal policy");
-        if(json.has("materialProfile")&&!string(json,"materialProfile").equals("mirror-lit-v1"))
-            throw invalid("Unsupported material profile");
+        if (!normalPolicy.equals("recompute-deformed") && !normalPolicy.equals("authored") && !normalPolicy.equals("smooth-deformed-v1")) throw invalid("Unsupported normal policy");
+        String materialProfile=json.has("materialProfile")?string(json,"materialProfile"):"mirror-lit-v1";
+        if(!materialProfile.equals("mirror-lit-v1")&&!materialProfile.equals("mirror-pbr-v1"))throw invalid("Unsupported material profile");
+        if(materialProfile.equals("mirror-pbr-v1")!=(asset.normalMap()!=null))throw invalid("Material profile differs from embedded PBR maps");
         JSONObject coords = json.getJSONObject("coordinates");
         keys(coords,Set.of("up","forward","subjectLeft","units","rootScale","headPivot"),"coordinate operation");
         if (!string(coords,"up").equals("+Y") || !string(coords,"forward").equals("+Z")

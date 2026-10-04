@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
 
 /**
  * Thread-confined CPU morph cache. Update each mesh once per animation change, then reuse the
@@ -16,7 +17,11 @@ import java.util.List;
  * Never update while another thread is reading/uploading these buffers.
  */
 public final class AvatarDeformer {
-    public enum NormalPolicy { RECOMPUTE_DEFORMED, AUTHORED }
+    public enum NormalPolicy { RECOMPUTE_DEFORMED, AUTHORED, SMOOTH_DEFORMED;
+        public static NormalPolicy fromManifest(String name){
+            return switch(name){case "authored"->AUTHORED;case "recompute-deformed"->RECOMPUTE_DEFORMED;case "smooth-deformed-v1"->SMOOTH_DEFORMED;default->throw new DeformationException("Unsupported normal policy");};
+        }
+    }
     public static final class DeformationException extends IllegalArgumentException {
         DeformationException(String message){super(message);}
     }
@@ -132,6 +137,7 @@ public final class AvatarDeformer {
         final PrimitiveOutput output;
         final float[] pendingPositions,pendingNormals,pendingInterleaved;
         final double[] accumulation;
+        final int[] normalGroups;
         PrimitiveState(AvatarAsset.Primitive primitive,NormalPolicy policy){
             this.policy=policy;basePositions=copySource(primitive.positions());baseNormals=copySource(primitive.normals());indices=copySource(primitive.indices());
             int components=basePositions.length;
@@ -149,6 +155,7 @@ public final class AvatarDeformer {
                 positionDeltas[i]=delta(p);
                 normalDeltas[i]=policy==NormalPolicy.AUTHORED?delta(n):null;
             }
+            normalGroups=policy==NormalPolicy.SMOOTH_DEFORMED?smoothingGroups(primitive):null;
         }
         boolean affected(float[] before,float[] after) {
             for(int target=0;target<after.length;target++)if(before[target]!=after[target]
@@ -163,7 +170,7 @@ public final class AvatarDeformer {
                 if(!Double.isFinite(value)||Math.abs(value)>Float.MAX_VALUE)throw new DeformationException("non-finite/overflow morph position at component "+i);
                 pendingPositions[i]=(float)value;
             }
-            if(policy==NormalPolicy.RECOMPUTE_DEFORMED)recomputeNormals();
+            if(policy!=NormalPolicy.AUTHORED)recomputeNormals();
             else {
                 for(int i=0;i<accumulation.length;i++)accumulation[i]=baseNormals[i];
                 apply(normalDeltas,weights);
@@ -184,6 +191,7 @@ public final class AvatarDeformer {
                 double ux=(double)pendingPositions[b]-pendingPositions[a],uy=(double)pendingPositions[b+1]-pendingPositions[a+1],uz=(double)pendingPositions[b+2]-pendingPositions[a+2];
                 double vx=(double)pendingPositions[c]-pendingPositions[a],vy=(double)pendingPositions[c+1]-pendingPositions[a+1],vz=(double)pendingPositions[c+2]-pendingPositions[a+2];
                 double nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+                if(normalGroups!=null){a=normalGroups[indices[i]]*3;b=normalGroups[indices[i+1]]*3;c=normalGroups[indices[i+2]]*3;}
                 accumulation[a]+=nx;accumulation[a+1]+=ny;accumulation[a+2]+=nz;
                 accumulation[b]+=nx;accumulation[b+1]+=ny;accumulation[b+2]+=nz;
                 accumulation[c]+=nx;accumulation[c+1]+=ny;accumulation[c+2]+=nz;
@@ -192,7 +200,8 @@ public final class AvatarDeformer {
         }
         void normalizeNormals(){
             for(int i=0;i<accumulation.length;i+=3){
-                double x=accumulation[i],y=accumulation[i+1],z=accumulation[i+2],length=x*x+y*y+z*z;
+                int at=normalGroups==null?i:normalGroups[i/3]*3;
+                double x=accumulation[at],y=accumulation[at+1],z=accumulation[at+2],length=x*x+y*y+z*z;
                 if(!Double.isFinite(length))throw new DeformationException("non-finite NORMAL at vertex "+i/3);
                 if(length==0){
                     x=baseNormals==null?0:baseNormals[i];y=baseNormals==null?0:baseNormals[i+1];z=baseNormals==null?1:baseNormals[i+2];
@@ -204,6 +213,18 @@ public final class AvatarDeformer {
                 pendingNormals[i]=(float)(x*inverse);pendingNormals[i+1]=(float)(y*inverse);pendingNormals[i+2]=(float)(z*inverse);
             }
         }
+        /** Exact rest position, authored normal, and all POSITION deltas protect hard edges and motion seams. */
+        int[] smoothingGroups(AvatarAsset.Primitive source){
+            if(baseNormals==null)throw new DeformationException("SMOOTH_DEFORMED requires authored base NORMAL");
+            int count=basePositions.length/3;reserveSource(count);int[] result=new int[count];
+            FloatBuffer[] deltas=new FloatBuffer[source.morphs().size()];for(int i=0;i<deltas.length;i++)deltas[i]=source.morphs().get(i).positions();
+            HashMap<SmoothingKey,Integer> groups=new HashMap<>();
+            for(int v=0;v<count;v++){
+                SmoothingKey key=new SmoothingKey(v,basePositions,baseNormals,deltas);Integer first=groups.get(key);
+                if(first==null){groups.put(key,v);result[v]=v;}else result[v]=first;
+            }
+            return result;
+        }
         void commit(long revision){
             System.arraycopy(pendingPositions,0,output.positions,0,pendingPositions.length);
             System.arraycopy(pendingNormals,0,output.normals,0,pendingNormals.length);
@@ -212,6 +233,25 @@ public final class AvatarDeformer {
             }
             output.upload.clear();output.upload.put(pendingInterleaved);output.upload.flip();
             output.revision=revision;
+        }
+    }
+    /** Constructor-local keys borrow validated immutable buffers; only the integer groups survive. */
+    private static final class SmoothingKey {
+        final int vertex,hash;final float[] positions,normals;final FloatBuffer[] deltas;
+        SmoothingKey(int vertex,float[] positions,float[] normals,FloatBuffer[] deltas){
+            this.vertex=vertex;this.positions=positions;this.normals=normals;this.deltas=deltas;
+            int h=1,at=vertex*3;
+            for(int c=0;c<3;c++){h=31*h+bits(positions[at+c]);h=31*h+bits(normals[at+c]);}
+            for(FloatBuffer d:deltas)if(d!=null)for(int c=0;c<3;c++)h=31*h+bits(d.get(at+c));hash=h;
+        }
+        private static int bits(float v){return Float.floatToIntBits(v==0?0:v);}
+        @Override public int hashCode(){return hash;}
+        @Override public boolean equals(Object value){
+            if(!(value instanceof SmoothingKey k)||hash!=k.hash||positions!=k.positions)return false;
+            int a=vertex*3,b=k.vertex*3;
+            for(int c=0;c<3;c++)if(positions[a+c]!=positions[b+c]||normals[a+c]!=normals[b+c])return false;
+            for(FloatBuffer d:deltas)if(d!=null)for(int c=0;c<3;c++)if(d.get(a+c)!=d.get(b+c))return false;
+            return true;
         }
     }
 

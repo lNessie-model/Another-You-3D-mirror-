@@ -49,6 +49,8 @@ final class AvatarGpuScene {
     private double rigMs,morphMs,meanRigMs,meanMorphMs,meanCopyMs,meanUploadMs,meanPoseAgeMs,maxPoseAgeMs;
     private final int primitiveCount;
     private int atlasTexture;
+    private final int[] detailTextures=new int[2];
+    private final float[] pbrParams=new float[4];
 
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview) throws Exception {
         return builtin(assets,multiview,false);
@@ -102,12 +104,14 @@ final class AvatarGpuScene {
         drawPartition=new AvatarDrawPartition(asset,rig);
         staticBackgroundNodes=drawPartition.staticNodes();
         displayedWorlds=new float[asset.nodes().size()*16];
-        deformer=new AvatarDeformer(asset,rig.normalPolicy().equals("authored")?AvatarDeformer.NormalPolicy.AUTHORED:AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
+        deformer=new AvatarDeformer(asset,AvatarDeformer.NormalPolicy.fromManifest(rig.normalPolicy()));
         weights=new float[asset.meshes().size()][];primitives=new List[weights.length];
         try {
         boolean atlas=asset.albedoAtlas()!=null;
         if(atlas)uploadAtlas(asset.albedoAtlas());
-        if(drawMode!=DrawMode.BATCHED){program=new Program(false,atlas);multiviewProgram=multiview?new Program(true,atlas):null;}
+        boolean pbr=asset.normalMap()!=null;
+        if(pbr){uploadMap(asset.normalMap(),1);uploadMap(asset.ormMap(),2);}
+        if(drawMode!=DrawMode.BATCHED){program=new Program(false,atlas,pbr);multiviewProgram=multiview?new Program(true,atlas,pbr):null;}
         int count=0;
         for(int m=0;m<weights.length;m++) {
             weights[m]=new float[asset.meshes().get(m).targetCount()];
@@ -130,6 +134,7 @@ final class AvatarGpuScene {
         for(int buffer:allocatedBuffers)GLES30.glDeleteBuffers(1,new int[]{buffer},0);
         allocatedBuffers.clear();
         if(atlasTexture!=0){GLES30.glDeleteTextures(1,new int[]{atlasTexture},0);atlasTexture=0;}
+        GLES30.glDeleteTextures(2,detailTextures,0);detailTextures[0]=detailTextures[1]=0;
         if(program!=null){GLES30.glDeleteProgram(program.id);program=null;}
         if(multiviewProgram!=null){GLES30.glDeleteProgram(multiviewProgram.id);multiviewProgram=null;}
     }
@@ -246,6 +251,7 @@ final class AvatarGpuScene {
         copyFitMatrix(aspect,fit);
         GLES30.glUseProgram(active.id);
         if(atlasTexture!=0){bindAtlas();GLES30.glUniform1i(active.sampler,0);}
+        if(asset.normalMap()!=null){GLES30.glUniform1i(active.normalSampler,1);GLES30.glUniform1i(active.ormSampler,2);}
         GLES30.glUniformMatrix4fv(active.viewProjection,viewCount,false,viewProjections,0);
         GLES30.glEnable(GLES30.GL_DEPTH_TEST);GLES30.glEnable(GLES30.GL_CULL_FACE);
         GLES30.glFrontFace(GLES30.GL_CCW);GLES30.glCullFace(GLES30.GL_BACK);
@@ -261,6 +267,7 @@ final class AvatarGpuScene {
                 var material=asset.materials().get(primitive.source.materialIndex());
                 GLES30.glUniform4fv(active.color,1,primitive.materialColor,0);
                 GLES30.glUniform1f(active.unlit,material.unlit()?1:0);GLES30.glUniform1f(active.roughness,material.roughness());
+                if(asset.normalMap()!=null){pbrParams[0]=material.normalScale();pbrParams[1]=material.occlusionStrength();pbrParams[2]=material.metallic();pbrParams[3]=material.pbrMaps()?1:0;GLES30.glUniform4fv(active.pbr,1,pbrParams,0);}
                 if(atlasTexture!=0){GLES30.glUniform1f(active.useTexture,material.textured()?1:0);
                     if(primitive.uvBuffer!=0){GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,primitive.uvBuffer);GLES30.glEnableVertexAttribArray(4);GLES30.glVertexAttribPointer(4,2,GLES30.GL_FLOAT,false,8,0);}
                     else {GLES30.glDisableVertexAttribArray(4);GLES30.glVertexAttrib2f(4,0,0);}}
@@ -276,7 +283,7 @@ final class AvatarGpuScene {
             }
         }
         for(int i=0;i<3;i++)GLES30.glDisableVertexAttribArray(i);
-        if(atlasTexture!=0){GLES30.glDisableVertexAttribArray(4);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);}
+        if(atlasTexture!=0){GLES30.glDisableVertexAttribArray(4);unbindMaps();}
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
     }
     /** VERIFY keeps independent legacy buffers; both draws share one prepared CPU pose. */
@@ -285,7 +292,7 @@ final class AvatarGpuScene {
         if(atlasTexture!=0)bindAtlas();
         copyFitMatrix(aspect,fit);
         batch.draw(viewProjections,viewCount,aspect,framing,displayedWorlds,fit);
-        if(atlasTexture!=0)GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);
+        if(atlasTexture!=0)unbindMaps();
     }
     /** Called only by the GL owner using one immutable configuration per frame. */
     void setSceneView(SceneViewSettings value){if(value==null)throw new IllegalArgumentException("Scene view required");sceneView=value;}
@@ -313,6 +320,7 @@ final class AvatarGpuScene {
         }
         AvatarBatchGpu currentBatch=batch;
         if(asset.albedoAtlas()!=null)value.put("albedo_atlas",new JSONObject().put("width",asset.albedoAtlas().width()).put("height",asset.albedoAtlas().height()).put("encoded_bytes",asset.albedoAtlas().encodedBytes()));
+        if(asset.normalMap()!=null)value.put("pbr_materials",new JSONObject().put("normal_width",asset.normalMap().width()).put("orm_width",asset.ormMap().width()).put("normal_scale",asset.materials().get(0).normalScale()).put("lighting","GGX key light, diffuse fill, hemisphere ambient; no image-based lighting or skin subsurface scattering").put("tangent_frame","fragment derivatives of current deformed geometry; not authored MikkTSpace tangents").put("sampling","GPU-generated mip chain, trilinear minification; original level-zero bytes retained").put("texture_gpu_bytes",mapGpuBytes(asset.albedoAtlas().width(),asset.albedoAtlas().height(),true)+mapGpuBytes(asset.normalMap().width(),asset.normalMap().height(),true)+mapGpuBytes(asset.ormMap().width(),asset.ormMap().height(),true)));
         if(currentBatch!=null)value.put("batch",currentBatch.status());
         if(poseWorker!=null) {
             var s=poseWorker.status();value.put("pose_worker",new JSONObject().put("submitted_inputs",s.submittedInputs)
@@ -365,15 +373,15 @@ final class AvatarGpuScene {
         }
     }
     private static final class Program {
-        final int id,viewProjection,world,normal,color,unlit,roughness,sampler,useTexture;
-        Program(boolean multiview,boolean atlas) {
+        final int id,viewProjection,world,normal,color,unlit,roughness,sampler,useTexture,normalSampler,ormSampler,pbr;
+        Program(boolean multiview,boolean atlas,boolean hasPbr) {
             String vertex=atlas?atlasVertex(VERTEX):VERTEX;
             if(multiview)vertex=vertex.replace("#version 300 es","#version 300 es\n#extension GL_OVR_multiview2 : require\nlayout(num_views=4) in;")
                     .replace("uniform mat4 uViewProjection;","uniform mat4 uViewProjection[4];")
                     .replace("uViewProjection*", "uViewProjection[gl_ViewID_OVR]*");
             int vs=0,fs=0,created=0;
             try {
-                vs=shader(GLES30.GL_VERTEX_SHADER,vertex);fs=shader(GLES30.GL_FRAGMENT_SHADER,atlas?atlasFragment(FRAGMENT):FRAGMENT);
+                vs=shader(GLES30.GL_VERTEX_SHADER,vertex);fs=shader(GLES30.GL_FRAGMENT_SHADER,hasPbr?PBR_FRAGMENT:atlas?atlasFragment(FRAGMENT):FRAGMENT);
                 created=GLES30.glCreateProgram();GLES30.glAttachShader(created,vs);GLES30.glAttachShader(created,fs);GLES30.glLinkProgram(created);
                 int[] ok=new int[1];GLES30.glGetProgramiv(created,GLES30.GL_LINK_STATUS,ok,0);
                 if(ok[0]==0)throw new IllegalStateException("Avatar program: "+GLES30.glGetProgramInfoLog(created));
@@ -384,27 +392,46 @@ final class AvatarGpuScene {
             normal=GLES30.glGetUniformLocation(id,"uNormal");color=GLES30.glGetUniformLocation(id,"uColor");
             unlit=GLES30.glGetUniformLocation(id,"uUnlit");roughness=GLES30.glGetUniformLocation(id,"uRoughness");
             sampler=atlas?GLES30.glGetUniformLocation(id,"uAtlas"):-1;useTexture=atlas?GLES30.glGetUniformLocation(id,"uUseTexture"):-1;
+            normalSampler=hasPbr?GLES30.glGetUniformLocation(id,"uNormalMap"):-1;ormSampler=hasPbr?GLES30.glGetUniformLocation(id,"uOrmMap"):-1;pbr=hasPbr?GLES30.glGetUniformLocation(id,"uPbrParams"):-1;
             if(atlas&&(sampler<0||useTexture<0)){GLES30.glDeleteProgram(id);throw new IllegalStateException("Missing avatar atlas uniforms");}
+            if(hasPbr&&(normalSampler<0||ormSampler<0||pbr<0)){GLES30.glDeleteProgram(id);throw new IllegalStateException("Missing PBR uniforms");}
         }
     }
-    private void bindAtlas(){GLES30.glActiveTexture(GLES30.GL_TEXTURE0);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,atlasTexture);}
+    private void bindAtlas(){
+        for(int i=0;i<2;i++)if(detailTextures[i]!=0){GLES30.glActiveTexture(GLES30.GL_TEXTURE1+i);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,detailTextures[i]);}
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,atlasTexture);
+    }
+    private void unbindMaps(){
+        for(int i=2;i>=0;i--){GLES30.glActiveTexture(GLES30.GL_TEXTURE0+i);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);}
+    }
     private void uploadAtlas(AvatarAsset.AlbedoAtlas atlas){
+        uploadMap(atlas,0);
+    }
+    /** Albedo is sRGB; normal/ORM are linear. Ownership is recorded before any upload can fail. */
+    private void uploadMap(AvatarAsset.AlbedoAtlas atlas,int unit){
         Bitmap bitmap=null;
         try(InputStream input=atlas.openStream()){
             BitmapFactory.Options options=new BitmapFactory.Options();options.inScaled=false;options.inPremultiplied=false;options.inPreferredConfig=Bitmap.Config.ARGB_8888;
             bitmap=BitmapFactory.decodeStream(input,null,options);
             if(bitmap==null||bitmap.getWidth()!=atlas.width()||bitmap.getHeight()!=atlas.height()||bitmap.getConfig()!=Bitmap.Config.ARGB_8888)
                 throw new IllegalStateException("Atlas PNG decode differs from validated RGB8 dimensions/config");
-            int[] name=new int[1];GLES30.glGenTextures(1,name,0);atlasTexture=name[0];bindAtlas();
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_LINEAR);
+            int[] name=new int[1];GLES30.glGenTextures(1,name,0);if(unit==0)atlasTexture=name[0];else detailTextures[unit-1]=name[0];
+            GLES30.glActiveTexture(GLES30.GL_TEXTURE0+unit);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,name[0]);
+            boolean mip=asset.normalMap()!=null;
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,mip?GLES30.GL_LINEAR_MIPMAP_LINEAR:GLES30.GL_LINEAR);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_LINEAR);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_S,GLES30.GL_CLAMP_TO_EDGE);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_T,GLES30.GL_CLAMP_TO_EDGE);
-            GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,1,GLES30.GL_SRGB8_ALPHA8,atlas.width(),atlas.height());
+            int levels=1;if(mip)for(int n=Math.max(atlas.width(),atlas.height());n>1;n>>=1)levels++;
+            GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,levels,unit==0?GLES30.GL_SRGB8_ALPHA8:GLES30.GL_RGBA8,atlas.width(),atlas.height());
             GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D,0,0,0,bitmap,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE);
-            checkGl("avatar atlas upload");GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);
+            if(mip)GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D);
+            checkGl("avatar map upload unit "+unit);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
         } catch(java.io.IOException e){throw new IllegalStateException("Atlas stream failed",e);}
         finally {if(bitmap!=null)bitmap.recycle();}
+    }
+    static long mapGpuBytes(int width,int height,boolean mip){
+        long bytes=0;while(true){bytes+=4L*width*height;if(!mip||(width==1&&height==1))return bytes;width=Math.max(1,width/2);height=Math.max(1,height/2);}
     }
     static String atlasVertex(String source){return source.replace("layout(location=2) in vec4 aColor;","layout(location=2) in vec4 aColor;\nlayout(location=4) in vec2 aUV;\nout vec2 vUV;").replace("void main(){","void main(){vUV=aUV;");}
     static String atlasFragment(String source){return source.replace("in vec3 vNormal;","in vec2 vUV;uniform sampler2D uAtlas;uniform float uUseTexture;\nin vec3 vNormal;")
@@ -442,6 +469,54 @@ final class AvatarGpuScene {
             float spec=pow(max(dot(n,h),0.0),mix(64.0,8.0,uRoughness))*(1.0-uRoughness)*0.15;
             vec3 lit=base*(0.32+0.68*diffuse)+vec3(spec);
             color=vec4(pow(clamp(mix(lit,base,uUnlit),0.0,1.0),vec3(1.0/2.2)),1.0);
+        }
+        """;
+    // Lightweight material path. Legacy assets retain their frozen v8 lighting above.
+    static final String PBR_FRAGMENT="""
+        #version 300 es
+        precision highp float;
+        in vec2 vUV;in vec3 vNormal;in vec3 vPosition;in vec4 vColor;
+        uniform vec4 uColor;uniform float uUnlit;uniform float uRoughness;
+        uniform sampler2D uAtlas;uniform float uUseTexture;
+        uniform sampler2D uNormalMap;uniform sampler2D uOrmMap;
+        uniform vec4 uPbrParams;
+        out vec4 color;
+        vec3 encodeSRGB(vec3 c){return mix(12.92*c,1.055*pow(max(c,vec3(0.0)),vec3(1.0/2.4))-0.055,step(vec3(0.0031308),c));}
+        vec3 detailNormal(vec3 n){
+            vec3 dp1=dFdx(vPosition),dp2=dFdy(vPosition);vec2 du1=dFdx(vUV),du2=dFdy(vUV);
+            float det=du1.x*du2.y-du1.y*du2.x;
+            if(abs(det)<1e-10)return n;
+            vec3 t=(dp1*du2.y-dp2*du1.y)/det;
+            vec3 b=(dp2*du1.x-dp1*du2.x)/det;
+            t-=n*dot(n,t);float lengthT=length(t);if(lengthT<1e-8)return n;t/=lengthT;
+            b=normalize(cross(n,t))*(dot(cross(n,t),b)<0.0?-1.0:1.0);
+            vec3 mapped=texture(uNormalMap,vUV).rgb*2.0-1.0;mapped.xy*=uPbrParams.x;
+            return normalize(mat3(t,b,n)*normalize(mapped));
+        }
+        void main(){
+            vec3 albedo=uUseTexture>0.5?texture(uAtlas,vUV).rgb:vec3(1.0);
+            vec3 base=clamp(uColor.rgb*vColor.rgb*albedo,0.0,1.0);
+            if(uUnlit>0.5){color=vec4(encodeSRGB(base),1.0);return;}
+            vec3 n=normalize(vNormal);float roughness=uRoughness,metallic=uPbrParams.z,ao=1.0;
+            vec3 orm=vec3(1.0);
+            if(uPbrParams.w>0.5){
+                n=detailNormal(n);orm=texture(uOrmMap,vUV).rgb;
+                roughness=roughness*orm.g;metallic=metallic*orm.b;ao=mix(1.0,orm.r,uPbrParams.y);
+            }
+            roughness=clamp(roughness,0.12,1.0);
+            vec3 v=normalize(vec3(0.0,0.0,3.0)-vPosition),l=normalize(vec3(-0.45,0.65,1.0)),h=normalize(v+l);
+            float nl=max(dot(n,l),0.0),nv=max(dot(n,v),0.001),nh=max(dot(n,h),0.0),vh=max(dot(v,h),0.0);
+            vec3 f0=mix(vec3(0.04),base,metallic),f=f0+(1.0-f0)*pow(1.0-vh,5.0);
+            float a=roughness*roughness,a2=a*a,den=nh*nh*(a2-1.0)+1.0;
+            float d=a2/(3.14159265*den*den),k=(roughness+1.0)*(roughness+1.0)/8.0;
+            float g=(nv/(nv*(1.0-k)+k))*(nl/(nl*(1.0-k)+k));
+            vec3 spec=d*g*f/max(4.0*nv*nl,0.001);
+            vec3 diffuse=(1.0-f)*(1.0-metallic)*base/3.14159265;
+            vec3 direct=(diffuse+spec)*nl*vec3(2.35,2.20,2.05);
+            float fill=max(dot(n,normalize(vec3(0.70,0.25,0.70))),0.0);
+            vec3 ambient=base*(1.0-metallic)*(vec3(0.19,0.21,0.24)+vec3(0.10,0.09,0.08)*max(n.y,0.0))*ao;
+            vec3 lit=direct+base*(1.0-metallic)*fill*vec3(0.10,0.13,0.18)+ambient;
+            color=vec4(encodeSRGB(clamp(lit,0.0,1.0)),1.0);
         }
         """;
 }

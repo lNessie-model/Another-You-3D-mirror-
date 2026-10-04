@@ -46,8 +46,7 @@ public final class AvatarPoseWorker implements AutoCloseable {
         if(asset==null)throw new IllegalArgumentException("Worker requires an asset");
         if(threads==null)throw new IllegalArgumentException("Worker requires a thread factory");
         this.asset=asset;rig=new AvatarRig(asset,manifest);
-        deformer=new AvatarDeformer(asset,rig.normalPolicy().equals("authored")?
-                AvatarDeformer.NormalPolicy.AUTHORED:AvatarDeformer.NormalPolicy.RECOMPUTE_DEFORMED);
+        deformer=new AvatarDeformer(asset,AvatarDeformer.NormalPolicy.fromManifest(rig.normalPolicy()));
         int meshes=asset.meshes().size();meshWeights=new float[meshes][];
         sourceOutputs=new AvatarDeformer.PrimitiveOutput[meshes][];sourceBuffers=new FloatBuffer[meshes][];
         int largestPrimitive=0;
