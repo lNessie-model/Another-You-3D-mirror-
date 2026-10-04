@@ -12,29 +12,63 @@ from check_dentition import check as dental_structure
 from check_head_oral_detail import deformed,world,exposed
 
 
+def preserved_array(before,after,label):
+    assert before.dtype==after.dtype and before.shape==after.shape and before.tobytes()==after.tobytes(),label+' changed'
+
+
+def preserved_non_dental(g,old,material):
+    # Accessor/buffer offsets may be repacked; their decoded values and actual
+    # image bytes must remain exact. All render/rig metadata stays symmetric.
+    storage={'meshes','materials','images','accessors','bufferViews','buffers'}
+    assert {k:v for k,v in g.doc.items() if k not in storage}=={k:v for k,v in old.doc.items() if k not in storage},'Rig/render metadata changed'
+    assert len(g.doc['meshes'])==len(old.doc['meshes']),'Mesh count changed'
+    dental_meshes={n['mesh'] for n in old.doc['nodes'] if n['name'] in ('UpperDentition','LowerDentition')}
+    assert len(dental_meshes)==2,'Expected two independent dental meshes'
+    assert all(pr['material']==material for mi in dental_meshes for pr in old.doc['meshes'][mi]['primitives']),'Dental material slot differs'
+    for mi,(a,b) in enumerate(zip(old.doc['meshes'],g.doc['meshes'])):
+        assert {k:v for k,v in a.items() if k!='primitives'}=={k:v for k,v in b.items() if k!='primitives'},'Mesh metadata changed'
+        assert len(a['primitives'])==len(b['primitives']),'Primitive count changed'
+        for pa,pb in zip(a['primitives'],b['primitives']):
+            fields={'attributes','indices','targets'}
+            assert {k:v for k,v in pa.items() if k not in fields}=={k:v for k,v in pb.items() if k not in fields},'Primitive binding changed'
+            assert pa['attributes'].keys()==pb['attributes'].keys(),'Attribute keys changed'
+            assert len(pa.get('targets',[]))==len(pb.get('targets',[])),'Target count changed'
+            for ta,tb in zip(pa.get('targets',[]),pb.get('targets',[])):
+                assert ta.keys()==tb.keys(),'Target keys changed'
+            if mi in dental_meshes:continue
+            for key,index in pa['attributes'].items():preserved_array(old.read(index),g.read(pb['attributes'][key]),key)
+            preserved_array(old.read(pa['indices']),g.read(pb['indices']),'Indices')
+            for ta,tb in zip(pa.get('targets',[]),pb.get('targets',[])):
+                for key,index in ta.items():preserved_array(old.read(index),g.read(tb[key]),'Facial/oral target')
+    assert len(g.doc['materials'])==len(old.doc['materials']),'Material count changed'
+    assert 0<=material<len(old.doc['materials']),'Invalid dental material slot'
+    assert all(a==b for i,(a,b) in enumerate(zip(g.doc['materials'],old.doc['materials'])) if i!=material),'Other material changed'
+    for key in ('textures','samplers'):
+        assert len(g.doc.get(key,[]))==len(old.doc.get(key,[])) and g.doc.get(key)==old.doc.get(key),key+' changed'
+    assert len(g.doc['images'])==len(old.doc['images']),'Image count changed'
+    for a,b in zip(old.doc['images'],g.doc['images']):
+        assert {k:v for k,v in a.items() if k!='bufferView'}=={k:v for k,v in b.items() if k!='bufferView'},'Image metadata changed'
+        av=old.doc['bufferViews'][a['bufferView']];bv=g.doc['bufferViews'][b['bufferView']]
+        assert old.raw[old.start+av.get('byteOffset',0):old.start+av.get('byteOffset',0)+av['byteLength']]==g.raw[g.start+bv.get('byteOffset',0):g.start+bv.get('byteOffset',0)+bv['byteLength']],'Image bytes changed'
+
+
 def check(directory,source,poses):
     directory=Path(directory);source=Path(source);g=Glb(directory/'character.glb');old=Glb(source/'character.glb')
     report=json.loads((directory/'dentition-appearance-authoring.json').read_text('utf-8'))
     assert report['sourceModelSha256']==hashlib.sha256(old.raw).hexdigest()
-    assert g.doc['nodes']==old.doc['nodes'],'Rig node changed'
-    for mi in (0,1):
-        assert len(g.doc['meshes'][mi]['primitives'])==len(old.doc['meshes'][mi]['primitives'])
-        for a,b in zip(old.doc['meshes'][mi]['primitives'],g.doc['meshes'][mi]['primitives']):
-            for key,index in a['attributes'].items():assert np.array_equal(old.read(index),g.read(b['attributes'][key])),key+' changed'
-            assert np.array_equal(old.read(a['indices']),g.read(b['indices']))
-            assert len(a.get('targets',[]))==len(b.get('targets',[]))
-            for ta,tb in zip(a.get('targets',[]),b.get('targets',[])):
-                for key,index in ta.items():assert np.array_equal(old.read(index),g.read(tb[key])),'Facial/oral target changed'
-        assert g.doc['meshes'][mi].get('extras')==old.doc['meshes'][mi].get('extras')
+    model_sha=hashlib.sha256(g.raw).hexdigest()
+    assert report['modelSha256']==model_sha,'Authoring report model fingerprint differs'
+    data=json.loads(Path(poses).read_text('utf-8'))
+    assert data['modelSha256']==model_sha and len(data['poses'])==19,'Expected 19 actual poses for this model'
+    pose_names=[pose['name'] for pose in data['poses']]
+    assert len(set(pose_names))==19,'Duplicate pose names'
+    assert {'neutral','jaw-open-mouth-close'}<=set(pose_names),'Required closed-lip poses missing'
     material=report['dentitionMaterialIndex']
-    assert all(a==b for i,(a,b) in enumerate(zip(g.doc['materials'],old.doc['materials'])) if i!=material),'Other material changed'
+    preserved_non_dental(g,old,material)
     pbr=g.doc['materials'][material]['pbrMetallicRoughness']
     assert 'baseColorTexture' not in pbr and pbr['metallicFactor']==0 and .25<=pbr['roughnessFactor']<=.40
-    assert g.doc['textures']==old.doc['textures']
-    for a,b in zip(old.doc['images'],g.doc['images']):
-        av=old.doc['bufferViews'][a['bufferView']];bv=g.doc['bufferViews'][b['bufferView']]
-        assert old.raw[old.start+av.get('byteOffset',0):old.start+av.get('byteOffset',0)+av['byteLength']]==g.raw[g.start+bv.get('byteOffset',0):g.start+bv.get('byteOffset',0)+bv['byteLength']]
     current=json.loads((directory/'avatar.json').read_text('utf-8'));previous=json.loads((source/'avatar.json').read_text('utf-8'))
+    assert current['modelSha256']==model_sha and previous['modelSha256']==report['sourceModelSha256'],'Manifest model fingerprint differs'
     except_keys={'id','displayName','modelSha256'}
     assert {k:v for k,v in current.items() if k not in except_keys}=={k:v for k,v in previous.items() if k not in except_keys}
     dental=dental_structure(directory,source,poses);front=[];bite=[]
@@ -68,7 +102,6 @@ def check(directory,source,poses):
         for pr in g.doc['meshes'][node['mesh']]['primitives']:
             vertices+=len(g.read(pr['attributes']['POSITION']));triangles+=len(g.read(pr['indices']))//3;draws+=1
     assert vertices<=20000 and triangles<=30000 and draws<=8 and len(g.raw)<=32*1024*1024
-    data=json.loads(Path(poses).read_text('utf-8'));assert data['modelSha256']==hashlib.sha256(g.raw).hexdigest() and len(data['poses'])==19
     occlusion=[]
     for pose in data['poses']:
         if pose['name'] not in ('neutral','jaw-open-mouth-close'):continue
@@ -81,9 +114,13 @@ def check(directory,source,poses):
             points=world(g.read(pr['attributes']['POSITION']),worlds[name]);indices=g.read(pr['indices']).reshape(-1,3)
             enamel=g.read(pr['attributes']['COLOR_0'])[:,:3].mean(axis=1)>.3
             samples=np.r_[points[enamel],points[indices[enamel[indices].all(axis=1)]].mean(axis=1)]
+            assert len(samples)>0,'Closed-lip dental sample set is empty'
             for direction in ([0,0,1],[.45,0,1],[-.45,0,1]):
-                count=int(exposed(samples,surface,direction).sum());row={'pose':pose['name'],'arch':name,'direction':direction,'probes':len(samples),'exposed':count}
+                visibility=exposed(samples,surface,direction)
+                assert visibility.shape==(len(samples),),'Closed-lip ray result is incomplete'
+                count=int(visibility.sum());row={'pose':pose['name'],'arch':name,'direction':direction,'probes':len(samples),'exposed':count}
                 assert count==0,'New dental surface protrudes through closed lips: '+str(row);occlusion.append(row)
+    assert len(occlusion)==12 and all(row['probes']>0 for row in occlusion),'Required closed-lip sampling is incomplete'
     return {'passed':True,'modelSha256':hashlib.sha256(g.raw).hexdigest(),'sourceModelSha256':hashlib.sha256(old.raw).hexdigest(),
             'completeFaceEyesOralTissueControlsNodesMapsPreserved':True,'oralMaterialUnchanged':True,'gingivaEffectiveColorPreserved':True,
             'instanceVertices':vertices,'triangles':triangles,'draws':draws,'glbBytes':len(g.raw),'actual19PoseDentalStructure':dental,
