@@ -18,7 +18,7 @@
 
 `close_calls_succeeded` 只表示本记录中关闭调用未报错，且已安排的相机关闭线程结束；没有异步任务时，该项表示无需等待此线程。ASYNC_CAMERA 的 failures 包含线程安排失败，故可能出现 attempts=0、failures=1。
 
-记录不证明 CameraDevice.onClosed 的HAL确认、尚未归还的 Image lease、NPU内部 post executor 已终止、GL资源／AvatarPoseWorker／其他Activity预览停止，或构造器抛错前的部分资源已释放。NpuFacePipeline现有 close 会 drain 并 shutdown，但没有独立 executor termination 证据。零次关闭也不构成硬件资格。因此所有记录固定 `hardware_qualified=false`；不得用作 ConfigurationOwner.HardwareGate 的 `allRuntimeOwnersClosed=true`。
+记录不证明 CameraDevice.onClosed 的HAL确认、尚未归还的 Image lease、GL资源／AvatarPoseWorker／其他Activity预览停止，或构造器抛错前的部分资源已释放。后续 [NPU停止切片](npu-pipeline-stop.md) 已在实际pipeline close中等待post executor终止并保留失败，但本输入记录没有嵌入其独立CloseStatus，也没有RKNN驱动destroy返回码的成功证据；不能据此扩大到全硬件资格。零次关闭也不构成硬件资格。因此所有记录固定 `hardware_qualified=false`；不得用作 ConfigurationOwner.HardwareGate 的 `allRuntimeOwnersClosed=true`。
 
 密封发生在工作线程 run 的 finally 中，仍早于该线程返回；单独密封记录不能证明工作线程已经结束。状态中的 TERMINATED 来自稍后观察实际 Thread.State，单独明确区分。静态失败门只持有不可变数据；最后一个 Thread 引用属于Activity实例，最多一份。
 

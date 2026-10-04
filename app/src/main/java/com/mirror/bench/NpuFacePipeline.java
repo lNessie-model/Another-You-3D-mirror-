@@ -40,6 +40,16 @@ final class NpuFacePipeline implements AutoCloseable {
     private PostProcessor post;
     private java.util.concurrent.ExecutorService postWorker;
     private java.util.concurrent.Future<?> pendingPost;
+    private volatile boolean closeRequested,closeSequenceCompleted,postExecutorTerminated;
+    private volatile Throwable closeFailure;
+    record CloseStatus(boolean requested,boolean sequenceCompleted,boolean postExecutorTerminated,boolean failed,String failureType) {}
+    CloseStatus closeStatus(){
+        // Completion is published last; observing it also observes termination and failure.
+        boolean completed=closeSequenceCompleted;Throwable failure=closeFailure;
+        String type=failure==null?"":failure.getClass().getSimpleName();
+        return new CloseStatus(closeRequested,completed,postExecutorTerminated,failure!=null,type.substring(0,Math.min(type.length(),96)));
+    }
+    private void requireOpen(){if(closeRequested)throw new IllegalStateException("NPU face pipeline is stopping or closed");}
     private boolean pipelined;
     private record Raw(float[] xyz,int width,int height,long timestamp,float presence,boolean reset,long startedNs) {}
     private File modelDirectory;
@@ -58,7 +68,7 @@ final class NpuFacePipeline implements AutoCloseable {
         if(processingStarted) throw new IllegalStateException("Choose crop implementation before processing frames");
         referenceCrop=enabled;
     }
-    void beginMeasurement() { drain(); detections=0; meshCalls=0; postCalls=0; cropNs=0; detectorNs=0; meshNs=0; postNs=0; completionNs=0; }
+    void beginMeasurement() { requireOpen();drain(); detections=0; meshCalls=0; postCalls=0; cropNs=0; detectorNs=0; meshNs=0; postNs=0; completionNs=0; }
     private void dump(String model,ByteBuffer input,float[][] output,JSONObject info) {
         if(dumpDirectory==null) return;
         try {
@@ -94,12 +104,14 @@ final class NpuFacePipeline implements AutoCloseable {
         } catch(Throwable error) { close(); throw error; }
     }
     Detection detect(Bitmap image,long timestamp,boolean tracking) {
+        requireOpen();
         drain();
         Raw raw=detectRaw(image,timestamp,tracking);
         return raw==null?null:process(raw);
     }
     /** One CPU job at most; publish its result immediately, without waiting for the next NPU frame. */
     void submit(Bitmap image,long timestamp,boolean tracking,java.util.function.Consumer<Detection> callback) {
+        requireOpen();
         if(callback==null) throw new IllegalArgumentException("A pipeline result callback is required");
         Raw raw=detectRaw(image,timestamp,tracking); // Overlap with the PREVIOUS frame's CPU postprocessing.
         drain(); // Backpressure: never enqueue another CPU job while one is outstanding.
@@ -226,6 +238,7 @@ final class NpuFacePipeline implements AutoCloseable {
         return new float[]{(minX+maxX)*.5f,(minY+maxY)*.5f,Math.max(maxX-minX,maxY-minY)*1.5f,rotation};
     }
     JSONObject summary() throws Exception {
+        requireOpen();
         drain();
         return new JSONObject().put("backend",npuExpressions?
                 "RKNN detector + 478 landmarks; CPU FP32 normalization + mixed CPU/NPU 52 suffix; CPU canonical pose":
@@ -241,12 +254,51 @@ final class NpuFacePipeline implements AutoCloseable {
                 .put("mesh_mean_ms",meshCalls==0?0:meshNs/meshCalls/1e6).put("post_mean_ms",postCalls==0?0:postNs/postCalls/1e6)
                 .put("completed_face_latency_mean_ms",postCalls==0?0:completionNs/postCalls/1e6);
     }
-    @Override public void close() {
-        try { drain(); }
-        finally {
-            if(postWorker!=null) { postWorker.shutdown(); postWorker=null; }
-            try { if(post!=null) post.close(); }
-            finally { post=null; try { if(mesh!=null) mesh.close(); } finally { mesh=null; if(detector!=null) detector.close(); detector=null; } }
+    /** Input-worker-owned. Never release native graphs while the post executor can still use them. */
+    @Override public synchronized void close() {
+        if(closeRequested){
+            if(closeFailure!=null)throw closeError(closeFailure);
+            if(!closeSequenceCompleted)throw new IllegalStateException("NPU face pipeline close remains incomplete");
+            return;
         }
+        closeRequested=true;
+        ResourceCleanup cleanup=new ResourceCleanup(null);
+        cleanup.close("CPU face result",this::drain);
+        var worker=postWorker;
+        boolean[] terminated={worker==null};
+        if(worker!=null){
+            cleanup.close("CPU face executor shutdown",worker::shutdown);
+            cleanup.close("CPU face executor termination",()->{
+                if(!worker.isShutdown())throw new IllegalStateException("Face post executor shutdown not confirmed");
+                awaitPostTermination(worker);
+                terminated[0]=worker.isTerminated();
+                if(!terminated[0])throw new IllegalStateException("Face post executor termination not confirmed");
+            });
+        }
+        postExecutorTerminated=terminated[0];
+        if(!terminated[0]){
+            // Keep all native ownership: a live job may still access post/mesh/detector.
+            closeFailure=cleanup.failure();
+            if(closeFailure==null)closeFailure=new IllegalStateException("Face post executor remains live");
+            throw closeError(closeFailure);
+        }
+        postWorker=null;
+        PostProcessor ownedPost=post;RknnModel ownedMesh=mesh,ownedDetector=detector;
+        post=null;mesh=null;detector=null;
+        cleanup.close("face post graph",ownedPost);cleanup.close("face landmarks model",ownedMesh);
+        cleanup.close("face detector model",ownedDetector);
+        closeFailure=cleanup.failure();closeSequenceCompleted=true;
+        if(closeFailure!=null)throw closeError(closeFailure);
+    }
+    private static void awaitPostTermination(java.util.concurrent.ExecutorService worker){
+        boolean interrupted=false;
+        try{
+            for(;;)try{if(worker.awaitTermination(1,java.util.concurrent.TimeUnit.SECONDS))return;}
+            catch(InterruptedException ignored){interrupted=true;}
+        }finally{if(interrupted)Thread.currentThread().interrupt();}
+    }
+    private static RuntimeException closeError(Throwable failure){
+        if(failure instanceof Error)throw (Error)failure;
+        return failure instanceof RuntimeException?(RuntimeException)failure:new IllegalStateException(failure);
     }
 }
