@@ -1,0 +1,111 @@
+"""Add editable, self-contained face controls to a copy of the packed Blender workfile.
+
+Expressions use Blender's simple-driver subset, without a Python driver namespace.
+This is an authoring preview, not an asset export or detector/temporal-filter emulator.
+"""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+import bpy
+
+
+class ControlDriver:
+    def __init__(self,curve,controls,names,permutation):
+        self.driver=curve.driver;self.driver.type='SCRIPTED'
+        self.controls=controls;self.names=names;self.permutation=permutation;self.variables={}
+        self.mirror=self.variable('mirror_motion');self.gain=self.variable('expression_gain')
+
+    def variable(self,property_name):
+        if property_name not in self.variables:
+            name='v'+str(len(self.variables));variable=self.driver.variables.new()
+            variable.name=name;variable.type='SINGLE_PROP'
+            variable.targets[0].id_type='OBJECT';variable.targets[0].id=self.controls
+            variable.targets[0].data_path='['+json.dumps(property_name)+']'
+            self.variables[property_name]=name
+        return self.variables[property_name]
+
+    def source(self,name):
+        index=self.names.index(name);other=self.names[self.permutation[index]]
+        direct=self.variable(name);reflected=self.variable(other)
+        value=direct if direct==reflected else '('+reflected+' if '+self.mirror+' else '+direct+')'
+        value='min(1,max(0,'+value+'))'
+        # Exact category selection from FacePlayback; eye/cheek-squint/mouthClose stay calibrated.
+        amplify=index!=0 and not name.startswith(('eye','cheekSquint')) and name!='mouthClose'
+        if amplify:value='(1-pow(1-'+value+','+self.gain+'))'
+        return value
+
+    def set(self,expression):
+        self.driver.expression=expression
+        assert self.driver.expression==expression,'Blender truncated a driver expression'
+        assert self.driver.is_simple_expression,'Driver needs Python execution: '+expression
+
+
+def build(reference,manifest,out):
+    out=Path(out);assert not out.exists(),'Preserve previous editable workfiles'
+    assert 'FaceCaptureControls' not in bpy.data.objects,'Controls already installed'
+    data=json.loads(Path(reference).read_text('utf-8'));rig=json.loads(Path(manifest).read_text('utf-8'))
+    assert rig['schemaVersion']==2 and rig['modelSha256']==data['modelSha256']
+    assert rig['inputSchema']=='mediapipe-face-blendshapes-v1'
+    names=data['inputNames'];permutation=data['mirrorPermutation']
+    assert len(names)==52 and len(permutation)==52
+    assert all(permutation[permutation[i]]==i for i in range(52))
+    controls=bpy.data.objects.new('FaceCaptureControls',None);bpy.context.scene.collection.objects.link(controls)
+    controls.empty_display_type='PLAIN_AXES';controls.empty_display_size=.025
+    controls.hide_render=True;controls.lock_location=(True,True,True)
+    controls.lock_rotation=(True,True,True);controls.lock_scale=(True,True,True)
+    labels={'eyeBlinkLeft':'角色左眼闭眼','eyeBlinkRight':'角色右眼闭眼','jawOpen':'张嘴',
+            'mouthClose':'闭唇修正输入','mouthSmileLeft':'角色左嘴角微笑','mouthSmileRight':'角色右嘴角微笑',
+            'browInnerUp':'眉毛内侧抬起','_neutral':'中性置信度，不驱动表情'}
+    for name in names:
+        controls[name]=0.0
+        controls.id_properties_ui(name).update(min=0,max=1,soft_min=0,soft_max=1,
+                description=labels.get(name,name)+'；已校准并平滑的面捕系数，范围0–1')
+    controls['mirror_motion']=True
+    controls.id_properties_ui('mirror_motion').update(description='与设备镜子模式相同：交换左右表情和眼球输入，反转偏航/侧倾')
+    controls['expression_gain']=2.5
+    controls.id_properties_ui('expression_gain').update(min=.5,max=4,soft_min=.5,soft_max=4,
+            description='设备端点保持曲线；眼部、脸颊眯眼和mouthClose不放大')
+    for name,label in [('head_pitch','点头'),('head_yaw','左右转头'),('head_roll','左右歪头')]:
+        controls[name]=0.0
+        controls.id_properties_ui(name).update(min=-90,max=90,soft_min=-45,soft_max=45,description=label+'；角度制')
+    controls['source_model_sha256']=data['modelSha256']
+    controls['source_reference_sha256']=hashlib.sha256(Path(reference).read_bytes()).hexdigest()
+    assigned=set()
+    for binding in rig['bindings']:
+        keys=bpy.data.objects[binding['mesh']].data.shape_keys
+        key=keys.key_blocks[binding['target']]
+        assert not keys.animation_data or not keys.animation_data.drivers.find(key.path_from_id('value'))
+        driver=ControlDriver(key.driver_add('value'),controls,names,permutation)
+        value=driver.source(binding['source'])
+        dead=binding.get('deadZone',0);gamma=binding.get('gamma',1)
+        value='pow(max(0,('+value+'-'+repr(dead)+')/(1-'+repr(dead)+')),'+repr(gamma)+')'
+        value='max('+repr(binding.get('min',0))+',min('+repr(binding.get('max',1))+','+value+'*'+repr(binding.get('gain',1))+'+'+repr(binding.get('bias',0))+'))'
+        driver.set(value);assigned.add((binding['mesh'],binding['target']))
+    for binding in rig['derivedBindings']:
+        assert binding['operation']=='product'
+        key=bpy.data.objects[binding['mesh']].data.shape_keys.key_blocks[binding['target']]
+        driver=ControlDriver(key.driver_add('value'),controls,names,permutation)
+        driver.set('*'.join('('+driver.source(name)+')' for name in binding['sources'])+'*'+repr(binding.get('gain',1)))
+        assigned.add((binding['mesh'],binding['target']))
+    # Legacy gaze shape keys must stay disabled: current gaze moves actual eye objects.
+    for obj in bpy.data.objects:
+        if obj.type=='MESH' and obj.data.shape_keys:
+            for key in obj.data.shape_keys.key_blocks:
+                if key.name!='Basis' and (obj.name,key.name) not in assigned:
+                    assert key.value==0,'Unexpected nonzero unmapped shape '+key.name
+                    ControlDriver(key.driver_add('value'),controls,names,permutation).set('0')
+    bpy.ops.object.select_all(action='DESELECT');controls.select_set(True);bpy.context.view_layer.objects.active=controls
+    controls.update_tag();bpy.context.view_layer.update()
+    out.parent.mkdir(parents=True,exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=str(out.resolve()))
+    print('BLENDER_FACE_CONTROLS_SAVED '+str(out.resolve()),flush=True)
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--reference',required=True)
+    parser.add_argument('--manifest',required=True);parser.add_argument('--out',required=True)
+    args=parser.parse_args(sys.argv[sys.argv.index('--')+1:])
+    build(args.reference,args.manifest,args.out)
