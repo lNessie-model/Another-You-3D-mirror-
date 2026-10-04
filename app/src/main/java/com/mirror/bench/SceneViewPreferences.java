@@ -24,6 +24,7 @@ final class SceneViewPreferences {
         var edit=preferences(context).edit();
         for(var entry:value.toMap().entrySet()){
             if(entry.getValue() instanceof Float number)edit.putFloat(entry.getKey(),number);
+            else if(entry.getValue() instanceof Boolean flag)edit.putBoolean(entry.getKey(),flag);
             else edit.putInt(entry.getKey(),(Integer)entry.getValue());
         }
         if(!edit.commit())throw new IllegalStateException("画面配置写入失败，未报告保存成功");

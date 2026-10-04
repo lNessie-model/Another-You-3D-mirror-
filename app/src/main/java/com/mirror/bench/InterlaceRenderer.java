@@ -47,6 +47,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private long consumedAvatarResumeGeneration;
     private final RuntimeGlLifecycle runtimeGlLifecycle=new RuntimeGlLifecycle();
     private final float[] runtimeBlendshapes=new float[52];
+    private final float[] playbackBlendshapes=new float[52],playbackAngles=new float[3];
+    private volatile JSONObject facePlaybackStatus=new JSONObject();
     private volatile InteractiveFace interactiveFace=InteractiveFace.NEUTRAL;
     private final float[] runtimeWeights=new float[4],runtimeAngles=new float[3];
     private long runtimePoseTime,runtimeFrames,runtimeWindowStart;
@@ -537,6 +539,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("static_background_cache_qualified",false)
                 .put("scene_view",new JSONObject(frameSceneView.toMap()))
                 .put("scene_view_requested",new JSONObject(sceneView.toMap()))
+                .put("face_playback",facePlaybackStatus)
                 .put("background_rendering","screen-plane composition in existing interlace pass; no extra geometry")
                 .put("background_image_rgba_bytes",screenBackground==null?0:screenBackground.bytes())
                 .put("background_image_uploads",screenBackground==null?0:screenBackground.uploads())
@@ -948,7 +951,18 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             avatarScene.resumeCpuPose();consumedAvatarResumeGeneration=generation;
         }
         if(runtimeMode)runtimePrepareStart=SystemClock.elapsedRealtimeNanos();
-        avatarScene.prepare(runtimeBlendshapes,runtimeAngles);
+        FacePlayback.apply(runtimeBlendshapes,runtimeAngles,frameSceneView.mirrorMotion,frameSceneView.expressionGain,playbackBlendshapes,playbackAngles);
+        // Publish a completed small snapshot; status readers never observe partially mapped arrays.
+        try {
+            facePlaybackStatus=new JSONObject().put("mirror_motion",frameSceneView.mirrorMotion).put("expression_gain",frameSceneView.expressionGain)
+                    .put("response_policy","endpoint_preserving_mouth_brow_v2; eye/cheekSquint/mouthClose unchanged")
+                    .put("raw_jaw_open",runtimeBlendshapes[25]).put("mapped_jaw_open",playbackBlendshapes[25])
+                    .put("raw_blink_left",runtimeBlendshapes[9]).put("raw_blink_right",runtimeBlendshapes[10])
+                    .put("mapped_blink_left",playbackBlendshapes[9]).put("mapped_blink_right",playbackBlendshapes[10])
+                    .put("mapped_head_pitch",playbackAngles[0]).put("mapped_head_yaw",playbackAngles[1]).put("mapped_head_roll",playbackAngles[2])
+                    .put("scope","Latest GL callback's filtered source and mapped rig inputs; final artist binding curves apply afterwards");
+        }catch(Exception invalid){throw new IllegalStateException("Cannot publish face playback status",invalid);}
+        avatarScene.prepare(playbackBlendshapes,playbackAngles);
         if(runtimeMode) {
             runtimePrepareEnd=SystemClock.elapsedRealtimeNanos();
             runtimeViewTiming.begin(runtimePrepareEnd,views/(multiview?4:1));
