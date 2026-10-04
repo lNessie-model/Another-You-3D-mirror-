@@ -1,0 +1,11 @@
+# Geralt facial refinement experiments, 2026-10-04
+
+`scripts/refine_head_eyelids.py` adds independent upper/lower eyelid surface covers sampled from the front-most actual mesh surface. Skin colours come from observed cheek texels as vertex colours, avoiding interpolation across unrelated UV islands. The original atlas bytes and all 51 direct MediaPipe controls plus the jaw/mouth-close corrective are retained. It does not create independent eyeballs or an anatomical facial rig.
+
+The prior stage-2 blink collapsed existing textured eye triangles and produced folds. The new covers stop that collapse. A first curved cover exposed the convex painted eye between ray samples; the second increased clearance and sampled cheek colour; the third reduces cover subdivisions and adds a narrow blink crease. The third has 11,655 vertices / 8,390 triangles and model SHA256 `86ac129b2f60c930dd154bb7398cb0978f4a382d03135695899c65b557023e97`.
+
+Actual Blender 4.5.12 renders and an editable packed workfile are preserved under `E:/tripo/assets/mirror-models-20261003/lowpoly-heads-v2/geralt-rig-stage3-curved-lids-v3`. The production Java loader/rig/deformer and real pose worker passed 64 changing snapshots, bitwise matching synchronous output for every node/primitive, with a held lease remaining stable. Worker logic 57 checks and real thread-stop 22 checks passed. None of this qualifies Android rendering or visual quality.
+
+**Visual review rejected the current candidate:** the covered eyes still resemble pale almond patches rather than natural closed eyelids. Mouth tapering changes the rectangular opening to a V-shaped opening and is also not an accepted final solution. `artistAccepted` remains false. These candidates have not been installed on the device or propagated to other characters.
+
+The next art step is a local eye/mouth topology pass: real eyelid boundary loops, independent eyeballs, upper-lid closure with preserved lower-lid contour, and a curved lip opening with local jaw weights. Inspect neutral, independent left/right blink, half/full blink, jaw opening, jaw+mouth-close, gaze+blink and smile+jaw from front and oblique cameras before any device replacement. Numeric channel coverage is separate from a satisfactory appearance.
