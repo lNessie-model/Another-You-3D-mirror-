@@ -310,9 +310,22 @@ final class AvatarGpuScene {
                     .put("dropped_pending_inputs",s.droppedInputs).put("superseded_ready_frames",s.droppedReadyFrames)
                     .put("pending_count",s.pendingCount).put("ready_count",s.readyCount).put("writing_count",s.writingCount)
                     .put("leased_count",s.leasedCount).put("max_pending_count",s.maxPendingCount).put("max_ready_count",s.maxReadyCount)
-                    .put("output_slots",AvatarPoseWorker.OUTPUT_SLOTS).put("closed",s.closed).put("terminated",s.terminated));
+                    .put("output_slots",AvatarPoseWorker.OUTPUT_SLOTS).put("closed",s.closed).put("terminated",s.terminated)
+                    .put("run_exit_marked",s.runExitMarked).put("thread_state",s.threadState.name()).put("cpu_stop",cpuStopJson(s.stop)));
         }
         return value;
+    }
+    private static JSONObject cpuStopJson(AvatarPoseWorker.StopReceipt receipt)throws Exception {
+        return new JSONObject().put("worker_id",receipt.workerId()).put("clock","System.nanoTime")
+                .put("requested_monotonic_ns",receipt.requestedNs()).put("observed_monotonic_ns",receipt.observedNs())
+                .put("close_requested",receipt.closeRequested()).put("run_exit_marked",receipt.runExitMarked())
+                .put("thread_state",receipt.threadState().name()).put("thread_terminated",receipt.threadTerminated())
+                .put("pending_count",receipt.pendingCount()).put("ready_count",receipt.readyCount())
+                .put("writing_count",receipt.writingCount()).put("leased_count",receipt.leasedCount())
+                .put("failed",receipt.failed()).put("failure_type",receipt.failureType())
+                .put("ownership_stopped",receipt.ownershipStopped()).put("close_succeeded",receipt.closeSucceeded())
+                .put("scope","CPU pose thread and frame leases only")
+                .put("hardware_qualified",false);
     }
     private final class GpuPrimitive {
         final AvatarAsset.Primitive source;final AvatarDeformer.PrimitiveOutput output;

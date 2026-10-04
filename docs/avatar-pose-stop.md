@@ -1,0 +1,35 @@
+# CPU姿态线程与借出帧停止记录
+
+2026-10-04，基于fde3f5e的电脑端源码修复。目标仍是每视点400×640和16／20独立视点；没有新APK、ADB、设备操作或付费任务。本文件只说明CPU pose的实际线程／帧所有权证据，不宣称GL、相机、NPU、全应用配置恢复或20视点背景30FPS完成。
+
+## 实际变化
+
+原AvatarPoseWorker在run的finally内把terminated置true，Thread尚可能继续执行并保持live。现在isTerminated和Status.terminated核实际Thread.State.TERMINATED及isAlive=false；finally只标记runExitMarked。状态与停止回执都在同一slot锁内观察，Status自带该次同源StopReceipt，场景JSON不混用两次slot观察。
+
+getState只用于状态诊断，线程退出同步同时核isAlive；依据[JLS线程终止同步规则](https://docs.oracle.com/javase/specs/jls/se17/html/jls-17.html#jls-17.4.4)及[Thread API](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Thread.html)。不靠退出标记、固定sleep、Thread名称或单独latch确认线程终止。
+
+StopReceipt保存固定worker UUID、原始close请求时间、本次观察时间、退出标记、真实线程状态及pending／ready／writing／leased四种slot数量。ownershipStopped要求已请求关闭、实际线程结束且四种所有权均为0；线程结束但仍有借出帧时为false。closeSucceeded另外要求无先前计算失败；计算失败可以在所有权已停止后仍存在，两项不能混淆。failed与最多96字符failureType独立，不以空类型名推断成功。不可变回执不含Thread、Activity、buffer或Throwable引用。
+
+close仍只发信号，丢弃pending／ready，现有lease保持有效直到调用方release；重复close不修改原始请求时间、不清掉计算错误。Frame释放后的旧回执不会变成成功。方法不释放direct-buffer内存，不保证GC或所有持有的buffer view消失；原“release后禁止继续使用view”合同保持不变。
+
+实际AvatarGpuScene.status现输出pose_worker.run_exit_marked／thread_state／cpu_stop。cpu_stop含worker身份、数量、错误、ownership_stopped和close_succeeded，scope明确CPU pose thread and frame leases only，hardware_qualified始终false。时间明确标为System.nanoTime；不得和Android elapsedRealtimeNanos或其他worker的时间直接混合做资格判断。
+
+公开两参数构造器仍创建相同名称的一个daemon producer；package内ThreadFactory仅供生命周期测试延迟实际Thread退出。三个输出slot、最新输入／最新输出、rig／deformer、copyViaArray、VBO上传、NPU、交织及400×640均未改变。submit／calculate／prepareAsync没有新增对象分配；记录只在状态／停止观察时创建，没有新增FPS声明。
+
+## RED／GREEN与实证
+
+先写缺失停止接口的编译RED；加入窄线程边界后，真实线程wrapper在实际run返回之后仍由门阻挡。原isTerminated返回true，行为检查失败。修复后验证退出标记与Thread结束分离、close取消排队工作、实际线程结束、保留lease、lease释放后确认、回执不可变和worker身份不复用。
+
+最终检查：姿态基础57、停止22、实际场景stop/status桥接15通过；场景进度、100000更新／并发指标观察、watchdog30、状态时序24、shader文本288回归通过。线程使用真实JDK；场景测试使用Unsafe跳过GL构造，未调用GL。主程序输入桥接52、背景配置34／3真实资产×69姿态键222、投影19、FBO17、视点12934、GL配置34也通过；这些配置检查仍不是EGL或设备像素证明。
+
+三份真实GLB各64组变化，worker输出与同步rig／deformer的全部节点矩阵和primitive buffer逐位一致；保持的lease内容稳定。所测模型SHA分别为杰洛特哥特61ea725807ee8e7c1b5b28e277ecc1c169b3e42480d64e6a78044ce9e93a192b、玛奇玛赛博4ffeb269ded97f274f41cd0fe25ddecf07fe16e84184cf50f2d5ff7a98ebb726、摩尔哥特d473f483262a36ef824f55d9d545b5fbf36f680883da7e2b17993bea84bbbf09。它们仍是artistAccepted=false的既有候选；CPU一致不等于画面外观已验收。
+
+## 未完成的实际接线
+
+InterlaceRenderer.closeRuntimeAvatar仍只发CPU关闭信号；onSurfaceCreated会stop旧scene后置null。当前cpu_stop只观察仍被场景持有的worker，尚无全应用退役资源保留／等待／许可合同。不能丢失旧scene引用后，用新scene的健康回执替代旧owner完成。GL owning context／generation内资源清理与失败汇总、确认context结束、全部Manager／CameraCalibration／Panel／诊断预览Owner仍缺失；本次没有改这些方法或开启恢复门。
+
+下一步应一次把现有固定GL owner与退役CPU资源接入同一停止流程，保留待确认所有权直到真实结束；在新context禁止删除旧GL名字。只发信号、surface.onPause返回、scene=null或GL Thread暂停均不能作为成功回执。之后才接完整ConfigurationOwner、普通读写门、一次性预览资格及备份恢复UI。RknnExpression／MediaPipe／输出release、Camera2 leases／onClosed仍需各自核对。
+
+稳定供电问题仍待答复；供电确认后先只读核对原v20／配置，再走可恢复实验和16／20视点69姿态像素门、90秒联合回放。20×400×640带可见背景30FPS、USB−38恢复与角色相似度／自然表情未验收。用户取消的两小时测试不恢复。
+
+本次支出0，累计535／4000，剩余3465；头部＋短颈及成熟游戏／动漫／影视参考方向保持。新源码、日志和续做入口另存，不改停电前交付与fde3f5e冻结资料。

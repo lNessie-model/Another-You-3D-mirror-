@@ -33,14 +33,14 @@ New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $sources = @('AvatarAsset', 'AvatarRig', 'AvatarGlbLoader', 'AvatarDeformer', 'AvatarFraming',
     'AvatarGeometryBounds', 'BlendshapeSchema', 'AvatarPoseWorker', 'AvatarGpuScene', 'AvatarDrawPartition', 'AvatarBatchLayout', 'AvatarBatchGpu', 'AvatarPoseProgressWatchdog', 'RuntimeStatusOrder') |
     ForEach-Object { Join-Path $projectRoot "app\src\main\java\com\mirror\bench\$_.java" }
-$sources += @('AvatarRigTest', 'AvatarGpuSceneProgressReviewTest', 'AvatarGpuSceneMetricsReviewTest', 'AvatarPoseProgressWatchdogTest', 'RuntimeStatusOrderTest', 'AvatarBatchShaderTest') |
+$sources += @('AvatarRigTest', 'AvatarGpuSceneProgressReviewTest', 'AvatarGpuSceneMetricsReviewTest', 'AvatarGpuSceneStopReviewTest', 'AvatarPoseProgressWatchdogTest', 'RuntimeStatusOrderTest', 'AvatarBatchShaderTest') |
     ForEach-Object { Join-Path $projectRoot "tests\$_.java" }
 # JSON-java must precede android.jar: SDK JSON classes are nonfunctional host stubs.
 # All production classes under review are compiled from current source; no APK or old Gradle classes.
 & $javac '-J-Duser.language=en' --release 17 -encoding UTF-8 -cp "$JsonJar;$androidJar" -d $classes @sources
 if ($LASTEXITCODE -ne 0) { throw 'Scene review host compilation failed.' }
 $classpath = "$classes;$JsonJar;$androidJar"
-foreach ($test in @('AvatarGpuSceneProgressReviewTest', 'AvatarGpuSceneMetricsReviewTest', 'AvatarPoseProgressWatchdogTest', 'RuntimeStatusOrderTest', 'AvatarBatchShaderTest')) {
+foreach ($test in @('AvatarGpuSceneProgressReviewTest', 'AvatarGpuSceneMetricsReviewTest', 'AvatarGpuSceneStopReviewTest', 'AvatarPoseProgressWatchdogTest', 'RuntimeStatusOrderTest', 'AvatarBatchShaderTest')) {
     & $java -cp $classpath "com.mirror.bench.$test"
     if ($LASTEXITCODE -ne 0) { throw "$test failed." }
 }

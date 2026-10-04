@@ -117,6 +117,9 @@ public final class AvatarPoseWorkerTest {
             AvatarPoseWorker.Frame retained=awaitFrame(worker,valid);compare(asset,manifest,new float[52],new float[3],retained);
             check(worker.submit(new float[52],new float[3])==-1,"failed worker stops inputs");
             check(worker.status().readyCount==0&&worker.status().pendingCount==0,"error does not leave a backlog");worker.release(retained);
+            worker.close();await(worker::isTerminated,"failed worker close");
+            check(worker.stopReceipt().failed()&&!worker.stopReceipt().closeSucceeded(),"computation failure remains in stopped receipt");
+            check(worker.stopReceipt().ownershipStopped(),"CPU ownership can stop while computation failure remains recorded");
         }
     }
     private static void compare(AvatarAsset asset,String manifest,float[] input,float[] angles,AvatarPoseWorker.Frame frame)throws Exception {
