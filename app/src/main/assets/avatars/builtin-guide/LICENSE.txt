@@ -1,0 +1,11 @@
+Builtin Guide — original procedural character geometry and colors.
+
+Created for this project by the checked-in offline build_builtin_avatar.py script.
+No external meshes, scans, image textures, fonts, or generated third-party assets are incorporated.
+
+To the extent copyright applies, this asset package is dedicated to the public domain under CC0 1.0 Universal.
+SPDX-License-Identifier: CC0-1.0
+Legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+Blender is a build/render tool only; no Blender sample assets are included.
+The source script is editable and geometrically reproducible; Boolean vertex/face ordering may vary.

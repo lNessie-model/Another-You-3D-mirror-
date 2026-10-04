@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://dl.google.com/dl/android/maven2/com/google/mediapipe/tasks-vision/1.0.0/tasks-vision-1.0.0.pom",
+    "file": "maven\\com\\google\\mediapipe\\tasks-vision\\1.0.0\\tasks-vision-1.0.0.pom",
+    "bytes": 1515,
+    "sha256": "2b77c791757e10e85d96bbd1a6868575329f6c8e905730c9fdb44d2d7559e991"
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/com/google/mediapipe/tasks-vision/1.0.0/tasks-vision-1.0.0.aar",
+    "file": "maven\\com\\google\\mediapipe\\tasks-vision\\1.0.0\\tasks-vision-1.0.0.aar",
+    "bytes": 495413,
+    "sha256": "53d45569649ff7e9d84457f070481dbb779ddd057671d4adcd9abcb77ff172c6"
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/com/google/mediapipe/tasks-core/1.0.0/tasks-core-1.0.0.pom",
+    "file": "maven\\com\\google\\mediapipe\\tasks-core\\1.0.0\\tasks-core-1.0.0.pom",
+    "bytes": 2226,
+    "sha256": "03cfa6b03842384a9740e30643672a8e8d3f588ae73cf545ea7fe7ace42c95bb"
+  },
+  {
+    "url": "https://dl.google.com/dl/android/maven2/com/google/mediapipe/tasks-core/1.0.0/tasks-core-1.0.0.aar",
+    "file": "maven\\com\\google\\mediapipe\\tasks-core\\1.0.0\\tasks-core-1.0.0.aar",
+    "bytes": 22510915,
+    "sha256": "609c6fcfe59f58c9739194f65ae5882281c327710e1a616aa7f533a4d9238ca3"
+  },
+  {
+    "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+    "file": "app\\src\\main\\assets\\face_landmarker.task",
+    "bytes": 3758596,
+    "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff"
+  },
+  {
+    "url": "https://storage.googleapis.com/mediapipe-assets/portrait.jpg",
+    "file": "app\\src\\main\\assets\\portrait.jpg",
+    "bytes": 176561,
+    "sha256": "a6f11efaa834706db23f275b6115058fa87fc7f14362681e6abe14e82749de3e"
+  }
+]

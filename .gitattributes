@@ -1,0 +1,19 @@
+# Preserve the exact bytes of the frozen source and production assets.
+# Text diffs still work; only automatic line-ending conversion is disabled.
+# Accept preserved Windows CRLF while keeping the other whitespace checks.
+* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+*.glb binary
+*.png binary
+*.jpg binary
+*.task binary
+*.rknn binary
+*.tflite binary
+*.binarypb binary
+*.so binary
+# Upstream copies retain their original whitespace and author statements.
+native/vendor/rga/RgaSingleton.h -whitespace
+native/vendor/rga/RgaUtils.h -whitespace
+native/vendor/rga/RockchipRga.h -whitespace
+third-party-notices/Android-NDK-r25c-NOTICE.toolchain.txt -whitespace
+third-party-notices/MediaPipe-tasks-core-1.0.0-NOTICE.txt -whitespace
+third-party-notices/MediaPipe-tasks-vision-1.0.0-NOTICE.txt -whitespace

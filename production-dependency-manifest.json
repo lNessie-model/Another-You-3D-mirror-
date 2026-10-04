@@ -1,0 +1,143 @@
+{
+  "apk_sha256": "45e3e0893ed9dd3d44f6b8eab7a9176af99de356de6def5e9871d9d1657af62f",
+  "all_dependencies_match_v30": true,
+  "file_count": 15,
+  "total_bytes": 21894016,
+  "files": [
+    {
+      "path": "app/src/main/assets/face_landmarker.task",
+      "bytes": 3758596,
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "apk_entry": "assets/face_landmarker.task",
+      "v30_apk_sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "matches_v30_apk": true,
+      "kind": "production-model"
+    },
+    {
+      "path": "app/src/main/assets/face_detector.rknn",
+      "bytes": 350325,
+      "sha256": "ae6adedcb63bc8100acde16db9d1044297687e569fcd6ac4a0c4e6c0c82d58a2",
+      "apk_entry": "assets/face_detector.rknn",
+      "v30_apk_sha256": "ae6adedcb63bc8100acde16db9d1044297687e569fcd6ac4a0c4e6c0c82d58a2",
+      "matches_v30_apk": true,
+      "kind": "production-model"
+    },
+    {
+      "path": "app/src/main/assets/face_landmarks_detector.rknn",
+      "bytes": 2822613,
+      "sha256": "c7005608b4c2398d48f023d4acc03089dbffe5a81686a4adfa210c0be73f6495",
+      "apk_entry": "assets/face_landmarks_detector.rknn",
+      "v30_apk_sha256": "c7005608b4c2398d48f023d4acc03089dbffe5a81686a4adfa210c0be73f6495",
+      "matches_v30_apk": true,
+      "kind": "production-model"
+    },
+    {
+      "path": "app/src/main/assets/face_blendshapes_normalized_suffix.rknn",
+      "bytes": 1209569,
+      "sha256": "17b0773a404521a8cf9624fa8147467d9fb3fdb309a641f244244b2910d4831c",
+      "apk_entry": "assets/face_blendshapes_normalized_suffix.rknn",
+      "v30_apk_sha256": "17b0773a404521a8cf9624fa8147467d9fb3fdb309a641f244244b2910d4831c",
+      "matches_v30_apk": true,
+      "kind": "production-model"
+    },
+    {
+      "path": "app/src/main/assets/face_blendshapes.tflite",
+      "bytes": 955312,
+      "sha256": "4f36dded049db18d76048567439b2a7f58f1daabc00d78bfe8f3ad396a2d2082",
+      "apk_entry": "assets/face_blendshapes.tflite",
+      "v30_apk_sha256": "4f36dded049db18d76048567439b2a7f58f1daabc00d78bfe8f3ad396a2d2082",
+      "matches_v30_apk": true,
+      "kind": "production-model"
+    },
+    {
+      "path": "app/src/main/assets/geometry_pipeline_metadata_landmarks.binarypb",
+      "bytes": 19376,
+      "sha256": "bdbcda96dfcb7da883da124aaa2c55dee49770d934f0fcc71747f8c21bdc75b4",
+      "apk_entry": "assets/geometry_pipeline_metadata_landmarks.binarypb",
+      "v30_apk_sha256": "bdbcda96dfcb7da883da124aaa2c55dee49770d934f0fcc71747f8c21bdc75b4",
+      "matches_v30_apk": true,
+      "kind": "production-model"
+    },
+    {
+      "path": "app/src/main/assets/portrait.jpg",
+      "bytes": 176561,
+      "sha256": "a6f11efaa834706db23f275b6115058fa87fc7f14362681e6abe14e82749de3e",
+      "apk_entry": "assets/portrait.jpg",
+      "v30_apk_sha256": "a6f11efaa834706db23f275b6115058fa87fc7f14362681e6abe14e82749de3e",
+      "matches_v30_apk": true,
+      "kind": "official-public-portrait"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libc++_shared.so",
+      "bytes": 6766464,
+      "sha256": "33f661fc80c90913fe365a2bb6ee0bb7ed4c01b9c797fcecf1e60070e00019d6",
+      "apk_entry": "lib/arm64-v8a/libc++_shared.so",
+      "v30_apk_sha256": "33f661fc80c90913fe365a2bb6ee0bb7ed4c01b9c797fcecf1e60070e00019d6",
+      "matches_v30_apk": true,
+      "kind": "production-native-library"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libmirror_accel.so",
+      "bytes": 10280,
+      "sha256": "8b6101aa958480aa51e08276e1cca0db6a720da64699077196fe38d0f1adff68",
+      "apk_entry": "lib/arm64-v8a/libmirror_accel.so",
+      "v30_apk_sha256": "8b6101aa958480aa51e08276e1cca0db6a720da64699077196fe38d0f1adff68",
+      "matches_v30_apk": true,
+      "kind": "production-native-library"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libmirror_gl.so",
+      "bytes": 5768,
+      "sha256": "dd239a6c3b0ec501098f8684eb60c095269ba798c62bc9f8df14031611e55346",
+      "apk_entry": "lib/arm64-v8a/libmirror_gl.so",
+      "v30_apk_sha256": "dd239a6c3b0ec501098f8684eb60c095269ba798c62bc9f8df14031611e55346",
+      "matches_v30_apk": true,
+      "kind": "production-native-library"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libmirror_npu.so",
+      "bytes": 9720,
+      "sha256": "82ec0534b200a7da54a576ea1818e025cfad8a5694fbc672739ffa8d23b0e43e",
+      "apk_entry": "lib/arm64-v8a/libmirror_npu.so",
+      "v30_apk_sha256": "82ec0534b200a7da54a576ea1818e025cfad8a5694fbc672739ffa8d23b0e43e",
+      "matches_v30_apk": true,
+      "kind": "production-native-library"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libmirror_rknn_expression.so",
+      "bytes": 14040,
+      "sha256": "cfc42c4abc78e0be521a20e5f7521e3138cadaf73a9dfa44f9189b0a485861c4",
+      "apk_entry": "lib/arm64-v8a/libmirror_rknn_expression.so",
+      "v30_apk_sha256": "cfc42c4abc78e0be521a20e5f7521e3138cadaf73a9dfa44f9189b0a485861c4",
+      "matches_v30_apk": true,
+      "kind": "production-native-library"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libmirror_rknn_face.so",
+      "bytes": 16144,
+      "sha256": "ef73c838828b3072c81af0d8c66070c54b95ce181d9a30b8d47b2a01571abb91",
+      "apk_entry": "lib/arm64-v8a/libmirror_rknn_face.so",
+      "v30_apk_sha256": "ef73c838828b3072c81af0d8c66070c54b95ce181d9a30b8d47b2a01571abb91",
+      "matches_v30_apk": true,
+      "kind": "production-native-library"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/librga.so",
+      "bytes": 260912,
+      "sha256": "d0a7c20120601e010d5a84653d36d552156743f75da7d64e2161b96b19fe602b",
+      "apk_entry": "lib/arm64-v8a/librga.so",
+      "v30_apk_sha256": "d0a7c20120601e010d5a84653d36d552156743f75da7d64e2161b96b19fe602b",
+      "matches_v30_apk": true,
+      "kind": "production-native-library"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/librknnrt.so",
+      "bytes": 5518336,
+      "sha256": "01fd2e532f4f071e22281a36d83849bf467faf564cf447affb46fe2466d295de",
+      "apk_entry": "lib/arm64-v8a/librknnrt.so",
+      "v30_apk_sha256": "01fd2e532f4f071e22281a36d83849bf467faf564cf447affb46fe2466d295de",
+      "matches_v30_apk": true,
+      "kind": "production-native-library"
+    }
+  ]
+}
