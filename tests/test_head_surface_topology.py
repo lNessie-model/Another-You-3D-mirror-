@@ -29,5 +29,17 @@ class SurfaceTests(unittest.TestCase):
         out,t,r=cut_convex_hole(a,self.ids,np.array([[-.3,-.3],[.3,-.3],[.3,.3],[-.3,.3]]))
         np.testing.assert_array_equal(out,a);np.testing.assert_array_equal(t,self.ids);self.assertEqual(r['removed_interior_polygons'],0)
         out,t,_=cut_convex_hole(self.attrs,self.ids,np.array([[3,3],[4,3],[4,4],[3,4]]));np.testing.assert_array_equal(t,self.ids)
+    def test_triangle_crossing_front_threshold_is_cut_only_in_front(self):
+        a=self.attrs.copy();a[:,2]=a[:,0]
+        outline=np.array([[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5]])
+        out,faces,report=cut_convex_hole(a,self.ids,outline,front_z=0)
+        xyz=out[faces,:3];cross=np.cross(xyz[:,1]-xyz[:,0],xyz[:,2]-xyz[:,0])
+        self.assertAlmostEqual(np.linalg.norm(cross,axis=1).sum()*.5,(4-.5)*np.sqrt(2),places=10)
+        np.testing.assert_allclose(out[:,2],out[:,0],atol=1e-12)
+        np.testing.assert_allclose(out[:,3],3*out[:,0]-2*out[:,1]+5,atol=1e-12)
+        sampler=FrontSurface(out,faces)
+        np.testing.assert_allclose(sampler.sample(-.25,0)[:3],[-.25,0,-.25],atol=1e-12)
+        with self.assertRaises(ValueError):sampler.sample(.25,0)
+        self.assertEqual(report['intersected_source_triangles'],2)
 
 if __name__=='__main__':unittest.main()

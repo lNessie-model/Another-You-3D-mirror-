@@ -6,7 +6,6 @@ can validate this geometric stage; facial targets are a later separate stage.
 from pathlib import Path
 import io,json,struct
 import numpy as np
-from PIL import Image
 
 def rotate_x_front(points):
     return np.asarray(points)@np.array([[0,0,1],[0,1,0],[-1,0,0]])
@@ -35,6 +34,7 @@ class Glb:
         if a.get('normalized'):result=result.astype(np.float64)/np.iinfo(dtype).max
         return result
     def image(self,index):
+        from PIL import Image
         image=self.doc['images'][index];assert 'uri' not in image
         view=self.doc['bufferViews'][image['bufferView']];off=self.start+view.get('byteOffset',0)
         result=Image.open(io.BytesIO(self.raw[off:off+view['byteLength']]))
@@ -82,6 +82,7 @@ def refine_texture_samples(positions,normals,uv,indices,sampler,*,max_vertices=2
     return positions,normals,uv,indices,colours
 
 def write_glb(path,positions,normals,colours,indices,*,head_pivot=(0,0,0),morphs=None,uv=None,atlas_png=None,base_colour_factor=(1,1,1,1)):
+    from PIL import Image
     positions=np.asarray(positions,dtype='<f4');normals=np.asarray(normals,dtype='<f4');colours=np.asarray(colours,dtype='<f4')
     indices=np.asarray(indices,dtype='<u2' if len(positions)<65535 else '<u4').reshape(-1)
     assert len(positions)<=20000 and len(indices)//3<=30000 and len(indices)%3==0
@@ -126,6 +127,7 @@ def write_glb(path,positions,normals,colours,indices,*,head_pivot=(0,0,0),morphs
     Path(path).write_bytes(raw)
 
 def bake_head(source,output,detail_levels=0,atlas=False):
+    from PIL import Image
     import hashlib
     source=Path(source);output=Path(output);output.mkdir(parents=True,exist_ok=True)
     glb=Glb(source)

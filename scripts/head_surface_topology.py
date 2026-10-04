@@ -45,8 +45,13 @@ def cut_convex_hole(attributes,triangles,outline,front_z=.02):
             start=len(vertices);vertices.extend(face);faces.append([start,start+1,start+2])
     for face in ids:
         data=attrs[face];p=data[:,:3]
-        if p[:,2].min()<=front_z or (p[:,:2].max(axis=0)<low).any() or (p[:,:2].min(axis=0)>high).any():faces.append(face.tolist());continue
-        interior=list(data);outside=[]
+        if p[:,2].max()<=front_z or (p[:,:2].max(axis=0)<low).any() or (p[:,:2].min(axis=0)>high).any():faces.append(face.tolist());continue
+        # Clip partial front/back triangles as well. Skipping a triangle because
+        # one corner is behind the threshold leaves foreground hair inside holes.
+        distances=data[:,2]-front_z
+        front=clip_polygon(list(data),distances,True)
+        back=clip_polygon(list(data),distances,False) if p[:,2].min()<front_z else []
+        interior=front;outside=[]
         for i,end in enumerate(outline):
             start=outline[i-1];edge=end-start
             distance=[edge[0]*(v[1]-start[1])-edge[1]*(v[0]-start[0]) for v in interior]
@@ -55,5 +60,6 @@ def cut_convex_hole(attributes,triangles,outline,front_z=.02):
         if len(interior)<3:faces.append(face.tolist());continue
         changed+=1
         for poly in outside:emit(poly)
+        emit(back)
         removed+=1
     return np.asarray(vertices),np.asarray(faces,dtype=int),{'intersected_source_triangles':changed,'removed_interior_polygons':removed}
