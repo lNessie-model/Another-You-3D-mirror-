@@ -33,6 +33,8 @@ final class AvatarGpuScene {
     private final int[] staticBackgroundNodes;
     private final List<Integer> allocatedBuffers=new ArrayList<>();
     private final float[] world=new float[16], fittedWorld=new float[16], fit=new float[16], inverse=new float[16], normal=new float[9];
+    private final float[] baseFit=new float[16],userTransform=new float[16];
+    private SceneViewSettings sceneView=SceneViewSettings.DEFAULT;
     private AvatarFraming framing;
     private AvatarPoseWorker poseWorker;
     private final float[] displayedWorlds;
@@ -222,7 +224,7 @@ final class AvatarGpuScene {
     void copyStaticBackgroundState(float aspect,float[] destination){
         if(!hasCacheableStaticBackground()||destination==null||destination.length!=staticBackgroundStateFloats())
             throw new IllegalArgumentException("Eligible background and complete key destination required");
-        framing.copyFitMatrix(aspect,fit);System.arraycopy(fit,0,destination,0,16);
+        copyFitMatrix(aspect,fit);System.arraycopy(fit,0,destination,0,16);
         for(int i=0;i<staticBackgroundNodes.length;i++)System.arraycopy(displayedWorlds,staticBackgroundNodes[i]*16,destination,(i+1)*16,16);
     }
     /** Same shaders, matrices and geometry as the ordinary selected-node drawing path. */
@@ -241,7 +243,7 @@ final class AvatarGpuScene {
         if(active==null)throw new IllegalStateException("Avatar multiview program was not initialized");
         // Fixed envelope includes morphs and rigid joints; preserve framing throughout every head pose.
         // Uniform root coordinate scale is absorbed by this normalized automatic fit, not extra zoom.
-        framing.copyFitMatrix(aspect,fit);
+        copyFitMatrix(aspect,fit);
         GLES30.glUseProgram(active.id);
         if(atlasTexture!=0){bindAtlas();GLES30.glUniform1i(active.sampler,0);}
         GLES30.glUniformMatrix4fv(active.viewProjection,viewCount,false,viewProjections,0);
@@ -281,8 +283,16 @@ final class AvatarGpuScene {
     void drawBatched(float[] viewProjections,int viewCount,float aspect) {
         if(batch==null)throw new IllegalStateException("Avatar batch backend not initialized");
         if(atlasTexture!=0)bindAtlas();
-        batch.draw(viewProjections,viewCount,aspect,framing,displayedWorlds);
+        copyFitMatrix(aspect,fit);
+        batch.draw(viewProjections,viewCount,aspect,framing,displayedWorlds,fit);
         if(atlasTexture!=0)GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);
+    }
+    /** Called only by the GL owner using one immutable configuration per frame. */
+    void setSceneView(SceneViewSettings value){if(value==null)throw new IllegalArgumentException("Scene view required");sceneView=value;}
+    private void copyFitMatrix(float aspect,float[] destination){
+        if(sceneView.isIdentityTransform()){framing.copyFitMatrix(aspect,destination);return;}
+        framing.copyFitMatrix(aspect,baseFit);sceneView.copyUserTransform(aspect,userTransform);
+        Matrix.multiplyMM(destination,0,userTransform,0,baseFit,0);
     }
     JSONObject status() throws Exception {
         JSONObject value;

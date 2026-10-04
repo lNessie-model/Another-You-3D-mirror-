@@ -35,6 +35,7 @@ $sources = @('AvatarAsset', 'AvatarRig', 'AvatarGlbLoader', 'AvatarDeformer', 'A
     ForEach-Object { Join-Path $projectRoot "app\src\main\java\com\mirror\bench\$_.java" }
 $sources += @('AvatarRigTest', 'AvatarGpuSceneProgressReviewTest', 'AvatarGpuSceneMetricsReviewTest', 'AvatarGpuSceneStopReviewTest', 'AvatarPoseProgressWatchdogTest', 'RuntimeStatusOrderTest', 'AvatarBatchShaderTest') |
     ForEach-Object { Join-Path $projectRoot "tests\$_.java" }
+$sources += Join-Path $projectRoot 'app\src\main\java\com\mirror\bench\SceneViewSettings.java'
 # JSON-java must precede android.jar: SDK JSON classes are nonfunctional host stubs.
 # All production classes under review are compiled from current source; no APK or old Gradle classes.
 & $javac '-J-Duser.language=en' --release 17 -encoding UTF-8 -cp "$JsonJar;$androidJar" -d $classes @sources

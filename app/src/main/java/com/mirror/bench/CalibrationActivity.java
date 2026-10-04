@@ -34,7 +34,7 @@ public final class CalibrationActivity extends Activity {
         pitch=number(form,"Pitch（1–4096，按所选单位）",101);
         units=choice(form,"Pitch单位",new String[]{"子像素 SUBPIXELS","像素 PIXELS"},102);
         tan=number(form,"Tan（−4–4，水平像素 / 垂直像素）",103);
-        phase=number(form,"Phase（周期，−1024–1024；保存时归一到 [0,1)）",104);
+        phase=number(form,"Offset / Phase（周期偏移；1为一个光栅周期，保存时归一到 [0,1)）",104);
         order=choice(form,"面板物理子像素排列（不交换图像颜色）",new String[]{"RGB","BGR"},105);
         reverse=new CheckBox(this); reverse.setId(106); reverse.setText("反转视点顺序"); form.addView(reverse);
         origin=choice(form,"垂直坐标原点",new String[]{"底部 BOTTOM","顶部 TOP（height − pixel center）"},107);

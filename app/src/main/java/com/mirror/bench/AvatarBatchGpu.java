@@ -64,10 +64,17 @@ final class AvatarBatchGpu {
         return bytes;
     }
     void draw(float[] viewProjections,int viewCount,float aspect,AvatarFraming framing,float[] displayedWorlds) {
+        draw(viewProjections,viewCount,aspect,framing,displayedWorlds,null);
+    }
+    void draw(float[] viewProjections,int viewCount,float aspect,AvatarFraming framing,float[] displayedWorlds,float[] suppliedFit) {
         if(disposed)throw new IllegalStateException("Disposed avatar batch");
         if((viewCount!=1&&viewCount!=4)||viewProjections.length<viewCount*16)throw new IllegalArgumentException("Invalid batch view group");
         Program program=viewCount==4?multiview:single;if(program==null)throw new IllegalStateException("Batch multiview not initialized");
-        framing.copyFitMatrix(aspect,fit);int count=layout.entries().size();
+        if(suppliedFit==null)framing.copyFitMatrix(aspect,fit);else {
+            if(suppliedFit.length!=16)throw new IllegalArgumentException("Fit matrix requires sixteen entries");
+            System.arraycopy(suppliedFit,0,fit,0,16);
+        }
+        int count=layout.entries().size();
         for(int i=0;i<count;i++) {
             var e=layout.entries().get(i);Matrix.multiplyMM(worlds,i*16,fit,0,displayedWorlds,e.node*16);
             if(!Matrix.invertM(inverse,0,worlds,i*16))throw new IllegalStateException("Singular avatar batch node transform");

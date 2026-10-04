@@ -31,6 +31,18 @@ public final class AvatarCameraProjectionCacheTest {
         cache.copyGroup(20,1200,1920,0,4,actual);check(Float.isFinite(actual[0]));
         cache.invalidate();rejects(()->cache.copyGroup(20,1200,1920,0,4,actual));
         check(cache.prepare(20,1200,1920));check(cache.builds()==builds+1);
+        var controls=SceneViewSettings.DEFAULT.withValue(7,.8f).withValue(8,.6f);
+        check(cache.prepare(20,1200,1920,controls));check(!cache.prepare(20,1200,1920,controls));
+        cache.copyGroup(20,1200,1920,0,4,actual);
+        float[] view=new float[16],projection=new float[16],vp=new float[16];
+        for(int v=0;v<4;v++){
+            float eye=(v/19f-.5f)*.8f,shift=-eye*.1f/2.4f;
+            Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
+            Matrix.frustumM(projection,0,-.052f*.625f+shift,.052f*.625f+shift,-.052f,.052f,.1f,10);
+            Matrix.multiplyMM(vp,0,projection,0,view,0);
+            for(int i=0;i<16;i++)check(Float.floatToRawIntBits(vp[i])==Float.floatToRawIntBits(actual[v*16+i]));
+        }
+        check(cache.prepare(20,1200,1920,controls.withValue(8,.5f)));check(cache.prepare(20,1200,1920,controls.withValue(7,.7f)));
         System.out.println("AvatarCameraProjectionCacheTest: "+checks+" checks passed (host Matrix fixture, not Android native implementation)");
     }
     private static void original(int views,int width,int height,int base,int group,float[] destination){

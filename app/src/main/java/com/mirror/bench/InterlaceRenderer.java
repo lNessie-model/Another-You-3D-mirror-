@@ -28,6 +28,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private volatile String error="";
     private volatile float[] expressions={0,0,0,0};
     private boolean runtimeMode,surfaceInitialized;
+    private volatile SceneViewSettings sceneView=SceneViewSettings.DEFAULT;
+    private volatile SceneViewSettings frameSceneView=SceneViewSettings.DEFAULT;
+    private int runtimeBackgroundProgram;
+    private volatile SceneBackgroundTexture screenBackground;
+    void setSceneView(SceneViewSettings value){if(value==null)throw new IllegalArgumentException("Scene view required");sceneView=value;}
     private android.content.res.AssetManager avatarAssets;
     private java.io.File avatarStoreRoot;
     private java.io.File privateHeadFiles;
@@ -288,6 +293,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         // A new EGL context destroys its predecessor's objects; numeric names must never be deleted here.
         backgroundCache=null;backgroundCacheScene=null;backgroundCacheState=null;backgroundCacheVp=null;
         backgroundCacheActual=staticBackgroundCacheRequested?"uninitialized":"disabled";backgroundCacheWarning="";backgroundCacheBytes=0;backgroundCacheBuilds=0;
+        // The predecessor context owns destruction of its numeric texture name.
+        screenBackground=runtimeMode?new SceneBackgroundTexture(avatarAssets):null;
         synchronized(this) {
             surfaceInitialized=true;
             framePacing.reset();pacingMeasurementGeneration++;pacingEpoch++;
@@ -325,6 +332,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             }
             sceneProgram=program(SCENE_VERTEX,SCENE_FRAGMENT);
             interlaceProgram=program(calibrationShader(SCREEN_VERTEX),calibrationShader(INTERLACE_FRAGMENT));
+            if(runtimeMode)runtimeBackgroundProgram=program(calibrationShader(SCREEN_VERTEX),calibrationShader(SceneBackground.fragment(INTERLACE_FRAGMENT)));
             if(sharedPhase||verifySharedPhase) {
                 if(!supportsSharedPhase())
                     throw new IllegalArgumentException("Shared RGB phase requires 20 views, pitch=10 subpixels, phase=0, RGB, forward views and bottom origin");
@@ -527,6 +535,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("static_background_cache_actual",backgroundCacheActual).put("static_background_cache_warning",backgroundCacheWarning)
                 .put("static_background_cache_bytes",backgroundCacheBytes).put("static_background_cache_builds",backgroundCacheBuilds)
                 .put("static_background_cache_qualified",false)
+                .put("scene_view",new JSONObject(frameSceneView.toMap()))
+                .put("scene_view_requested",new JSONObject(sceneView.toMap()))
+                .put("background_rendering","screen-plane composition in existing interlace pass; no extra geometry")
+                .put("background_image_rgba_bytes",screenBackground==null?0:screenBackground.bytes())
+                .put("background_image_uploads",screenBackground==null?0:screenBackground.uploads())
                 .put("avatar_load_warning",avatarLoadWarning).put("avatar_batched_requested",avatarBatched)
                 .put("avatar_source",avatarSourceKind).put("avatar_package_id",avatarPackageId)
                 .put("avatar",avatarScene==null?JSONObject.NULL:avatarScene.status())
@@ -671,6 +684,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(atlas&&cached) throw new IllegalArgumentException("Atlas and lookup are independent experiments");
         if(sharedPhase&&(atlas||cached)) throw new IllegalArgumentException("Shared phase uses arithmetic array interlacing");
         int program=atlas?atlasProgram:(cached?lookupProgram:(sharedPhase?sharedPhaseProgram:(explicitLod?explicitLodProgram:interlaceProgram)));
+        if(runtimeMode&&avatarScene!=null&&!atlas&&!cached&&!sharedPhase)program=runtimeBackgroundProgram;
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
         GLES30.glViewport(0,0,width,height); GLES30.glDisable(GLES30.GL_DEPTH_TEST);
         GLES30.glDisable(GLES30.GL_CULL_FACE);
@@ -679,6 +693,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
         GLES30.glBindTexture(atlas?GLES30.GL_TEXTURE_2D:GLES30.GL_TEXTURE_2D_ARRAY,atlas?atlasTexture:texture);
         GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uViews"),0);
+        if(program==runtimeBackgroundProgram&&runtimeMode){
+            screenBackground.bind(frameSceneView.background);
+            GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uBackground"),frameSceneView.background);
+            GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uBackgroundImage"),1);
+        }
         if(atlas) {
             GLES30.glUniform2f(GLES30.glGetUniformLocation(program,"uGrid"),atlasColumns,atlasRows);
             GLES30.glUniform2f(GLES30.glGetUniformLocation(program,"uHalfTexel"),.5f/viewWidth,.5f/viewHeight);
@@ -921,6 +940,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
     }
     private void drawAvatarViews() {
+        frameSceneView=sceneView;
+        avatarScene.setSceneView(frameSceneView);
+        if(cachedCameraVpRequested)cameraVpCache.prepare(views,width,height,frameSceneView);
         long generation=avatarResumeGeneration;
         if(generation!=consumedAvatarResumeGeneration) {
             avatarScene.resumeCpuPose();consumedAvatarResumeGeneration=generation;
@@ -939,7 +961,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         } else GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiview?multiviewFbo:(drawAtlas?atlasFbo:fbo));
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST);GLES30.glViewport(0,0,viewWidth,viewHeight);
         if(drawAtlas) {
-            GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+            if(runtimeMode)GLES30.glClearColor(0,0,0,0);else GLES30.glClearColor(.035f,.045f,.06f,1);
+            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
             GLES30.glEnable(GLES30.GL_SCISSOR_TEST);
         }
         // Sampling resolution can be anisotropic; projection follows the physical display shape.
@@ -957,15 +980,16 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 GLES30.glViewport(x,y,viewWidth,viewHeight);GLES30.glScissor(x,y,viewWidth,viewHeight);
             } else GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
             if(!drawAtlas) {
-                GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
+                if(runtimeMode)GLES30.glClearColor(0,0,0,0);else GLES30.glClearColor(.035f,.045f,.06f,1);
+                GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
             }
             if(runtimeMode)runtimeViewTiming.attachmentsComplete(SystemClock.elapsedRealtimeNanos());
             if(useBackgroundCache)System.arraycopy(backgroundCacheVp,v*16,multiviewMatrices,0,group*16);
             else if(cachedCameraVpRequested)cameraVpCache.copyGroup(views,width,height,v,group,multiviewMatrices);
             else for(int relative=0;relative<group;relative++) {
-                float eye=views==1?0:((v+relative)/(float)(views-1)-.5f)*.4f;
+                float eye=frameSceneView.eyeAt(v+relative,views);
                 Matrix.setLookAtM(view,0,eye,0,3,eye,0,0,0,1,0);
-                float near=.1f,half=.052f,shift=-eye*near/3;
+                float near=.1f,half=.052f,shift=frameSceneView.frustumShift(eye);
                 Matrix.frustumM(projection,0,-half*aspect+shift,half*aspect+shift,-half,half,near,10);
                 Matrix.multiplyMM(mvp,0,projection,0,view,0);
                 System.arraycopy(mvp,0,multiviewMatrices,relative*16,16);
@@ -1004,7 +1028,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 backgroundCacheState=new float[current.staticBackgroundStateFloats()];backgroundCacheVp=new float[views*16];
                 backgroundCache=new AvatarBackgroundCache(new AvatarBackgroundGl(current),glContextGeneration,viewWidth,viewHeight,views,multiview?4:1);
             }
-            cameraVpCache.prepare(views,width,height);
+            cameraVpCache.prepare(views,width,height,frameSceneView);
             int group=multiview?4:1;
             for(int base=0;base<views;base+=group){
                 cameraVpCache.copyGroup(views,width,height,base,group,multiviewMatrices);

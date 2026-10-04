@@ -54,6 +54,8 @@ public final class MirrorActivity extends Activity {
     private InterlaceRenderer renderer;
     private TextView status;
     private volatile MirrorSettings settings;
+    private SceneViewSettings sceneViewSettings=SceneViewSettings.DEFAULT;
+    private SceneViewPanel sceneViewPanel;
     private volatile CameraControlSettings requestedCamera;
     private volatile CameraCalibrationPanel cameraPanel;
     private volatile CameraCalibrationPanel.Input cameraInput;
@@ -81,6 +83,7 @@ public final class MirrorActivity extends Activity {
     @Override public void onCreate(Bundle savedState) {
         super.onCreate(savedState);
         settings = MirrorSettings.load(this);
+        sceneViewSettings=SceneViewPreferences.load(this).value;
         requestedCamera=settings.camera;
         permissionPrompted = savedState != null && savedState.getBoolean("permission_prompted", false);
         try { options = InputOptions.read(getIntent().getExtras(),
@@ -128,6 +131,8 @@ public final class MirrorActivity extends Activity {
         Button maintain = new Button(this);
         maintain.setText("维护"); maintain.setOnClickListener(ignored -> showMaintenance());
         bar.addView(maintain, new LinearLayout.LayoutParams(-2, -2));
+        Button viewControls=new Button(this);viewControls.setText("画面");viewControls.setContentDescription("画面缩放、位置、景深与背景");
+        viewControls.setOnClickListener(ignored->showSceneView());bar.addView(viewControls,new LinearLayout.LayoutParams(-2,-2));
         Button exit = new Button(this);
         exit.setText("退出"); exit.setOnClickListener(ignored -> finish());
         bar.addView(exit, new LinearLayout.LayoutParams(-2, -2));
@@ -147,7 +152,15 @@ public final class MirrorActivity extends Activity {
         }
         configured.setViewSize(runtimeViewWidth,runtimeViewHeight);
         configured.setPanelCalibration(settings.panel);
+        configured.setSceneView(sceneViewSettings);
         return configured;
+    }
+    private void showSceneView(){
+        if(sceneViewPanel!=null)return;
+        sceneViewPanel=new SceneViewPanel(this,sceneViewSettings,new SceneViewPanel.Host(){
+            public void preview(SceneViewSettings value){sceneViewSettings=value;renderer.setSceneView(value);}
+            public void closed(){sceneViewPanel=null;}
+        },options.viewCount);sceneViewPanel.show();
     }
     private void saveRuntimeProfile(int fps,String preset,int views) {
         boolean changed=fps!=settings.activeFps||!preset.equals(settings.viewPreset)||views!=settings.viewCount;
@@ -165,6 +178,7 @@ public final class MirrorActivity extends Activity {
     }
     @Override protected void onPause() {
         resumed = false;
+        if(sceneViewPanel!=null)sceneViewPanel.dismiss();
         renderer.pauseRuntimeAvatar();
         if(cameraPanel!=null)cameraPanel.dismiss();
         main.removeCallbacks(tick);
