@@ -30,8 +30,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Locale;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -44,6 +42,7 @@ public final class MirrorActivity extends Activity {
     private static final int[] RETRY_SECONDS = {1, 2, 4, 8, 30};
     // Also serializes native resources across Activity recreation; never acquired on the UI thread.
     private static final Semaphore HARDWARE_OWNER = new Semaphore(1);
+    private static final RuntimeInputStop.FailureLatch INPUT_STOP_FAILURES = new RuntimeInputStop.FailureLatch();
     private static final Object STATUS_FILE_LOCK = new Object();
     private static final RuntimeStatusOrder STATUS_ORDER = new RuntimeStatusOrder();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -63,6 +62,8 @@ public final class MirrorActivity extends Activity {
     private int runtimeViewWidth,runtimeViewHeight;
     private InputOptions options;
     private RuntimeWorker worker;
+    private volatile InputStopRecord lastInputStop;
+    private record InputStopRecord(Thread worker,RuntimeInputStop.Receipt receipt) {}
     private boolean resumed, maintenance, permissionPrompted, restarting, calibrationOpen;
     private volatile InteractionController.Snapshot snapshot;
     private volatile String runtimeError = "";
@@ -211,10 +212,11 @@ public final class MirrorActivity extends Activity {
         synchronized(interaction) {
             interaction.setCalibration(FaceControlCalibration.defaults());
             interaction.reset();
-            if(!configurationError.isEmpty())runtimeError=configurationError;
+            if(!inputStartAllowed())runtimeError=inputStopFailureMessage();
+            else if(!configurationError.isEmpty())runtimeError=configurationError;
             else if(options.needsCamera()&&!hasCameraPermission())runtimeError="摄像头未授权，请在维护页面重试";
             else if(!renderFault&&progressFault==null)runtimeError="";
-            if(renderFault||progressFault!=null||!configurationError.isEmpty()
+            if(!inputStartAllowed()||renderFault||progressFault!=null||!configurationError.isEmpty()
                     ||(options.needsCamera()&&!hasCameraPermission()))interaction.setError();
             snapshot=interaction.sample(SystemClock::elapsedRealtimeNanos);
         }
@@ -232,6 +234,7 @@ public final class MirrorActivity extends Activity {
     private void startIfReady(boolean mayPrompt) {
         if (!resumed || maintenance || calibrationOpen || restarting || renderFault || progressFault != null || isFinishing() || isDestroyed()
                 || worker != null) return;
+        if(!inputStartAllowed()){reportPreflightFault(inputStopFailureMessage());return;}
         if (!configurationError.isEmpty()) {
             reportPreflightFault(configurationError);
             return;
@@ -539,40 +542,19 @@ public final class MirrorActivity extends Activity {
 
     private final class RuntimeWorker extends Thread {
         private final RuntimeStatusOrder.Epoch ownerEpoch;
+        private final RuntimeInputStop inputStop;
         private volatile boolean cancelled;
         private volatile boolean waitingForHardware = true;
-        private volatile FrameInput sourceOwned;
-        private final AtomicBoolean sourceCloseScheduled = new AtomicBoolean();
-        private final CountDownLatch sourceCloseFinished = new CountDownLatch(1);
         private final RuntimeProgressWatchdog watchdog = new RuntimeProgressWatchdog();
         private long sequence, modelTimestamp;
-        RuntimeWorker(RuntimeStatusOrder.Epoch ownerEpoch) { super("MirrorRuntime");this.ownerEpoch=ownerEpoch; }
+        RuntimeWorker(RuntimeStatusOrder.Epoch ownerEpoch) {
+            super("MirrorRuntime");this.ownerEpoch=ownerEpoch;
+            inputStop=new RuntimeInputStop(ownerEpoch,SystemClock.elapsedRealtimeNanos());
+        }
         void cancel() {
             cancelled = true; watchdog.cancel(); interrupt();
-            closeCameraAsync();
-        }
-        private void closeCameraAsync() {
-            FrameInput owned = sourceOwned;
-            // CameraFrameSource protects borrowed Images. Replay and native inference stay worker-owned.
-            if (!(owned instanceof CameraFrameSource) || !sourceCloseScheduled.compareAndSet(false, true)) return;
-            Thread closer = new Thread(() -> {
-                try { close(owned); }
-                finally { sourceCloseFinished.countDown(); }
-            }, "MirrorCameraStop");
-            try { closer.start(); }
-            catch (RuntimeException | Error failure) {
-                sourceCloseFinished.countDown();
-                Log.e("MirrorRuntime", "Cannot schedule camera stop; worker will close it", failure);
-            }
-        }
-        private void awaitCameraStop() {
-            if (!sourceCloseScheduled.get()) return;
-            boolean interrupted = false;
-            for (;;) {
-                try { sourceCloseFinished.await(); break; }
-                catch (InterruptedException ignored) { interrupted = true; }
-            }
-            if (interrupted) interrupt();
+            // Only CameraFrameSource permits cross-thread close while an Image is borrowed.
+            inputStop.requestCameraClose();
         }
         @Override public void run() {
             boolean ownsHardware = false;
@@ -580,6 +562,7 @@ public final class MirrorActivity extends Activity {
                 HARDWARE_OWNER.acquire(); ownsHardware = true; waitingForHardware = false;
                 synchronized(interaction) {
                     if(cancelled||ownerEpoch!=statusEpoch)return;
+                    if(!inputStartAllowed()){runtimeError=inputStopFailureMessage();interaction.setError();return;}
                     interaction.reset();
                 }
                 int failures = 0;
@@ -592,8 +575,8 @@ public final class MirrorActivity extends Activity {
                     try {
                         progress(RuntimeProgressWatchdog.Stage.OPENING_CAMERA);
                         source = options.input.equals("replay") ? replay() : new CameraFrameSource(MirrorActivity.this, WIDTH, HEIGHT, CAPTURE_FPS);
-                        sourceOwned = source;
-                        if (cancelled) { closeCameraAsync(); break; }
+                        if(source instanceof CameraFrameSource)inputStop.bindCamera(source);
+                        if (cancelled) { inputStop.requestCameraClose(); break; }
                         progress(RuntimeProgressWatchdog.Stage.INITIALIZING);
                         converter = new YuvConverter(MirrorActivity.this, WIDTH, HEIGHT, true, true);
                         CameraControlSettings effective=CameraControlSettings.DEFAULT;
@@ -701,9 +684,9 @@ public final class MirrorActivity extends Activity {
                         // Every borrowed Image was closed by convert(); only this worker owns these resources.
                         synchronized(interaction){if(cameraInput==openedInput){cameraInput=null;cameraObservation=null;}}
                         progress(RuntimeProgressWatchdog.Stage.RELEASING);
-                        close(source); close(reference); close(npu); close(normalizer); close(converter); close(referenceConverter);
-                        sourceOwned = null;
+                        closeRuntimeInputs(inputStop,source,reference,npu,normalizer,converter,referenceConverter);
                     }
+                    if(inputStop.hasFailures()){cancelled=true;break;}
                     if (cancelled) break;
                     int delay = RETRY_SECONDS[Math.min(failures++, RETRY_SECONDS.length - 1)];
                     progress(RuntimeProgressWatchdog.Stage.RETRY_WAIT);
@@ -715,7 +698,13 @@ public final class MirrorActivity extends Activity {
             } finally {
                 // A duplicate close can return while the dedicated close task is still in the camera HAL.
                 // Keep the process-wide ownership permit until both cleanup paths have finished.
-                awaitCameraStop();
+                cancelled=true;
+                RuntimeInputStop.Receipt stopped=finishRuntimeInputStop(inputStop,SystemClock::elapsedRealtimeNanos);
+                lastInputStop=new InputStopRecord(this,stopped);
+                if(!stopped.closeCallsSucceeded()) {
+                    synchronized(interaction){if(ownerEpoch==statusEpoch){runtimeError=inputStopFailureMessage();interaction.setError();}}
+                    recordEvent(ownerEpoch,SystemClock.elapsedRealtimeNanos(),"input_stop_failed",stopped.workerId());
+                }
                 progress(RuntimeProgressWatchdog.Stage.STOPPED);
                 if (ownsHardware) HARDWARE_OWNER.release();
                 main.post(() -> {
@@ -744,9 +733,51 @@ public final class MirrorActivity extends Activity {
         }
         finally { frame.close(); }
     }
-    private static void close(AutoCloseable resource) {
-        if (resource == null) return;
-        try { resource.close(); } catch (Exception error) { Log.e("MirrorRuntime", "Resource close failed", error); }
+    private static void closeRuntimeInputs(RuntimeInputStop stop,AutoCloseable source,AutoCloseable reference,
+                                          AutoCloseable npu,AutoCloseable normalizer,AutoCloseable converter,AutoCloseable referenceConverter) {
+        // Clear and claim use the same lock: a late cancel cannot schedule an untracked closer.
+        stop.clearCamera(source);
+        closeInput(stop,RuntimeInputStop.Resource.SOURCE,source);
+        closeInput(stop,RuntimeInputStop.Resource.REFERENCE,reference);
+        closeInput(stop,RuntimeInputStop.Resource.NPU,npu);
+        closeInput(stop,RuntimeInputStop.Resource.NORMALIZER,normalizer);
+        closeInput(stop,RuntimeInputStop.Resource.CONVERTER,converter);
+        closeInput(stop,RuntimeInputStop.Resource.REFERENCE_CONVERTER,referenceConverter);
+    }
+    private static void closeInput(RuntimeInputStop stop,RuntimeInputStop.Resource kind,AutoCloseable resource) {
+        Throwable failure=stop.close(kind,resource);
+        if(failure!=null)Log.e("MirrorRuntime","Input resource close failed: "+kind.name(),failure);
+    }
+    private static RuntimeInputStop.Receipt finishRuntimeInputStop(RuntimeInputStop stop,java.util.function.LongSupplier clock) {
+        stop.awaitCameraClose();
+        RuntimeInputStop.Receipt receipt=stop.seal(clock.getAsLong());
+        INPUT_STOP_FAILURES.record(receipt); // Must precede release of HARDWARE_OWNER.
+        return receipt;
+    }
+    private static boolean inputStartAllowed(){return !INPUT_STOP_FAILURES.blocked();}
+    private static String inputStopFailureMessage(){return "输入资源停止未确认，请强制停止应用后重新打开";}
+    private static JSONObject inputStopReceiptJson(RuntimeInputStop.Receipt receipt)throws Exception {
+        JSONObject resources=new JSONObject();
+        for(RuntimeInputStop.Resource kind:RuntimeInputStop.Resource.values())resources.put(kind.name(),new JSONObject()
+                .put("attempts",receipt.attempts(kind)).put("failures",receipt.failures(kind))
+                .put("first_failure_type",receipt.failureType(kind)==null?"":receipt.failureType(kind)));
+        return new JSONObject().put("worker_id",receipt.workerId()).put("epoch_id",receipt.epochId())
+                .put("epoch_number",receipt.epochNumber()).put("started_elapsed_ns",receipt.startedNs())
+                .put("finished_elapsed_ns",receipt.finishedNs()).put("close_calls_succeeded",receipt.closeCallsSucceeded())
+                .put("async_camera_claimed",receipt.asyncCameraClaimed())
+                .put("async_camera_thread_terminated",receipt.asyncCameraThreadTerminated())
+                .put("resources",resources).put("hardware_qualified",false)
+                .put("scope","Acquired-resource close returns and camera-close thread termination only; excludes runtime-worker termination, Camera2 HAL acknowledgement, native post-worker, GL/pose and factory failure cleanup");
+    }
+    private JSONObject inputStopJson()throws Exception {
+        InputStopRecord previous=lastInputStop;
+        RuntimeInputStop.Receipt failure=INPUT_STOP_FAILURES.failure();
+        Thread.State state=previous==null?null:previous.worker().getState();
+        return new JSONObject().put("failure_latched",failure!=null)
+                .put("latched_failure_receipt",failure==null?JSONObject.NULL:inputStopReceiptJson(failure))
+                .put("last_worker_receipt",previous==null?JSONObject.NULL:inputStopReceiptJson(previous.receipt()))
+                .put("last_worker_thread_state",state==null?JSONObject.NULL:state.name())
+                .put("last_worker_thread_terminated",state==Thread.State.TERMINATED);
     }
     private static String concise(Throwable error) {
         String text = error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage());
@@ -785,7 +816,8 @@ public final class MirrorActivity extends Activity {
                 .put("updated_elapsed_ns", elapsedNs).put("updated_monotonic_ns", monotonicNs)
                 .put("state", current == null ? "WAITING" : current.state().name())
                 .put("result_age_ms", current == null ? -1 : current.resultAgeMs())
-                .put("face_present", !renderFault && progressFault == null && current != null && current.facePresent()).put("error", runtimeError)
+                .put("face_present", inputStartAllowed() && !renderFault && progressFault == null && current != null && current.facePresent()).put("error", runtimeError)
+                .put("input_stop",inputStopJson())
                 .put("render_fault", renderFault).put("render_error", renderError)
                 .put("processing_fault", progressFault != null).put("processing_timeout", progressFaultJson())
                 .put("runtime_stage", worker == null ? "STOPPED" : worker.watchdog.stage().name())
@@ -858,6 +890,8 @@ public final class MirrorActivity extends Activity {
                     .put("render_fault", true).put("render_error", renderError);
             if (progressFault != null) data.put("state", "ERROR").put("face_present", false)
                     .put("processing_fault", true).put("processing_timeout", progressFaultJson());
+            if(!inputStartAllowed())data.put("state","ERROR").put("face_present",false)
+                    .put("error",inputStopFailureMessage()).put("input_stop",inputStopJson());
             AtomicFile destination = new AtomicFile(new File(getFilesDir(), "mirror-runtime-status.json"));
             FileOutputStream stream = null;
             try {

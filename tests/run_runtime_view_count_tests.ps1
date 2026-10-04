@@ -8,7 +8,7 @@ New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $names=@('AvatarCameraProjectionCache','AvatarCameraProjectionCheck','PersistentMultiviewFbos','PersistentMultiviewGl','MultiviewGl','InterlaceRenderer','MirrorActivity',
     'AvatarMultiviewCheck','AvatarPersistentFboCheck','AvatarBatchCheck','AvatarPixelComparison','AvatarPoseFixtures','AvatarPreviewActivity','PanelCalibration',
     'RuntimeViewCount','RuntimeGlLifecycle','MirrorSettings','CalibrationActivity','PanelPreviewActivity','PanelTestImages')
-$names+=@('AvatarBackgroundCache','AvatarBackgroundGl','AvatarGpuScene','AvatarDrawPartition')
+$names+=@('AvatarBackgroundCache','AvatarBackgroundGl','AvatarGpuScene','AvatarDrawPartition','RuntimeInputStop','RuntimeStatusOrder')
 $sources=$names | ForEach-Object {Join-Path $root "app\src\main\java\com\mirror\bench\$_.java"}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp "$json;$AndroidJar;$built" -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'View count actual SDK compilation failed'}
