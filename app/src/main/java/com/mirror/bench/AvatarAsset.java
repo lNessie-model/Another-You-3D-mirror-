@@ -17,15 +17,20 @@ public final class AvatarAsset {
     private final int vertices, triangles;
     private final long decodedBytes;
     private final AlbedoAtlas atlas;
+    private final AlbedoAtlas normalMap,ormMap;
 
     // Package-private constructors take ownership of fresh loader arrays, never caller input arrays.
     AvatarAsset(List<Mesh> meshes,List<Node> nodes,List<Material> materials,int[] roots,int vertices,int triangles,long bytes) {
         this(meshes,nodes,materials,roots,vertices,triangles,bytes,null);
     }
     AvatarAsset(List<Mesh> meshes,List<Node> nodes,List<Material> materials,int[] roots,int vertices,int triangles,long bytes,AlbedoAtlas atlas) {
+        this(meshes,nodes,materials,roots,vertices,triangles,bytes,atlas,null,null);
+    }
+    AvatarAsset(List<Mesh> meshes,List<Node> nodes,List<Material> materials,int[] roots,int vertices,int triangles,long bytes,AlbedoAtlas atlas,AlbedoAtlas normalMap,AlbedoAtlas ormMap) {
         this.meshes=freeze(meshes);this.nodes=freeze(nodes);this.materials=freeze(materials);
         sceneRoots=roots;this.vertices=vertices;this.triangles=triangles;decodedBytes=bytes;
         this.atlas=atlas;
+        this.normalMap=normalMap;this.ormMap=ormMap;
     }
     public List<Mesh> meshes(){return meshes;}
     public List<Node> nodes(){return nodes;}
@@ -38,6 +43,8 @@ public final class AvatarAsset {
     public long decodedBytes(){return decodedBytes;}
     /** Null for the original factor-only asset profile. No GPU handles are cached here. */
     public AlbedoAtlas albedoAtlas(){return atlas;}
+    public AlbedoAtlas normalMap(){return normalMap;}
+    public AlbedoAtlas ormMap(){return ormMap;}
     public static final class AlbedoAtlas {
         private final byte[] png;
         private final int width,height;
@@ -112,13 +119,23 @@ public final class AvatarAsset {
         private final float roughness;
         private final boolean unlit;
         private final boolean textured;
+        private final boolean pbrMaps;
+        private final float metallic,normalScale,occlusionStrength;
         Material(String name,float[] color,float roughness,boolean unlit){this(name,color,roughness,unlit,false);}
-        Material(String name,float[] color,float roughness,boolean unlit,boolean textured){this.name=name;this.color=color;this.roughness=roughness;this.unlit=unlit;this.textured=textured;}
+        Material(String name,float[] color,float roughness,boolean unlit,boolean textured){this(name,color,roughness,unlit,textured,false,0,1,0);}
+        Material(String name,float[] color,float roughness,boolean unlit,boolean textured,boolean pbrMaps,float metallic,float normalScale,float occlusionStrength){
+            this.name=name;this.color=color;this.roughness=roughness;this.unlit=unlit;this.textured=textured;
+            this.pbrMaps=pbrMaps;this.metallic=metallic;this.normalScale=normalScale;this.occlusionStrength=occlusionStrength;
+        }
         public String name(){return name;}
         public FloatBuffer baseColor(){return floats(color);}
         public float roughness(){return roughness;}
         public boolean unlit(){return unlit;}
         public boolean textured(){return textured;}
+        public boolean pbrMaps(){return pbrMaps;}
+        public float metallic(){return metallic;}
+        public float normalScale(){return normalScale;}
+        public float occlusionStrength(){return occlusionStrength;}
     }
     private static FloatBuffer floats(float[] a){return a==null?null:FloatBuffer.wrap(a).asReadOnlyBuffer();}
     private static IntBuffer ints(int[] a){return IntBuffer.wrap(a).asReadOnlyBuffer();}

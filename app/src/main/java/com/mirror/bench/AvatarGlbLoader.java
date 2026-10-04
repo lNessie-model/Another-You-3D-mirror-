@@ -33,7 +33,8 @@ import org.json.JSONTokener;
  */
 public final class AvatarGlbLoader {
     public static final int MAX_FILE_BYTES=32*1024*1024, MAX_JSON_BYTES=1024*1024;
-    public static final long MAX_DECODED_BYTES=32L*1024*1024;
+    public static final long MAX_DECODED_BYTES=80L*1024*1024;
+    private static final long LEGACY_DECODED_BYTES=32L*1024*1024;
     private static final int MAX_VERTICES=20_000, MAX_TRIANGLES=30_000, MAX_PRIMITIVES=8;
     private static final String UNLIT="KHR_materials_unlit";
 
@@ -93,7 +94,7 @@ public final class AvatarGlbLoader {
     private static final class Parser {
         final JSONObject root;
         final ByteBuffer bin;
-        final long budget;
+        long budget;
         long charged;
         JSONArray views,accessors;
         final Map<Integer,float[]> decoded=new HashMap<>();
@@ -101,7 +102,8 @@ public final class AvatarGlbLoader {
         final List<AvatarAsset.Material> materials=new ArrayList<>();
         int primitiveCount,geometryVertices,geometryTriangles;
         boolean atlasProfile;
-        AvatarAsset.AlbedoAtlas atlas;
+        boolean pbrProfile;
+        AvatarAsset.AlbedoAtlas atlas,normalMap,ormMap;
         Parser(JSONObject root,ByteBuffer bin,long budget){this.root=root;this.bin=bin;this.budget=budget;}
         AvatarAsset parse()throws JSONException,FormatException {
             JSONObject asset=obj(root,"asset");require("2.0".equals(string(asset,"version","")),"asset.version: only 2.0 supported");
@@ -111,7 +113,12 @@ public final class AvatarGlbLoader {
                 if(extras.has("mirrorAlbedoAtlas")){
                     intValue(extras.get("mirrorAlbedoAtlas"),1,1,"albedo profile");atlasProfile=true;
                 }
+                if(extras.has("mirrorPbrAtlas")){
+                    intValue(extras.get("mirrorPbrAtlas"),1,1,"PBR profile");pbrProfile=true;
+                    require(atlasProfile,"PBR profile requires albedo profile");
+                }
             }
+            if(!pbrProfile)budget=Math.min(budget,LEGACY_DECODED_BYTES);
             for(String key:new String[]{"skins","animations","cameras"})
                 require(!root.has(key),key+": unsupported in factor-only morph profile");
             require(!root.has("samplers"),"samplers: unsupported; atlas uses fixed linear clamp sampling");
@@ -129,7 +136,7 @@ public final class AvatarGlbLoader {
             views=array(root,"bufferViews",false,1024);accessors=array(root,"accessors",true,1024);
             for(int i=0;i<views.length();i++)view(i);
             for(int i=0;i<accessors.length();i++)accessor(i);
-            if(atlasProfile)atlas=albedoAtlas();
+            if(atlasProfile){atlas=embeddedMap(0);if(pbrProfile){normalMap=embeddedMap(1);ormMap=embeddedMap(2);}}
             JSONArray mats=array(root,"materials",false,8);
             for(int i=0;i<mats.length();i++)materials.add(material(mats.getJSONObject(i),"materials["+i+"]"));
             // A missing primitive material uses glTF defaults; its metallic factor is unsupported here.
@@ -140,14 +147,15 @@ public final class AvatarGlbLoader {
         void reserve(long bytes,String path)throws FormatException {
             require(bytes>=0&&bytes<=budget-charged,path+": decoded memory budget exceeded");charged+=bytes;
         }
-        AvatarAsset.AlbedoAtlas albedoAtlas()throws JSONException,FormatException {
-            JSONArray images=array(root,"images",true,2),textures=array(root,"textures",true,2);
-            require(images.length()==1&&textures.length()==1,"atlas: exactly one image and texture required");
-            JSONObject image=images.getJSONObject(0),texture=textures.getJSONObject(0);
+        AvatarAsset.AlbedoAtlas embeddedMap(int index)throws JSONException,FormatException {
+            JSONArray images=array(root,"images",true,pbrProfile?3:2),textures=array(root,"textures",true,pbrProfile?3:2);
+            int count=pbrProfile?3:1;
+            require(images.length()==count&&textures.length()==count,pbrProfile?"PBR atlas: exactly three images and textures required":"atlas: exactly one image and texture required");
+            JSONObject image=images.getJSONObject(index),texture=textures.getJSONObject(index);
             require(!image.has("uri"),"image URI unsupported");
             onlyKeys(image,Set.of("name","bufferView","mimeType"),"atlas image");
             onlyKeys(texture,Set.of("name","source"),"atlas texture");
-            intValue(texture.get("source"),0,0,"atlas texture source");
+            intValue(texture.get("source"),index,index,"atlas texture source");
             require("image/png".equals(string(image,"mimeType","")),"atlas: PNG only");
             JSONObject v=view(integer(image,"bufferView",0,views.length()-1,-1));
             require(!v.has("byteStride")&&!v.has("target"),"atlas image bufferView must be packed");
@@ -291,15 +299,30 @@ public final class AvatarGlbLoader {
             return attrs.has(name)?floats(integer(attrs,name,0,accessors.length()-1,-1),count,width,path+"."+name,false):null;
         }
         AvatarAsset.Material material(JSONObject m,String path)throws JSONException,FormatException {
-            for(String key:new String[]{"normalTexture","occlusionTexture","emissiveTexture"})require(!m.has(key),path+": texture unsupported: "+key);
+            require(!m.has("emissiveTexture"),path+": texture unsupported: emissiveTexture");
             require("OPAQUE".equals(string(m,"alphaMode","OPAQUE")),path+": alpha mode unsupported");
             require(!bool(m,"doubleSided",false),path+": doubleSided unsupported");
             float[] emissive=vector(m,"emissiveFactor",3,new float[3],path);
             require(emissive[0]==0&&emissive[1]==0&&emissive[2]==0,path+": emissive factor unsupported");
             boolean unlit=m.has("extensions")&&obj(m,"extensions").has(UNLIT);
             JSONObject p=m.has("pbrMetallicRoughness")?obj(m,"pbrMetallicRoughness"):new JSONObject();
-            require(!p.has("metallicRoughnessTexture"),path+": texture unsupported");
+            boolean maps=m.has("normalTexture")||p.has("metallicRoughnessTexture")||m.has("occlusionTexture");
+            float normalScale=1,occlusionStrength=0;
+            if(maps){
+                require(pbrProfile,path+": texture unsupported");
+                require(!unlit,path+": PBR maps unsupported on unlit material");
+                require(m.has("normalTexture")&&p.has("metallicRoughnessTexture"),path+": paired normal and ORM maps required");
+                JSONObject nt=obj(m,"normalTexture"),rt=obj(p,"metallicRoughnessTexture");
+                mapIndex(nt,1,Set.of("index","texCoord","scale"),path+".normalTexture");
+                mapIndex(rt,2,Set.of("index","texCoord"),path+".metallicRoughnessTexture");
+                normalScale=number(nt,"scale",1);require(normalScale>=0&&normalScale<=2,path+": normal scale range");
+                if(m.has("occlusionTexture")){
+                    JSONObject ot=obj(m,"occlusionTexture");mapIndex(ot,2,Set.of("index","texCoord","strength"),path+".occlusionTexture");
+                    occlusionStrength=number(ot,"strength",1);require(occlusionStrength>=0&&occlusionStrength<=1,path+": occlusion strength range");
+                }
+            }
             boolean textured=p.has("baseColorTexture");
+            require(!maps||textured,path+": PBR maps require baseColorTexture/UV");
             if(textured){
                 require(atlasProfile,path+": texture unsupported");JSONObject t=obj(p,"baseColorTexture");
                 onlyKeys(t,Set.of("index","texCoord"),path+".baseColorTexture");
@@ -309,8 +332,11 @@ public final class AvatarGlbLoader {
             for(float v:color)require(v>=0&&v<=1,path+": baseColorFactor range");
             float metal=number(p,"metallicFactor",1),rough=number(p,"roughnessFactor",1);
             require(metal>=0&&metal<=1&&rough>=0&&rough<=1,path+": PBR factor range");
-            require(unlit||metal==0,path+": metallic material unsupported by v1a lit profile");reserve(16,path);
-            return new AvatarAsset.Material(string(m,"name",""),color,rough,unlit,textured);
+            require(pbrProfile||unlit||metal==0,path+": metallic material unsupported by v1a lit profile");reserve(16,path);
+            return new AvatarAsset.Material(string(m,"name",""),color,rough,unlit,textured,maps,metal,normalScale,occlusionStrength);
+        }
+        void mapIndex(JSONObject t,int index,Set<String> allowed,String path)throws JSONException,FormatException{
+            onlyKeys(t,allowed,path);intValue(t.get("index"),index,index,path+" index");integer(t,"texCoord",0,0,0);
         }
         AvatarAsset nodes()throws JSONException,FormatException {
             JSONArray source=array(root,"nodes",true,128);int n=source.length();require(n>0,"nodes: empty");
@@ -339,7 +365,7 @@ public final class AvatarGlbLoader {
             require(totals[0]>0,"selected scene: no drawable mesh");
             List<AvatarAsset.Node> output=new ArrayList<>();
             for(int i=0;i<n;i++)output.add(new AvatarAsset.Node(names[i],mesh[i],children[i],local[i],world[i],weights[i]));
-            return new AvatarAsset(meshes,output,materials,roots,totals[1],totals[2],charged,atlas);
+            return new AvatarAsset(meshes,output,materials,roots,totals[1],totals[2],charged,atlas,normalMap,ormMap);
         }
         void world(int i,int[] parent,float[][] local,float[][] output,int[] state,int depth)throws FormatException {
             require(depth<=64,"node depth budget");require(state[i]!=1,"nodes: cycle detected");if(state[i]==2)return;state[i]=1;
