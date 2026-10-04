@@ -12,11 +12,14 @@ import numpy as np
 
 def fingerprint():
     digest=hashlib.sha256()
+    used_materials=set()
     for obj in sorted((o for o in bpy.data.objects if o.type=='MESH'),key=lambda o:o.name):
         mesh=obj.data
         digest.update(obj.name.encode())
         for collection,attribute,count,dtype in [(mesh.vertices,'co',3,'<f4'),
-                (mesh.loops,'vertex_index',1,'<i4'),(mesh.polygons,'material_index',1,'<i4')]:
+                (mesh.loops,'vertex_index',1,'<i4'),(mesh.polygons,'loop_start',1,'<i4'),
+                (mesh.polygons,'loop_total',1,'<i4'),(mesh.polygons,'material_index',1,'<i4'),
+                (mesh.corner_normals,'vector',3,'<f4')]:
             values=np.empty(len(collection)*count,dtype=dtype);collection.foreach_get(attribute,values);digest.update(values.tobytes())
         for uv in mesh.uv_layers:
             values=np.empty(len(uv.data)*2,dtype='<f4');uv.data.foreach_get('uv',values)
@@ -28,10 +31,28 @@ def fingerprint():
             for key in mesh.shape_keys.key_blocks:
                 values=np.empty(len(key.data)*3,dtype='<f4');key.data.foreach_get('co',values)
                 digest.update(key.name.encode());digest.update(key.relative_key.name.encode());digest.update(values.tobytes())
+                digest.update(json.dumps([key.vertex_group,key.slider_min,key.slider_max,key.mute]).encode())
         digest.update(json.dumps([m.name for m in mesh.materials]).encode())
+        used_materials.update(m.name for m in mesh.materials)
+    # Blender discards unused default materials on save; they are not part of the head.
+    for material in sorted((m for m in bpy.data.materials if m.name in used_materials),key=lambda m:m.name):
+        digest.update(material.name.encode())
+        if not material.node_tree:continue
+        tree=material.node_tree
+        for node in sorted(tree.nodes,key=lambda n:n.name):
+            digest.update(json.dumps([node.name,node.type]).encode())
+            if node.type=='TEX_IMAGE':digest.update(json.dumps([node.image.name,node.interpolation,node.extension]).encode())
+            for socket in node.inputs:
+                if not hasattr(socket,'default_value'):continue
+                value=socket.default_value
+                if not isinstance(value,(str,int,float,bool)):value=list(value)
+                digest.update(json.dumps([socket.identifier,value]).encode())
+        digest.update(json.dumps(sorted((link.from_node.name,link.from_socket.identifier,
+                link.to_node.name,link.to_socket.identifier) for link in tree.links)).encode())
     for image in sorted(bpy.data.images,key=lambda i:i.name):
         if image.packed_file:
-            digest.update(image.name.encode());digest.update(image.packed_file.data)
+            digest.update(json.dumps([image.name,image.colorspace_settings.name,list(image.size)]).encode())
+            digest.update(image.packed_file.data)
     return digest.hexdigest()
 
 
@@ -80,7 +101,10 @@ def main():
     for f in drivers:
         assert f.driver.is_valid,(f.data_path,'Invalid driver')
         assert f.driver.is_simple_expression,(f.data_path,'Driver requires Python auto execution')
-    result={'workfile':workfile,'blender':bpy.app.version_string,'cases':len(reference['cases']),
+    result={'workfile':workfile,'workfileSha256':hashlib.sha256(Path(workfile).read_bytes()).hexdigest(),
+            'sourceModelSha256':reference['modelSha256'],
+            'referenceSha256':hashlib.sha256(Path(args.reference).read_bytes()).hexdigest(),
+            'blender':bpy.app.version_string,'cases':len(reference['cases']),
             'checks':checks,'drivers':len(drivers),'maxWeightError':max_weight_error,'maxMatrixError':max_matrix_error,
             'weightsOnly':args.weights_only,'preservedAssetFingerprint':baseline,
             'autoexecEnabled':bpy.context.preferences.filepaths.use_scripts_auto_execute,

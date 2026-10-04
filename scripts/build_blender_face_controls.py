@@ -43,6 +43,43 @@ class ControlDriver:
         assert self.driver.is_simple_expression,'Driver needs Python execution: '+expression
 
 
+def joint_controls(controls,names,permutation,rig):
+    config=rig['rig']
+    assert config['gazeMode']=='joint' and config['jawMode']=='morph'
+    assert config['jawAxis']==[1,0,0],'Only the current +X attachment pivot is supported'
+    # glTF C(x,y,z)=(x,-z,y): Rz(roll) Ry(yaw) Rx(pitch) becomes
+    # Ry(-roll) Rz(yaw) Rx(pitch), i.e. Blender XZY Euler order.
+    for name in [config['headNode'],config['leftEyeNode'],config['rightEyeNode'],config['jawAttachmentNode']]:
+        obj=bpy.data.objects[name]
+        assert not obj.animation_data or not obj.animation_data.drivers,'Pre-existing joint drivers'
+        basis=obj.matrix_basis.to_3x3()
+        assert max(abs(basis[r][c]-(1 if r==c else 0)) for r in range(3) for c in range(3))<1e-6,'Unexpected base joint orientation'
+        obj.rotation_mode='XZY';obj.rotation_euler=(0,0,0)
+    head=bpy.data.objects[config['headNode']]
+    for index,name,reflect in [(0,'head_pitch',False),(1,'head_roll',True),(2,'head_yaw',True)]:
+        driver=ControlDriver(head.driver_add('rotation_euler',index),controls,names,permutation)
+        angle=driver.variable(name)
+        if reflect:angle='(-'+angle+' if '+driver.mirror+' else '+angle+')'
+        if index==1:angle='-('+angle+')'
+        driver.set('radians('+angle+')')
+    for side,node,outward,inward in [('Left',config['leftEyeNode'],'eyeLookOutLeft','eyeLookInLeft'),
+            ('Right',config['rightEyeNode'],'eyeLookInRight','eyeLookOutRight')]:
+        obj=bpy.data.objects[node]
+        for index,positive,negative,amount in [(0,'eyeLookDown'+side,'eyeLookUp'+side,config['gazePitchDegrees']),
+                (2,outward,inward,config['gazeYawDegrees'])]:
+            driver=ControlDriver(obj.driver_add('rotation_euler',index),controls,names,permutation)
+            driver.set('radians('+repr(amount)+'*('+driver.source(positive)+'-'+driver.source(negative)+'))')
+    jaw=bpy.data.objects[config['jawAttachmentNode']]
+    driver=ControlDriver(jaw.driver_add('rotation_euler',0),controls,names,permutation)
+    driver.set('radians('+repr(config['jawOpenDegrees'])+'*'+driver.source('jawOpen')+')')
+    for index,amount,positive,negative in [(0,config['jawLateralMeters'],'jawLeft','jawRight'),
+            (1,-config['jawForwardMeters'],'jawForward',None)]:
+        base=jaw.location[index];driver=ControlDriver(jaw.driver_add('location',index),controls,names,permutation)
+        value=driver.source(positive)
+        if negative:value+='-'+driver.source(negative)
+        driver.set(repr(base)+'+'+repr(amount)+'*('+value+')')
+
+
 def build(reference,manifest,out):
     out=Path(out);assert not out.exists(),'Preserve previous editable workfiles'
     assert 'FaceCaptureControls' not in bpy.data.objects,'Controls already installed'
@@ -97,6 +134,7 @@ def build(reference,manifest,out):
                 if key.name!='Basis' and (obj.name,key.name) not in assigned:
                     assert key.value==0,'Unexpected nonzero unmapped shape '+key.name
                     ControlDriver(key.driver_add('value'),controls,names,permutation).set('0')
+    joint_controls(controls,names,permutation,rig)
     bpy.ops.object.select_all(action='DESELECT');controls.select_set(True);bpy.context.view_layer.objects.active=controls
     controls.update_tag();bpy.context.view_layer.update()
     out.parent.mkdir(parents=True,exist_ok=True)
