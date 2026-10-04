@@ -89,7 +89,15 @@ class MIRROR_PT_manual_face(bpy.types.Panel):
         layout.label(text='下方原生“形态键”列表仍可使用')
 
 
-CLASSES=(MIRROR_OT_focus_face,MIRROR_OT_neutral,MIRROR_OT_edit_shape,MIRROR_OT_finish_shape,MIRROR_PT_manual_face)
+class MIRROR_PT_manual_sidebar(bpy.types.Panel):
+    bl_label='面捕手调：预览 / 修改表情形状'
+    bl_space_type='VIEW_3D';bl_region_type='UI';bl_category='Item';bl_order=-10000
+    @classmethod
+    def poll(cls,context):return MIRROR_PT_manual_face.poll(context)
+    def draw(self,context):MIRROR_PT_manual_face.draw(self,context)
+
+
+CLASSES=(MIRROR_OT_focus_face,MIRROR_OT_neutral,MIRROR_OT_edit_shape,MIRROR_OT_finish_shape,MIRROR_PT_manual_face,MIRROR_PT_manual_sidebar)
 
 
 def register():

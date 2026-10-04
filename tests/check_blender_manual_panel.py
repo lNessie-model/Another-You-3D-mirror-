@@ -12,6 +12,7 @@ import numpy as np
 parser=argparse.ArgumentParser();parser.add_argument('--panel',required=True);parser.add_argument('--report',required=True)
 args=parser.parse_args(sys.argv[sys.argv.index('--')+1:])
 runpy.run_path(args.panel,run_name='__main__')
+assert hasattr(bpy.types,'MIRROR_PT_manual_sidebar'),'Missing viewport hand-edit entry'
 face=bpy.data.objects['Face'];keys=face.data.shape_keys.key_blocks
 before={key.name:np.array([v.co[:] for v in key.data]) for key in keys}
 assert bpy.ops.mirror.edit_shape(shape_name='eyeBlinkLeft')=={'FINISHED'}
