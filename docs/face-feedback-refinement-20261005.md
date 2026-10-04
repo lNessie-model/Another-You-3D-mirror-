@@ -34,13 +34,17 @@ v30 APK：`E:\tripo\output\mirror-program\20261005\AvatarRuntime-v30-face-respon
 
 本次温度高于旧v29测试，不据10.835与10.623的差值判定稳定性能回退；这也不是持续热稳定测试。16视点30FPS尚未达到，主要瓶颈仍为GPU。结束后已恢复实时摄像头，状态归档为同目录 `restored-live-status.json`，采集约24.43 FPS、无捕获错误、当前WAITING/无人脸。采集FPS与实际多视图呈现FPS不是同一指标。
 
-个人闭眼/睁大/眉毛阈值尚未现场测量，屏幕光学对齐和表情自然度尚未验收。强挑眉仍保留底模尖褶，正在独立阶段12候选上修正；未通过候选不覆盖设备上的阶段11。预览图来自实际模型/骨骼渲染，不是AI重绘，也不是光栅屏照片。
+个人闭眼/睁大/眉毛阈值尚未现场测量，屏幕光学对齐和表情自然度尚未验收。强挑眉仍保留底模尖褶。阶段12-v1/v2均未接受：v2在两个闭眼组合的右视角各出现1个眼白漏出采样，灰色眉头改善仍不足；候选没有覆盖设备阶段11。失败证据与准确灰色眉毛射线位置在stage12-v2目录的README、actual-gray-brow-surfaces和extra-blink-check。
+
+进一步直接约束求解发现原粗carrier不能同时满足“眉头上移”和“眶边固定”：两处真实眉头的重心行处于128个眶边行的线性张成空间，投影残差范数约7.1e-14/8.7e-15。眶边严格为零时这两处眉头也被强制为零，7.5毫米目标完全不满足。证据在 `E:\tripo\output\mirror-assets\20261005\face-geometry-review\brow-constrained-feasibility-v1`。不能继续靠提高空间场峰值宣称修好。
+
+下一候选只对眉区做必要的局部加密，在原有253顶点余量内插入实际控制点，保留原边界及所有其它形态表面，再拟合眉头/眉身和眶边约束。必须重新通过字段保持、折叠、接缝和闭眼门槛后才允许下发。原阶段11快照已经保存于 `E:\tripo\output\mirror-assets\20261005\face-feedback-delivery-stage11`。预览图来自实际模型/骨骼渲染，不是AI重绘，也不是光栅屏照片。
 
 Tripo 牙齿参考请求网络失败、exit 7、无 task_id；本次实际收费未知，不把预估 40 积分当成扣费，也不把本地程序模型称为 Tripo 生成。总授权仍为 4000，先前确认用量 535；失败请求需后续核对账户。未修改网络、固件或驱动，未执行刷机/重启/长时测试。
 
 ## 接续与证据入口
 
-当前绑定为头、眼球、下颌及上下牙的节点变换与Face形态键联合驱动，52个规范输入加6个组合修正。不是Tripo自动产出的完整面部蒙皮骨架。新GLB和可编辑Blender工程均保留实际运行时映射；所有作者脚本拒绝覆盖已有输出。
+当前绑定为头、眼球、下颌及上下牙的节点变换与Face形态键联合驱动，52个规范输入、7个组合修正，Face共有58个形态键（中立分类输入不对应单独形态键）。不是Tripo自动产出的完整面部蒙皮骨架。新GLB和可编辑Blender工程均保留实际运行时映射；所有作者脚本拒绝覆盖已有输出。
 
 阶段链：stage7-dentition-v2 → stage8-ocular-v6 → stage9-expression-v7 → stage10-oral-detail-v4 → stage11-orbital-closure-v1。对应生成器为 `refine_head_ocular.py`、`refine_head_expression.py`、`refine_head_oral_detail.py`、`patch_head_orbital_gap.py`。眉毛/微笑插值载体使用原stage5-lip-ring-v3，而不是重新猜测被切割的网格。不要把v1–v6的失败艺术候选混作最终v7/阶段11。
 
