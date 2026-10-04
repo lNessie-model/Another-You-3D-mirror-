@@ -955,10 +955,17 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         // Publish a completed small snapshot; status readers never observe partially mapped arrays.
         try {
             facePlaybackStatus=new JSONObject().put("mirror_motion",frameSceneView.mirrorMotion).put("expression_gain",frameSceneView.expressionGain)
-                    .put("response_policy","endpoint_preserving_mouth_brow_v2; eye/cheekSquint/mouthClose unchanged")
+                    .put("response_policy","artist_response_v3: opposed brows suppressed; blink .04-.72; wide exponent 1.65; gaze/squint/mouthClose unchanged; live calibration pending")
                     .put("raw_jaw_open",runtimeBlendshapes[25]).put("mapped_jaw_open",playbackBlendshapes[25])
                     .put("raw_blink_left",runtimeBlendshapes[9]).put("raw_blink_right",runtimeBlendshapes[10])
                     .put("mapped_blink_left",playbackBlendshapes[9]).put("mapped_blink_right",playbackBlendshapes[10])
+                    .put("raw_brow_down_left",runtimeBlendshapes[1]).put("raw_brow_down_right",runtimeBlendshapes[2])
+                    .put("raw_brow_inner_up",runtimeBlendshapes[3]).put("mapped_brow_inner_up",playbackBlendshapes[3])
+                    .put("mapped_brow_down_left",playbackBlendshapes[1]).put("mapped_brow_down_right",playbackBlendshapes[2])
+                    .put("raw_smile_left",runtimeBlendshapes[44]).put("raw_smile_right",runtimeBlendshapes[45])
+                    .put("mapped_smile_left",playbackBlendshapes[44]).put("mapped_smile_right",playbackBlendshapes[45])
+                    .put("raw_wide_left",runtimeBlendshapes[21]).put("raw_wide_right",runtimeBlendshapes[22])
+                    .put("mapped_wide_left",playbackBlendshapes[21]).put("mapped_wide_right",playbackBlendshapes[22])
                     .put("mapped_head_pitch",playbackAngles[0]).put("mapped_head_yaw",playbackAngles[1]).put("mapped_head_roll",playbackAngles[2])
                     .put("scope","Latest GL callback's filtered source and mapped rig inputs; final artist binding curves apply afterwards");
         }catch(Exception invalid){throw new IllegalStateException("Cannot publish face playback status",invalid);}

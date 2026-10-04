@@ -31,7 +31,7 @@ for pose in data['poses']:
                 if key.name!='Basis':key.value=weights[key.name]
     bpy.context.view_layer.update()
     views=[('front',Vector((0,-1,0)))]
-    if pose['name'] in ('neutral','blink-half','blink-both','gaze-left','gaze-blink','jaw-open','jaw-open-mouth-close','smile-jaw'):
+    if pose['name'] in ('neutral','blink-half','blink-both','gaze-left','gaze-blink','jaw-open','jaw-open-mouth-close','smile-jaw','smile','smile-mild','brow-mixed','brow-up','wide'):
         views.append(('oblique',Vector((.5,-1,.10)).normalized()))
     for name,direction in views:
         camera.location=center+direction*radius;camera.rotation_euler=(center-camera.location).to_track_quat('-Z','Y').to_euler()

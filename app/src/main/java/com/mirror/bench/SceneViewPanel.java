@@ -45,7 +45,7 @@ final class SceneViewPanel {
         }
         mirrorMotion=new CheckBox(activity);mirrorMotion.setId(211);mirrorMotion.setText("镜像动作（像照镜子）");mirrorMotion.setTextColor(Color.WHITE);form.addView(mirrorMotion);
         mirrorMotion.setOnCheckedChangeListener((button,checked)->{if(!closed){draft=draft.withMirrorMotion(checked);host.preview(draft);}});
-        text(form,"强度提高嘴部和眉部的小动作，采用平滑曲线；眨眼、眼球、眯眼、睁眼及闭嘴补偿保持原比例。",13);
+        text(form,"嘴部和抬眉采用平滑强度曲线；眉间下压、眨眼和睁眼分别响应，眼球、眯眼及闭嘴补偿保持原比例。",13);
         text(form,"相邻视点间距 = 总间距 ÷ "+Math.max(1,viewCount-1)+"。零平面处没有视差；出入屏与零平面共同决定前后位置。",13);
         text(form,"背景（固定在屏幕平面）",14);background=new Spinner(activity);background.setId(209);
         background.setAdapter(new ArrayAdapter<>(activity,android.R.layout.simple_spinner_dropdown_item,SceneViewSettings.BACKGROUNDS));form.addView(background);

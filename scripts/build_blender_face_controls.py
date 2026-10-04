@@ -32,9 +32,16 @@ class ControlDriver:
         direct=self.variable(name);reflected=self.variable(other)
         value=direct if direct==reflected else '('+reflected+' if '+self.mirror+' else '+direct+')'
         value='min(1,max(0,'+value+'))'
-        # Exact category selection from FacePlayback; eye/cheek-squint/mouthClose stay calibrated.
-        amplify=index!=0 and not name.startswith(('eye','cheekSquint')) and name!='mouthClose'
-        if amplify:value='(1-pow(1-'+value+','+self.gain+'))'
+        # Match the independent artist response in actual FacePlayback.
+        if name.startswith('eyeBlink'):
+            value='((1-cos(pi*min(1,max(0,('+value+'-.04)/.68))))*.5)'
+        elif name.startswith('eyeWide'):value='(1-pow(1-'+value+',1.65))'
+        elif name.startswith('browDown'):
+            up='min(1,max(0,'+self.variable('browInnerUp')+'))'
+            value='(max(0,('+value+'-.12)/.88)*pow(1-'+up+',2*'+self.gain+'))'
+        else:
+            amplify=index!=0 and not name.startswith(('eye','cheekSquint')) and name!='mouthClose'
+            if amplify:value='(1-pow(1-'+value+','+self.gain+'))'
         return value
 
     def set(self,expression):
@@ -104,7 +111,7 @@ def build(reference,manifest,out):
     controls.id_properties_ui('mirror_motion').update(description='与设备镜子模式相同：交换左右表情和眼球输入，反转偏航/侧倾')
     controls['expression_gain']=2.5
     controls.id_properties_ui('expression_gain').update(min=.5,max=4,soft_min=.5,soft_max=4,
-            description='设备端点保持曲线；眼部、脸颊眯眼和mouthClose不放大')
+            description='嘴眉上挑强度；眉压下、闭眼和睁大使用独立响应，视线/眯眼/mouthClose不放大')
     for name,label in [('head_pitch','点头'),('head_yaw','左右转头'),('head_roll','左右歪头')]:
         controls[name]=0.0
         controls.id_properties_ui(name).update(min=-90,max=90,soft_min=-45,soft_max=45,description=label+'；角度制')
