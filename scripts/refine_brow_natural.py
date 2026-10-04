@@ -17,8 +17,9 @@ def author(source,carrier_path,out,peak=.0060,sigma=.0040):
     pivot=np.array(next(n['translation'] for n in g.doc['nodes'] if n['name']=='Head'))
     cp_p=carrier.read(cp['attributes']['POSITION']).astype(float)+pivot;cp_ids=carrier.read(cp['indices']).reshape(-1,3)
     x=cp_p[:,0];y=cp_p[:,1];z=cp_p[:,2]
-    # Coordinates are measured on the actual gray eyebrow material by neutral
-    # camera rays. The old +7.5 mm point was glabella skin, not the gray brow.
+    # Historical ray probes were mislabeled as gray eyebrow material; later
+    # native-texture inspection identified these coordinates as brown Skin.
+    # Retain the recorded experiment's math; this field is not true-gray fitting.
     xfield=np.exp(-((x+.0025)/sigma)**2)+np.exp(-((x-.0110)/sigma)**2)
     # A broad central lift connects the two heads without forming a new notch.
     central=.0030*np.exp(-((x-.00425)/.0050)**2)
@@ -54,7 +55,7 @@ def author(source,carrier_path,out,peak=.0060,sigma=.0040):
             'changedTarget':'browInnerUp','unchangedAllOtherTargets':True,'unchangedPositionsNormalsUvsColorsIndicesMapsMaterialsNodesBindings':True,
             'peakMeters':peak,'sigmaXMeters':sigma,'browCentersWorldX':[-.0025,.0110],'centralLiftMeters':.003,'centralWorldX':.00425,'centralSigmaXMeters':.005,'lowerFadeY':[.008,.030],'upperFadeY':[.036,.078],
             'carrierAttachmentErrorMeters':carrier_error,'bridgeAttachmentErrorMeters':attachment_error,'eyeInnerRims':inner_checks,
-            'scope':'Inner endpoints rise more than eyebrow body; broad vertical transition reduces compression. All legacy blink-brow correctives retained byte exact. Requires actual mixed/brow/blink visual and closure review.',
+            'scope':'Historical brown-Skin probes originally mislabeled as gray eyebrows; this field does not establish true gray-brow endpoint movement. Math retained; all legacy blink-brow correctives retained byte exact. Requires actual mixed/brow/blink visual and closure review.',
             'artistAccepted':False,'deviceInstalled':False,'tripoCreditsSpent':0}
     (out/'brow-natural-authoring.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),'utf-8');print(json.dumps(report))
 

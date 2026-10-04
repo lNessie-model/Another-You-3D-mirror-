@@ -32,13 +32,19 @@
 
 ## 预览
 
-`feedback-preview/jaw-open-front.png`、`feedback-preview/jaw-open-oblique.png`、`feedback-preview/smile-front.png`；实际 FacePlayback + AvatarRig 共 19 个表情、32 张正面/斜视预览。`geralt-oral-editable.blend` 已在中立姿态保存、材质打包，无需自动执行脚本。
+当前可显示的预览来自已整合的 stage11，路径是：
+
+`E:\tripo\assets\mirror-models-20261003\lowpoly-heads-v2\geralt-rig-stage11-orbital-closure-v1\feedback-preview\jaw-open-front.png`
+
+同目录还有 `jaw-open-oblique.png`、`jaw-open-mouth-close-front.png` 和 `smile-front.png`。预览报告匹配 stage11 模型 SHA256；实际 FacePlayback + AvatarRig 共 19 个表情、32 张正面/斜视预览。这些是 Blender 离线渲染，不是设备屏幕截图。stage11 的中立姿态材质工作文件是 `geralt-orbital-editable.blend`。
+
+最终口腔交付审计核对了 V4 和 stage11 的口腔 primitive、上下牙弓的所有属性、索引及形态键，逐项相同。正面、斜视张嘴及张颌闭唇预览未发现明显穿唇或舌根错误；舌根的实际接触证据仍是 19 组姿态的体积相交检查。
 
 ## 重跑与验证
 
 先运行 `scripts/refine_head_oral_detail.py`，传入 `--source` 最终的 stage9 目录、`--landmark-report` stage5-lip-ring-v3/lip-ring-report.json 和全新的 `--out` 目录。脚本拒绝覆盖已存在的输出目录。
 
-接着使用生产 `AvatarPoseExport` 导出 19 组 canonical poses，再运行 `tests/check_head_oral_detail.py --asset 新目录 --source 输入目录 --poses 新目录/production-poses.json --report 新目录/oral-detail-check.json`。最终组合模型应由 root 再跑实际 worker/Blender 驱动检查并安装到设备。
+接着使用生产 `AvatarPoseExport` 导出 19 组 canonical poses，再运行 `tests/check_head_oral_detail.py --asset 新目录 --source 输入目录 --poses 新目录/production-poses.json --report 新目录/oral-detail-check.json`。最新组合模型的 worker/Blender 驱动检查、整合和设备发布由 root 统一负责。
 
 ## Tripo 尝试与积分
 
