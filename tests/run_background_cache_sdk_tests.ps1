@@ -8,7 +8,7 @@ New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $names=@('AvatarAsset','AvatarGlbLoader','AvatarRig','AvatarDeformer','AvatarFraming','AvatarGeometryBounds','BlendshapeSchema',
     'AvatarPoseWorker','AvatarPoseProgressWatchdog','AvatarBatchLayout','AvatarBatchGpu','AvatarGpuScene','AvatarDrawPartition',
     'AvatarBackgroundCache','AvatarBackgroundGl','MultiviewGl','PersistentMultiviewFbos','PersistentMultiviewGl','AvatarCameraProjectionCache',
-    'RuntimeGlLifecycle','RuntimeViewCount','RuntimeInputStop','RuntimeStatusOrder','MirrorSettings','InterlaceRenderer','MirrorActivity','AvatarMultiviewCheck','AvatarPreviewActivity',
+    'RuntimeGlLifecycle','RuntimeViewCount','RuntimeInputStop','NativeCleanupUnconfirmed','RuntimeStatusOrder','MirrorSettings','InterlaceRenderer','MirrorActivity','AvatarMultiviewCheck','AvatarPreviewActivity',
     'AvatarPixelComparison','AvatarPoseFixtures','AvatarCameraProjectionCheck','AvatarPersistentFboCheck','AvatarBatchCheck')
 $sources=$names | ForEach-Object {Join-Path $root "app\src\main\java\com\mirror\bench\$_.java"}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp "$json;$AndroidJar;$built" -d $classes @sources

@@ -97,6 +97,10 @@ public final class RuntimeInputStopTest {
         check(!notStopped.closeCallsSucceeded()&&!notStopped.asyncCameraThreadTerminated());
         check(notStopped.failures(RuntimeInputStop.Resource.ASYNC_CAMERA)==1);
         latch.record(notStopped);check(latch.failure()==failed);
+        RuntimeInputStop unknown=create();unknown.recordUnconfirmedCleanup(RuntimeInputStop.Resource.NPU,new IllegalStateException("factory cleanup"));
+        var factory=unknown.seal(6);check(!factory.closeCallsSucceeded());
+        check(factory.attempts(RuntimeInputStop.Resource.NPU)==0&&factory.failures(RuntimeInputStop.Resource.NPU)==1);
+        rejected(()->unknown.recordUnconfirmedCleanup(RuntimeInputStop.Resource.NPU,new IllegalStateException()));
         RuntimeInputStop busy=create();CountDownLatch inside=new CountDownLatch(1),outside=new CountDownLatch(1);
         Thread close=new Thread(()->busy.close(RuntimeInputStop.Resource.NPU,()->{inside.countDown();outside.await();}));
         close.start();check(inside.await(2,TimeUnit.SECONDS));rejected(()->busy.seal(4));

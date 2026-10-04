@@ -101,7 +101,14 @@ final class NpuFacePipeline implements AutoCloseable {
             detector=new RknnModel(new File(dir,"face_detector.rknn").getPath());
             mesh=new RknnModel(new File(dir,"face_landmarks_detector.rknn").getPath());
             post=createPost();
-        } catch(Throwable error) { close(); throw error; }
+        } catch(Throwable error) {
+            try { close(); }
+            catch(Throwable cleanup) {
+                if(cleanup!=error)error.addSuppressed(cleanup instanceof NativeCleanupUnconfirmed?cleanup
+                        :new NativeCleanupUnconfirmed("NPU initialization cleanup unconfirmed",cleanup));
+            }
+            throw error;
+        }
     }
     Detection detect(Bitmap image,long timestamp,boolean tracking) {
         requireOpen();

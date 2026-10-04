@@ -24,6 +24,7 @@ public final class RuntimeInputStopIntegrationTest {
                 AutoCloseable.class,AutoCloseable.class,AutoCloseable.class,AutoCloseable.class);
         Method finish=method("finishRuntimeInputStop",RuntimeInputStop.class,java.util.function.LongSupplier.class);
         Method admitted=method("inputStartAllowed");
+        Method nativeFailure=method("recordRuntimeNativeFailure",RuntimeInputStop.class,Throwable.class);
         Method json=method("inputStopReceiptJson",RuntimeInputStop.Receipt.class);
         check((Boolean)admitted.invoke(null));
         RuntimeInputStop clean=create();AtomicInteger closed=new AtomicInteger();
@@ -43,6 +44,16 @@ public final class RuntimeInputStopIntegrationTest {
             JSONObject row=rows.getJSONObject(kind.name());
             check(row.getLong("attempts")==passed.attempts(kind));check(row.getLong("failures")==0);
         }
+        RuntimeInputStop ordinary=create();nativeFailure.invoke(null,ordinary,new IllegalStateException("ordinary init"));
+        check(!ordinary.hasFailures());
+        RuntimeInputStop factory=create();OutOfMemoryError initFailure=new OutOfMemoryError("factory metadata");
+        initFailure.addSuppressed(new NativeCleanupUnconfirmed("factory native destroy"));
+        nativeFailure.invoke(null,factory,initFailure);
+        check(factory.hasFailures());
+        var factoryFailed=(RuntimeInputStop.Receipt)finish.invoke(null,factory,(java.util.function.LongSupplier)()->4L);
+        check(!factoryFailed.closeCallsSucceeded()&&factoryFailed.attempts(RuntimeInputStop.Resource.NPU)==0
+                &&factoryFailed.failures(RuntimeInputStop.Resource.NPU)==1);
+        check(!(Boolean)admitted.invoke(null));
         RuntimeInputStop bad=create();closed.set(0);
         cleanup.invoke(null,bad,(AutoCloseable)()->{closed.incrementAndGet();throw new AssertionError("camera JNI failure");},
                 (AutoCloseable)closed::incrementAndGet,(AutoCloseable)()->{closed.incrementAndGet();throw new IllegalStateException("sensitive message");},
@@ -85,7 +96,7 @@ public final class RuntimeInputStopIntegrationTest {
         for(RuntimeInputStop.Resource kind:RuntimeInputStop.Resource.values())
             check(last.getJSONObject("resources").getJSONObject(kind.name()).getLong("attempts")==0);
         // The actual worker's post-acquire guard rejected before any camera/native constructor.
-        check(observation.getJSONObject("latched_failure_receipt").getString("worker_id").equals(failed.workerId()));
+        check(observation.getJSONObject("latched_failure_receipt").getString("worker_id").equals(factoryFailed.workerId()));
         System.out.println("Runtime input Activity bridge checks: "+checks+"; actual close ordering/latch/status, no Android lifecycle/HAL qualification");
     }
 }

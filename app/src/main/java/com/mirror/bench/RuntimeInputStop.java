@@ -60,6 +60,11 @@ final class RuntimeInputStop {
     }
     synchronized void clearCamera(AutoCloseable resource){mutable();if(camera==resource)camera=null;}
     synchronized boolean hasFailures(){for(long n:failures)if(n!=0)return true;return false;}
+    /** Factory failures may own native resources without returning a closeable to this worker. */
+    synchronized void recordUnconfirmedCleanup(Resource kind,Throwable failure){
+        mutable();if(kind==null||failure==null)throw new IllegalArgumentException("Missing cleanup failure");
+        failed(kind,failure);
+    }
     private synchronized void failed(Resource kind,Throwable failure){
         int index=kind.ordinal();failures[index]++;
         if(failureTypes[index]==null){String type=failure.getClass().getSimpleName();failureTypes[index]=type.substring(0,Math.min(type.length(),96));}

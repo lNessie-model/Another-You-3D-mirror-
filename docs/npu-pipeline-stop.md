@@ -26,7 +26,7 @@ executor已终止后，仍尝试关闭全部三类图/模型，复用 `ResourceC
 
 ## 仍缺失的证据与下步
 
-实查 `native/rknn_face.c`：cleanup调用 `m->destroy(m->context)` **没有核对返回码**；Java RknnModel会在JNI返回后把handle清零。因此不能把无异常的close等同于RKNN驱动确实成功销毁。应补实际JNI返回码／失败隔离合同及相应native检查，然后由设备短检验证，不能只修改文档便声称通过。
+在本切片92ae07f时实查 `native/rknn_face.c`：cleanup调用 `m->destroy(m->context)` **没有核对返回码**。后续已在实际JNI补返回码和失败隔离，并保留Java关闭失败及构造器主异常；源码／主机／交叉编译证据见[rknn-native-cleanup.md](rknn-native-cleanup.md)。尚未安装到设备，不能把主机通过当作厂商驱动释放已验证。
 
 构造器抛错前的部分资源关闭及失败传递，也仍要单独核对；本切片没有把它们宣称为成功。相机HAL onClosed／Image leases、GL owning context内清理、CPU pose实际Thread终止与所有预览Owner回执仍缺失。`RuntimeInputStop` 的 `hardware_qualified` 保持false；完整配置Owner／备份恢复UI不得据此放开恢复门。
 

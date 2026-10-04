@@ -670,6 +670,7 @@ public final class MirrorActivity extends Activity {
                         }
                         break;
                     } catch (Exception | LinkageError error) {
+                        recordRuntimeNativeFailure(inputStop,error);
                         boolean currentOwner;
                         synchronized(interaction) {
                             currentOwner=!cancelled&&ownerEpoch==statusEpoch;
@@ -680,6 +681,9 @@ public final class MirrorActivity extends Activity {
                             Log.e("MirrorRuntime", "Runtime input failed", error);
                             writeFaultStatus(statusTicket(ownerEpoch));
                         }
+                    } catch (Error error) {
+                        recordRuntimeNativeFailure(inputStop,error);
+                        throw error;
                     } finally {
                         // Every borrowed Image was closed by convert(); only this worker owns these resources.
                         synchronized(interaction){if(cameraInput==openedInput){cameraInput=null;cameraObservation=null;}}
@@ -743,6 +747,9 @@ public final class MirrorActivity extends Activity {
         closeInput(stop,RuntimeInputStop.Resource.NORMALIZER,normalizer);
         closeInput(stop,RuntimeInputStop.Resource.CONVERTER,converter);
         closeInput(stop,RuntimeInputStop.Resource.REFERENCE_CONVERTER,referenceConverter);
+    }
+    private static void recordRuntimeNativeFailure(RuntimeInputStop stop,Throwable error) {
+        if(NativeCleanupUnconfirmed.contains(error))stop.recordUnconfirmedCleanup(RuntimeInputStop.Resource.NPU,error);
     }
     private static void closeInput(RuntimeInputStop stop,RuntimeInputStop.Resource kind,AutoCloseable resource) {
         Throwable failure=stop.close(kind,resource);
