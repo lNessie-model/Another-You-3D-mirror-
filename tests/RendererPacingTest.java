@@ -9,6 +9,7 @@ public final class RendererPacingTest {
     public static void main(String[] args) throws Exception {
         InterlaceRenderer renderer=new InterlaceRenderer(20,.25f,true);
         renderer.setRuntimeMode(true);renderer.beginMeasurement();renderer.setTargetFps(31);
+        RuntimeGlLifecycle gl=(RuntimeGlLifecycle)field(renderer,"runtimeGlLifecycle");gl.contextCreated();
         long initial=epoch(renderer);
         renderer.setTargetFps(31);
         check(epoch(renderer)==initial,"same-target UI tick is not a boundary");
@@ -23,12 +24,15 @@ public final class RendererPacingTest {
         check(snapshot(renderer).bucket(31).frames==2,"transition is not silently assigned to 31");
         frame(renderer,31,epoch(renderer),400);
         check(snapshot(renderer).bucket(31).gap.count==1,"after-transition gap is excluded");
+        check(!renderer.hasRuntimeFrame(),"pacing statistics cannot imply a successful GL submission");
+        gl.successfulFrame(gl.frameEpoch());
         check(renderer.hasRuntimeFrame(),"transition still represents a successful submission");
 
         renderer.resumeRuntimeAvatar();
         check(!renderer.hasRuntimeFrame(),"resume still waits for own first submission");
         frame(renderer,31,epoch(renderer),10_000);
         check(snapshot(renderer).bucket(31).gap.count==1,"HOME residence excluded by actual resume hook");
+        check(!renderer.hasRuntimeFrame(),"post-resume timing alone stays gated");gl.successfulFrame(gl.frameEpoch());
         frame(renderer,31,epoch(renderer),10_100);
         check(snapshot(renderer).bucket(31).gap.count==2,"post-resume stable cadence counted");
         check((Long)field(renderer,"runtimeFrames")==snapshot(renderer).frames,"frame publication is coherent");

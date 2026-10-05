@@ -42,7 +42,7 @@ public final class CameraCalibrationAvatarPreview extends GLSurfaceView implemen
     private final File storeRoot;
     private final int androidApi;
     private final Listener listener;
-    private final android.content.res.AssetManager assets;
+    private final Context applicationContext;
     private volatile CameraPreviewSession.Token owner;
     private volatile Request requested;
     private volatile FrameState frameState=new FrameState(0,0,0,0);
@@ -65,7 +65,7 @@ public final class CameraCalibrationAvatarPreview extends GLSurfaceView implemen
         if(avatarStoreRoot==null||listener==null)throw new IllegalArgumentException("Preview root and listener required");
         if(!ACTIVE.compareAndSet(null,this))throw new IllegalStateException("Another calibration avatar preview is still open");
         this.storeRoot=avatarStoreRoot;this.androidApi=androidApi;this.listener=listener;
-        assets=context.getApplicationContext().getAssets();
+        applicationContext=context.getApplicationContext();
         try {
             setEGLContextClientVersion(3);setEGLConfigChooser(8,8,8,8,16,0);
             setPreserveEGLContextOnPause(false);setRenderer(renderer);setRenderMode(RENDERMODE_WHEN_DIRTY);
@@ -81,7 +81,7 @@ public final class CameraCalibrationAvatarPreview extends GLSurfaceView implemen
         try {
             load=LOADER.submit(()->{
                 try {
-                    CameraPreviewAsset value=CameraPreviewAsset.load(assets,storeRoot,androidApi);
+                    CameraPreviewAsset value=CameraPreviewAsset.load(applicationContext,storeRoot,androidApi);
                     // Publish no GL resource from the loader. Late generations drop their only asset ref.
                     synchronized(gate){if(gate.loaded(token,now()))requested=new Request(token,value);}
                 } catch(Exception|LinkageError failure){gate.fail(token,concise(failure));}

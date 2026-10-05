@@ -199,9 +199,16 @@ public final class AvatarManagementActivity extends Activity {
                 checkOwner(token);AvatarPackageStore store=openStore();
                 if(!gate.isValid(claim,nowNs()))throw new InterruptedIOException("Preview no longer belongs to the active page");
                 // Store checks interruption again immediately before the atomic pointer rename.
-                if(value.ticket==null)store.activateBuiltin();
-                else if(value.previous)store.restorePrevious(value.ticket);
-                else store.activate(value.ticket);
+                if(value.ticket==null) {
+                    store.activateBuiltin();
+                    BundledAvatarSelection.save(this,"builtin-guide");
+                } else {
+                    if(value.previous)store.restorePrevious(value.ticket);
+                    else store.activate(value.ticket);
+                    // A confirmed imported activation takes precedence over an explicit APK role.
+                    // Preference failures remain visible uncertain activations; never report success.
+                    BundledAvatarSelection.clear(this);
+                }
                 runOnUiThread(()->{
                     if(!resumed||!gate.isValid(claim,nowNs()))return;
                     busy=false;setResult(RESULT_OK);finish();

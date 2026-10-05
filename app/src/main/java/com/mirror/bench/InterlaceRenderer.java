@@ -141,6 +141,33 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         setRuntimeAvatar(assets);
         avatarStoreRoot=java.util.Objects.requireNonNull(privateRoot);avatarStoreApi=androidApi;
     }
+    private String bundledAvatarDirectory,bundledAvatarId,bundledModelDigest,bundledManifestDigest;
+    private boolean bundledSelectionExplicit;
+    /** Catalog metadata only; GLB decoding remains on the GL thread. */
+    synchronized void setBundledRuntimeAvatar(android.content.res.AssetManager assets,String directory,String catalogId,
+                                              String modelDigest,String manifestDigest,boolean explicitSelection) {
+        if(surfaceInitialized||!runtimeMode)throw new IllegalStateException("Bundled avatar must be selected before GL initialization");
+        if(directory==null||!directory.matches("avatars/(?:catalog/[a-z0-9][a-z0-9-]{0,63}|builtin-guide)"))
+            throw new IllegalArgumentException("Invalid bundled avatar directory");
+        if(catalogId==null||!catalogId.matches("[a-z0-9][a-z0-9-]{0,63}"))throw new IllegalArgumentException("Invalid bundled avatar id");
+        String expectedDirectory="builtin-guide".equals(catalogId)?"avatars/builtin-guide":"avatars/catalog/"+catalogId;
+        if(!directory.equals(expectedDirectory))throw new IllegalArgumentException("Bundled avatar id and directory differ");
+        if(modelDigest==null||manifestDigest==null||!modelDigest.matches("[0-9a-f]{64}")||!manifestDigest.matches("[0-9a-f]{64}"))
+            throw new IllegalArgumentException("Bundled avatar digests required");
+        avatarAssets=java.util.Objects.requireNonNull(assets);bundledAvatarDirectory=directory;bundledAvatarId=catalogId;
+        bundledModelDigest=modelDigest;bundledManifestDigest=manifestDigest;bundledSelectionExplicit=explicitSelection;
+    }
+    private AvatarGpuScene loadBundledRuntimeAvatar()throws Exception {
+        AvatarGpuScene.DrawMode mode=avatarBatched?AvatarGpuScene.DrawMode.BATCHED:AvatarGpuScene.DrawMode.INDIVIDUAL;
+        try {
+            AvatarGpuScene loaded=AvatarGpuScene.bundled(avatarAssets,bundledAvatarDirectory,bundledModelDigest,
+                    bundledManifestDigest,multiview||verifyMultiview,avatarAsynchronous,mode);
+            avatarSourceKind="bundled";avatarPackageId=bundledAvatarId;return loaded;
+        } catch(Exception failure) {
+            avatarLoadWarning="所选角色无法读取，请返回角色库重新选择。";
+            avatarSourceKind="bundled_load_failed";avatarPackageId=bundledAvatarId;throw failure;
+        }
+    }
     synchronized void setAvatarBatched(boolean value) {
         if(surfaceInitialized)throw new IllegalStateException("Avatar drawing backend must be configured before GL initialization");
         avatarBatched=value;
@@ -159,6 +186,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             AvatarGpuScene scene=AvatarGpuScene.privateHeadCheck(privateHeadFiles,multiview||verifyMultiview,avatarAsynchronous,mode);
             avatarSourceKind="private_head_test";return scene;
         }
+        if(bundledAvatarDirectory!=null&&bundledSelectionExplicit)return loadBundledRuntimeAvatar();
         AvatarPackageStore.LoadedPackage selected=null;
         if(avatarStoreRoot!=null&&AvatarPackageStore.supportsAndroidApi(avatarStoreApi)) {
             try {
@@ -180,6 +208,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                     selected.ticket.modelSha256,multiview||verifyMultiview,avatarAsynchronous,mode);
             avatarPackageId=selected.ticket.packageId;avatarSourceKind="imported";return scene;
         }
+        if(bundledAvatarDirectory!=null)return loadBundledRuntimeAvatar();
         AvatarGpuScene scene=AvatarGpuScene.builtin(avatarAssets,multiview||verifyMultiview,avatarAsynchronous,mode);
         avatarSourceKind="builtin";return scene;
     }

@@ -8,7 +8,7 @@ $names=@('AvatarAsset','AvatarGlbLoader','AvatarRig','AvatarDeformer','AvatarFra
     'AvatarPoseWorker','AvatarPoseProgressWatchdog','AvatarBatchLayout','AvatarBatchGpu','AvatarGpuScene','AvatarDrawPartition','MultiviewGl','PersistentMultiviewFbos','PersistentMultiviewGl','AvatarCameraProjectionCache',
     'FaceFrame','FaceControlCalibration','FaceControlMapper','InteractionController',
     'CameraPreviewSession','CameraPreviewPose','CameraPreviewAsset','CameraCalibrationAvatarPreview')
-$names+=@('AvatarBackgroundCache','AvatarBackgroundGl')
+$names+=@('AvatarBackgroundCache','AvatarBackgroundGl','BundledAvatarCatalog','BundledAvatarSelection','SceneViewSettings')
 $sources=$names | ForEach-Object {Join-Path $projectRoot "app\src\main\java\com\mirror\bench\$_.java"}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp $AndroidJar -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'Camera preview real SDK compilation failed'}

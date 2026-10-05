@@ -16,6 +16,10 @@ if (-not $AndroidSdk) {
 if (-not $AndroidSdk) { throw 'Pass -AndroidSdk or configure sdk.dir in local.properties (Android SDK 35 required).' }
 $androidJar = Join-Path $AndroidSdk 'platforms\android-35\android.jar'
 if (-not (Test-Path -LiteralPath $androidJar)) { throw "Android SDK 35 jar missing: $androidJar" }
+$jsonJar=Join-Path $projectRoot 'app\build\avatar-tests\json-20240303.jar'
+if ((Get-FileHash -LiteralPath $jsonJar -Algorithm SHA256).Hash -ne '3CF6CD6892E32E2B4C1C39E0F52F5248A2F5B37646FDFBB79A66B46B618414ED') {
+    throw 'Pinned host JSON library differs; Android SDK JSON methods are non-executable stubs.'
+}
 
 if (-not $JavaHome) { $JavaHome = $env:JAVA_HOME }
 if ($JavaHome) {
@@ -56,6 +60,7 @@ $sources = @(
     'app\src\main\java\com\mirror\bench\MirrorSettings.java',
     'app\src\main\java\com\mirror\bench\CameraControlSettings.java',
     'app\src\main\java\com\mirror\bench\FramePacingStats.java',
+    'app\src\main\java\com\mirror\bench\RuntimeGlLifecycle.java',
     'app\src\main\java\com\mirror\bench\ViewSubmissionTiming.java',
     'app\src\main\java\com\mirror\bench\InterlaceRenderer.java',
     'tests\YuvPackingTest.java',
@@ -71,10 +76,10 @@ $sources = @(
     'tests\PanelRendererConfigTest.java',
     'tests\MirrorSettingsTest.java'
 ) | ForEach-Object { Join-Path $projectRoot $_ }
-& $javac --release 17 -encoding UTF-8 -cp "$androidJar;$androidClasses" -d $testClasses @sources
+& $javac --release 17 -encoding UTF-8 -cp "$jsonJar;$androidJar;$androidClasses" -d $testClasses @sources
 if ($LASTEXITCODE -ne 0) { throw 'Host regression test compilation failed.' }
 
-$classpath = "$testClasses;$androidJar;$androidClasses"
+$classpath = "$testClasses;$jsonJar;$androidJar;$androidClasses"
 foreach ($test in @('YuvPackingTest', 'ResourceCleanupTest', 'InteractionControllerTest', 'RuntimeProgressWatchdogTest', 'AvatarPoseProgressWatchdogTest', 'RendererRuntimeTest', 'RendererPacingTest', 'PanelCalibrationTest', 'PanelPhaseContractionTest', 'PanelTestImagesTest', 'PanelRendererConfigTest', 'MirrorSettingsTest')) {
     & $java -cp $classpath "com.mirror.bench.$test"
     if ($LASTEXITCODE -ne 0) { throw "$test failed." }

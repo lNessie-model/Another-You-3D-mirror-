@@ -19,7 +19,10 @@ $testClasses=Join-Path $projectRoot 'app\build\avatar-management-tests\host-test
 New-Item -ItemType Directory -Force -Path $classes,$testClasses | Out-Null
 if (Test-Path -LiteralPath (Join-Path $classes 'android')) { throw 'Production output contains an Android substitute; SDK linkage must stay isolated.' }
 # Phase one: only production sources, linked against the actual SDK. No boundary substitute.
-$productionSources=@('AvatarManagementActivity','AvatarManagementGate','AvatarPackageStore','AvatarAsset','AvatarRig','AvatarGlbLoader','AvatarDeformer','AvatarFraming','AvatarGeometryBounds','BlendshapeSchema','AvatarPoseWorker','AvatarGpuScene','AvatarDrawPartition','AvatarPoseProgressWatchdog','AvatarBatchGpu','AvatarBatchLayout') | ForEach-Object {Join-Path $projectRoot "app\src\main\java\com\mirror\bench\$_.java"}
+$productionNames=@('AvatarManagementActivity','AvatarManagementGate','AvatarPackageStore','AvatarAsset','AvatarRig','AvatarGlbLoader','AvatarDeformer','AvatarFraming','AvatarGeometryBounds','BlendshapeSchema','AvatarPoseWorker','AvatarGpuScene','AvatarDrawPartition','AvatarPoseProgressWatchdog','AvatarBatchGpu','AvatarBatchLayout',
+    'BundledAvatarCatalog','BundledAvatarSelection','MultiviewGl','PersistentMultiviewFbos','PersistentMultiviewGl',
+    'AvatarCameraProjectionCache','AvatarBackgroundCache','AvatarBackgroundGl','SceneViewSettings')
+$productionSources=$productionNames | ForEach-Object {Join-Path $projectRoot "app\src\main\java\com\mirror\bench\$_.java"}
 & $javac '-J-Duser.language=en' --release 17 -encoding UTF-8 -cp "$JsonJar;$androidJar" -d $classes @productionSources
 if ($LASTEXITCODE -ne 0) { throw 'Avatar management SDK linkage compilation failed.' }
 # Phase two: actual Store/parser bytecode, with only Android's filesystem boundary replaced on host.
