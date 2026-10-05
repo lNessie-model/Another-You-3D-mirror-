@@ -1,8 +1,8 @@
 {
-  "source_commit": "db08d4a372a24cc3d9cbe257ed1af8958880437c",
+  "source_commit": "51325693a12c85eb4db16a8766576c75d3d3c4ea",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 675,
+  "file_count": 676,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,19 +35,19 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 41696,
-      "source_sha256": "b649e30c639ac2570b726048ca16fd26ad47f1fbc75f33a02b0698804f3b6e3e",
-      "repository_bytes": 41696,
-      "repository_sha256": "b649e30c639ac2570b726048ca16fd26ad47f1fbc75f33a02b0698804f3b6e3e",
+      "source_bytes": 41954,
+      "source_sha256": "8f607d0b33cbcec8c196e5fd33e0984ed50f0a84590f695676230d8ce47a70c5",
+      "repository_bytes": 41954,
+      "repository_sha256": "8f607d0b33cbcec8c196e5fd33e0984ed50f0a84590f695676230d8ce47a70c5",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
-      "source_bytes": 885,
-      "source_sha256": "7c038cb3accbf4922e3f3dcb2eee9a9f23be9d14e3612d62ef0d734ebedca9ae",
-      "repository_bytes": 885,
-      "repository_sha256": "7c038cb3accbf4922e3f3dcb2eee9a9f23be9d14e3612d62ef0d734ebedca9ae",
+      "source_bytes": 910,
+      "source_sha256": "18328b88bc2ee02ecb55bf4876141115fb9dd9477d7f1859ae0db76d91798211",
+      "repository_bytes": 910,
+      "repository_sha256": "18328b88bc2ee02ecb55bf4876141115fb9dd9477d7f1859ae0db76d91798211",
       "publication_transformation": null
     },
     {
@@ -131,18 +131,19 @@
     {
       "source_path": "app/src/main/assets/avatars/catalog/geralt/thumbnail.png",
       "repository_path": "app/src/main/assets/avatars/catalog/geralt/thumbnail.png",
-      "source_bytes": 55713,
-      "source_sha256": "836a594bf1113a35fc27333b7c4a9861a8dc117448568ea8e1f4449a147509f9",
-      "repository_bytes": 55713,
-      "repository_sha256": "836a594bf1113a35fc27333b7c4a9861a8dc117448568ea8e1f4449a147509f9"
+      "source_bytes": 305556,
+      "source_sha256": "afa5fd271997149f559fefad198cec248e2424197fd24ed4c6ac58bc09fef6a1",
+      "repository_bytes": 305556,
+      "repository_sha256": "afa5fd271997149f559fefad198cec248e2424197fd24ed4c6ac58bc09fef6a1",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/assets/library/catalog.json",
       "repository_path": "app/src/main/assets/library/catalog.json",
       "source_bytes": 16828,
-      "source_sha256": "6afaf05841b37dbef5badccf4103c794a4a3a860d0a2505b5b7d6b75015f1dc7",
+      "source_sha256": "b6f91944de9ce081bfd6934744bae1ff18768459f3fd9509aa7e8f0ef504c9f9",
       "repository_bytes": 16828,
-      "repository_sha256": "6afaf05841b37dbef5badccf4103c794a4a3a860d0a2505b5b7d6b75015f1dc7",
+      "repository_sha256": "b6f91944de9ce081bfd6934744bae1ff18768459f3fd9509aa7e8f0ef504c9f9",
       "publication_transformation": null
     },
     {
@@ -274,10 +275,10 @@
     {
       "source_path": "app/src/main/assets/library/head-geralt/preview.png",
       "repository_path": "app/src/main/assets/library/head-geralt/preview.png",
-      "source_bytes": 55040,
-      "source_sha256": "76b141b9da293e7ace49527a4b11b98d6252356eafb711bea929f78f85491f69",
-      "repository_bytes": 55040,
-      "repository_sha256": "76b141b9da293e7ace49527a4b11b98d6252356eafb711bea929f78f85491f69",
+      "source_bytes": 305556,
+      "source_sha256": "afa5fd271997149f559fefad198cec248e2424197fd24ed4c6ac58bc09fef6a1",
+      "repository_bytes": 305556,
+      "repository_sha256": "afa5fd271997149f559fefad198cec248e2424197fd24ed4c6ac58bc09fef6a1",
       "publication_transformation": null
     },
     {
@@ -2202,6 +2203,15 @@
       "source_sha256": "f83ad3cf570e99ee0bb63f0670114eeffac05acc54f192ba6fa37e27ba4d42f5",
       "repository_bytes": 4847,
       "repository_sha256": "f83ad3cf570e99ee0bb63f0670114eeffac05acc54f192ba6fa37e27ba4d42f5",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v33-20261005.md",
+      "repository_path": "docs/production-app-v33-20261005.md",
+      "source_bytes": 5553,
+      "source_sha256": "a96e96838c7ef47dd595f90b1f2fa4147577286a5ded94c6e3b65d08550d2082",
+      "repository_bytes": 5553,
+      "repository_sha256": "a96e96838c7ef47dd595f90b1f2fa4147577286a5ded94c6e3b65d08550d2082",
       "publication_transformation": null
     },
     {
@@ -6045,19 +6055,19 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "30e4fe7b3506c474753610578b0435f7d47bfe33",
-  "public_parent_commit": "c966355fa866baa4f1d3fb4bcb66b95eab3aa996",
-  "versionCode": 31,
-  "versionName": "0.2.0",
-  "release_apk_sha256": "2093ac779d8ed6e1391345937d050f73182b2a305ca928b24a5ad6faf4375767",
+  "previous_source_commit": "db08d4a372a24cc3d9cbe257ed1af8958880437c",
+  "public_parent_commit": "8a67b5d0aef58d98592b4c97644453423d583e53",
+  "versionCode": 33,
+  "versionName": "0.2.2",
+  "release_apk_sha256": "b797f3a708eee30373fe7519b73f55f700aa8fa9dfa238682007385ba649209d",
   "last_iteration": {
-    "versionCode": 32,
-    "versionName": "0.2.1",
-    "approved_source_delta_files": 70,
-    "public_parent": "e027fb4d8c8389f0f0350cf66a00a400c3c96a80",
+    "versionCode": 33,
+    "versionName": "0.2.2",
+    "approved_source_delta_files": 6,
+    "public_parent": "8a67b5d0aef58d98592b4c97644453423d583e53",
     "frozen_copy_hashes_verified": true,
     "unreviewed_model_pipeline_work_included": false
   },
-  "source_sha_scope": "Frozen publication working bytes. Existing reviewed V31 mappings are retained; current unfrozen model-authoring worktree edits are excluded.",
-  "source_git_text_normalization": "Existing source Git converts CRLF to LF for three committed text files. Public copies preserve the approved frozen working bytes via * -text."
+  "source_sha_scope": "Frozen publication working bytes. Reviewed mappings from earlier iterations are retained; current unfrozen model-authoring worktree edits are excluded.",
+  "source_git_text_normalization": "Source Git may normalize CRLF text to LF. Public copies preserve root-approved frozen working bytes via * -text; per-version index receipts record exact differences."
 }
