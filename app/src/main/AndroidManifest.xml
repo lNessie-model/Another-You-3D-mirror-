@@ -4,7 +4,14 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
-    <application android:label="Mirror Device Lab" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
+    <application android:label="Another You / 另一个你" android:icon="@drawable/ic_another_you" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
+        <activity android:name=".MirrorHomeActivity" android:label="Another You / 另一个你" android:exported="true" android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".MirrorRolesActivity" android:label="另一个你 · 角色" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".AvatarManagementActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".AvatarPreviewActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CalibrationActivity" android:exported="false" android:screenOrientation="portrait" />
@@ -12,12 +19,7 @@
         <activity android:name=".CameraLifecycleCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CameraTransformCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".NpuCropCheckActivity" android:exported="true" android:screenOrientation="portrait" />
-        <activity android:name=".MirrorActivity" android:label="互动魔镜" android:exported="true" android:screenOrientation="portrait">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".MirrorActivity" android:label="另一个你 · 魔镜" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".ConversionCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".PackingCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".NpuSmokeActivity" android:exported="true" android:screenOrientation="portrait" />
@@ -27,11 +29,6 @@
         <activity android:name=".CameraRecordActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".VideoCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CameraBenchActivity" android:exported="true" android:screenOrientation="portrait" android:configChanges="orientation|screenSize" />
-        <activity android:name=".BenchActivity" android:exported="true" android:screenOrientation="portrait">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".BenchActivity" android:exported="true" android:screenOrientation="portrait" />
     </application>
 </manifest>

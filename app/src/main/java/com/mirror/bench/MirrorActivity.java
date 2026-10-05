@@ -3,11 +3,14 @@ package com.mirror.bench;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.net.Uri;
+import android.provider.Settings;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.Handler;
@@ -24,6 +27,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.ScrollView;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -51,8 +55,15 @@ public final class MirrorActivity extends Activity {
     private boolean preserveEglOnPauseActual;
     private final ArrayDeque<JSONObject> events = new ArrayDeque<>();
     private GLSurfaceView surface;
+    private FrameLayout runtimeRoot;
     private InterlaceRenderer renderer;
-    private TextView status;
+    private MirrorRuntimeControls runtimeControls;
+    private Dialog productSettings;
+    private boolean productActionConsumed;
+    private final MirrorStartupGate avatarStartup=new MirrorStartupGate();
+    private AvatarChoice pendingAvatarChoice;
+    private BundledAvatarCatalog.Entry configuredBundledEntry;
+    private record AvatarChoice(BundledAvatarCatalog.Entry entry,boolean explicit,String warning) {}
     private volatile MirrorSettings settings;
     private SceneViewSettings sceneViewSettings=SceneViewSettings.DEFAULT;
     private SceneViewPanel sceneViewPanel;
@@ -86,6 +97,7 @@ public final class MirrorActivity extends Activity {
         sceneViewSettings=SceneViewPreferences.load(this).value;
         requestedCamera=settings.camera;
         permissionPrompted = savedState != null && savedState.getBoolean("permission_prompted", false);
+        productActionConsumed=savedState!=null&&savedState.getBoolean("product_action_consumed",false);
         try { options = InputOptions.read(getIntent().getExtras(),
                 (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0,settings.viewCount); }
         catch (IllegalArgumentException error) {
@@ -117,28 +129,61 @@ public final class MirrorActivity extends Activity {
         surface.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
         surface.setPreserveEGLContextOnPause(!options.releaseGlOnPause);
         preserveEglOnPauseActual=surface.getPreserveEGLContextOnPause();
+        runtimeRoot = new FrameLayout(this);
+        runtimeControls=new MirrorRuntimeControls(this,new MirrorRuntimeControls.Host(){
+            public void roles(){openRoles();}
+            public void scene(){showSceneView();}
+            public void camera(){showCameraCalibration();}
+            public void settings(){showProductSettings();}
+            public void home(){returnHome();}
+            public void recover(MirrorUiState.Action action){if(action==MirrorUiState.Action.HOME)returnHome();else retryRuntime();}
+        });
+        runtimeRoot.addView(runtimeControls.view(),new FrameLayout.LayoutParams(-1,-1));
+        surface.setOnClickListener(v->runtimeControls.showMenu());
+        setContentView(runtimeRoot);
+        if(options.privateHead){attachConfiguredSurface();avatarStartup.markDiagnosticReady();}
+    }
+
+    private void prepareBundledSelection(){
+        if(isFinishing()||isDestroyed())return;
+        final int token=avatarStartup.beginRead();if(token<0)return;
+        // Re-read after a pause: a role may have been changed in the management page.
+        pendingAvatarChoice=null;
+        new Thread(()->{
+            BundledAvatarCatalog.Entry entry=null;boolean explicit=false;String failure="";
+            try{
+                var catalog=BundledAvatarCatalog.read(getAssets());
+                entry=BundledAvatarCatalog.find(catalog,BundledAvatarSelection.load(this));
+                explicit=BundledAvatarSelection.hasSelection(this);
+            }catch(Exception error){failure="所选角色无法读取，请返回角色页重新选择。";Log.e("MirrorRuntime","Bundled selection unavailable",error);}
+            final var choice=new AvatarChoice(entry,explicit,failure);
+            main.post(()->{
+                if(isFinishing()||isDestroyed())return;
+                pendingAvatarChoice=choice;
+                switch(avatarStartup.complete(token)){
+                    case DEFER -> { return; }
+                    case REREAD -> {prepareBundledSelection();return;}
+                    case IGNORE -> {pendingAvatarChoice=null;return;}
+                    case APPLY -> {pendingAvatarChoice=null;finishAvatarSelection(choice,token);}
+                }
+            });
+        },"MirrorRoleMetadata").start();
+    }
+    private void finishAvatarSelection(AvatarChoice choice,int token){
+        if(!avatarStartup.canApply(token)||isFinishing()||isDestroyed())return;
+        var entry=choice.entry;
+        if(!choice.warning.isEmpty()){
+            configurationError=choice.warning;runtimeError=choice.warning;interaction.setError();runtimeControls.showMenu();return;
+        }
+        if(entry!=null){renderer.setBundledRuntimeAvatar(getAssets(),entry.directory,entry.id,entry.modelSha256,entry.manifestSha256,choice.explicit);configuredBundledEntry=entry;}
+        attachConfiguredSurface();avatarStartup.markReady(token);
+        renderer.resumeRuntimeAvatar();surface.onResume();startIfReady(true);
+    }
+    private void attachConfiguredSurface(){
+        // Register the GL thread before attaching: an already-created holder would miss
+        // its initial surfaceCreated callback if setRenderer were delayed until afterward.
         surface.setRenderer(renderer);
-        FrameLayout root = new FrameLayout(this);
-        root.addView(surface, new FrameLayout.LayoutParams(-1, -1));
-        LinearLayout bar = new LinearLayout(this);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(8), dp(4), dp(8), dp(4));
-        bar.setBackgroundColor(0xb018202a);
-        status = new TextView(this);
-        status.setTextColor(Color.WHITE);
-        status.setTextSize(12);
-        bar.addView(status, new LinearLayout.LayoutParams(0, -2, 1));
-        Button maintain = new Button(this);
-        maintain.setText("维护"); maintain.setOnClickListener(ignored -> showMaintenance());
-        bar.addView(maintain, new LinearLayout.LayoutParams(-2, -2));
-        Button viewControls=new Button(this);viewControls.setText("画面");viewControls.setContentDescription("画面缩放、位置、景深与背景");
-        viewControls.setOnClickListener(ignored->showSceneView());bar.addView(viewControls,new LinearLayout.LayoutParams(-2,-2));
-        Button exit = new Button(this);
-        exit.setText("退出"); exit.setOnClickListener(ignored -> finish());
-        bar.addView(exit, new LinearLayout.LayoutParams(-2, -2));
-        FrameLayout.LayoutParams position = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
-        root.addView(bar, position);
-        setContentView(root);
+        runtimeRoot.addView(surface,0,new FrameLayout.LayoutParams(-1,-1));
     }
 
     private InterlaceRenderer createRuntimeRenderer() {
@@ -170,28 +215,39 @@ public final class MirrorActivity extends Activity {
     }
 
     @Override protected void onResume() {
-        super.onResume(); resumed = true; renderer.resumeRuntimeAvatar();
+        super.onResume(); resumed = true;avatarStartup.resume();renderer.resumeRuntimeAvatar();
         beginStatusSession();
-        surface.onResume();
+        if(avatarStartup.ready())surface.onResume();
+        else prepareBundledSelection();
         main.removeCallbacks(tick); main.post(tick);
         startIfReady(true);
+        main.post(()->{
+            if(!resumed||productActionConsumed)return;
+            productActionConsumed=true;
+            String action=getIntent().getStringExtra(MirrorHomeActivity.PRODUCT_ACTION);
+            if("scene".equals(action))showSceneView();
+            else if("settings".equals(action))showProductSettings();
+        });
     }
     @Override protected void onPause() {
         resumed = false;
+        avatarStartup.pause();
         if(sceneViewPanel!=null)sceneViewPanel.dismiss();
+        if(productSettings!=null)productSettings.dismiss();
         renderer.pauseRuntimeAvatar();
         if(cameraPanel!=null)cameraPanel.dismiss();
         main.removeCallbacks(tick);
         cancelWorker();
         renderer.setInteractiveFace(new float[4], FaceFrame.identity(), false);
-        surface.onPause();
+        if(avatarStartup.ready())surface.onPause();
         super.onPause();
     }
     @Override protected void onDestroy() {
-        main.removeCallbacks(tick); cancelWorker(); renderer.closeRuntimeAvatar(); super.onDestroy();
+        avatarStartup.destroy();pendingAvatarChoice=null;main.removeCallbacks(tick); cancelWorker(); renderer.closeRuntimeAvatar(); super.onDestroy();
     }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putBoolean("permission_prompted", permissionPrompted);
+        state.putBoolean("product_action_consumed",productActionConsumed);
         super.onSaveInstanceState(state);
     }
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
@@ -246,7 +302,7 @@ public final class MirrorActivity extends Activity {
         } catch(Exception failure){Log.e("MirrorRuntime","Cannot prepare initial runtime status",failure);}
     }
     private void startIfReady(boolean mayPrompt) {
-        if (!resumed || maintenance || calibrationOpen || restarting || renderFault || progressFault != null || isFinishing() || isDestroyed()
+        if (!avatarStartup.ready() || !resumed || maintenance || calibrationOpen || restarting || renderFault || progressFault != null || isFinishing() || isDestroyed()
                 || worker != null) return;
         if(!inputStartAllowed()){reportPreflightFault(inputStopFailureMessage());return;}
         if (!configurationError.isEmpty()) {
@@ -283,9 +339,10 @@ public final class MirrorActivity extends Activity {
             if (!resumed) return;
             long now = SystemClock.elapsedRealtimeNanos();
             boolean updateText = now - lastUiTextNs >= 500_000_000L;
+            JSONObject uiGl=null;
             if (updateText && !renderFault) {
                 try {
-                    String error = renderer.runtimeStatus().optString("error", "");
+                    uiGl=renderer.runtimeStatus();String error = uiGl.optString("error", "");
                     if (!error.isEmpty()) latchRenderFault(error);
                 } catch (Exception error) { latchRenderFault(concise(error)); }
             }
@@ -319,17 +376,25 @@ public final class MirrorActivity extends Activity {
             if (updateText) {
                 lastUiTextNs = now;
                 String error = configurationError.isEmpty() ? runtimeError : configurationError;
-                String text = "镜中向导 · " + options.label() + "\n"
-                        + (maintenance ? "维护中" : !renderFault&&!renderer.hasRuntimeFrame()?"正在加载角色":stateLabel(snapshot.state()));
-                if (worker != null && worker.cancelled) text += " · 停止中，等待资源释放";
-                else if (worker != null && worker.waitingForHardware) text += " · 等待上一运行释放设备";
-                if (!error.isEmpty()) text += " · " + error;
-                if(!renderer.avatarWarning().isEmpty())text+=" · 角色读取失败，暂用内置角色（见维护）";
-                status.setText(text);
+                runtimeControls.update(MirrorUiState.describe(new MirrorUiState.Sample(snapshot.state().name(),snapshot.facePresent(),
+                        renderer.hasRuntimeFrame(),hasCameraPermission(),options.needsCamera(),renderFault,progressFault!=null,
+                        worker!=null&&(worker.cancelled||worker.waitingForHardware),error,renderer.avatarWarning())));
+                runtimeControls.updateRole(loadedRoleName(uiGl));
             }
             main.postDelayed(this, 33);
         }
     };
+
+    private String loadedRoleName(JSONObject gl){
+        if(gl==null||!gl.optBoolean("runtime_gl_frame_ready"))return "";
+        JSONObject avatar=gl.optJSONObject("avatar");if(avatar==null)return "";
+        String source=gl.optString("avatar_source"),id=gl.optString("avatar_package_id");
+        if("bundled".equals(source)&&configuredBundledEntry!=null&&id.equals(configuredBundledEntry.id))
+            return configuredBundledEntry.displayName+("legacy_reference".equals(configuredBundledEntry.status)?" · 旧版参考":"");
+        String name=avatar.optString("display_name","");
+        if(name.isEmpty())return "";
+        return name+("imported".equals(source)?" · 本地导入":("builtin".equals(source)?" · 参考角色":""));
+    }
 
     private void latchRenderFault(String error) {
         if (renderFault) return;
@@ -441,11 +506,61 @@ public final class MirrorActivity extends Activity {
             dialog.dismiss();
         });
         cameraButton.setOnClickListener(ignored->{dialog.dismiss();showCameraCalibration();});
-        dialog.show();
+        dialog.show();MirrorTheme.safeDialog(this,dialog);
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(settings.writable);
+    }
+
+    private void openRoles(){
+        calibrationOpen=true;
+        startActivityForResult(new Intent(this,MirrorRolesActivity.class).putExtra("from_mirror",true),AVATAR_MANAGEMENT);
+    }
+    private void returnHome(){
+        startActivity(new Intent(this,MirrorHomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        finish();
+    }
+    @Override public void onBackPressed(){
+        if(runtimeControls.hideMenu())return;
+        returnHome();
+    }
+    private void retryRuntime(){
+        if(!inputStartAllowed()){runtimeError=inputStopFailureMessage();interaction.setError();return;}
+        if(options.needsCamera()&&!hasCameraPermission()){
+            if(permissionPrompted&&!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA))
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));
+            else {permissionPrompted=true;requestPermissions(new String[]{Manifest.permission.CAMERA},CAMERA_PERMISSION);}
+            return;
+        }
+        if(renderFault||!renderer.avatarWarning().isEmpty()){restarting=true;recreate();return;}
+        if(progressFault!=null){
+            if(worker!=null){cancelWorker();return;}
+            progressFault=null;
+        }
+        runtimeError="";interaction.clearError();cancelWorker();startIfReady(false);
+    }
+    private void showProductSettings(){
+        if(productSettings!=null)return;
+        Dialog dialog=new Dialog(this);productSettings=dialog;
+        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(14),dp(12),dp(14),dp(12));
+        body.addView(MirrorTheme.text(this,"设置",23,true));
+        body.addView(MirrorTheme.text(this,"调好镜中的自己",13,false));
+        MirrorTheme.addButton(body,MirrorTheme.button(this,"画面、镜像与表情",false,()->{dialog.dismiss();showSceneView();}));
+        MirrorTheme.addButton(body,MirrorTheme.button(this,"相机与动作校准",false,()->{dialog.dismiss();showCameraCalibration();}));
+        MirrorTheme.addButton(body,MirrorTheme.button(this,"屏幕与运行参数（高级）",false,()->{dialog.dismiss();showMaintenance();}));
+        MirrorTheme.addButton(body,MirrorTheme.button(this,"关于另一个你",false,()->{
+            AlertDialog about=new AlertDialog.Builder(this).setTitle("Another You / 另一个你")
+                    .setMessage("镜中的角色，用表情回应你。\n\n相机画面用于本机互动。个人中性基准只用于本次互动，安装与画面设置在明确保存后保留。\n\n完整角色库仍在逐项校正；版本与运行详情见高级设置。")
+                    .setPositiveButton("返回",null).create();about.show();MirrorTheme.safeDialog(this,about);
+        }));
+        MirrorTheme.addButton(body,MirrorTheme.button(this,"返回魔镜",true,dialog::dismiss));
+        ScrollView scroll=new ScrollView(this);scroll.addView(body);dialog.setContentView(scroll);
+        dialog.setOnDismissListener(d->productSettings=null);dialog.show();MirrorTheme.safeDialog(this,dialog);
     }
     private void showCameraCalibration(){
         if(cameraPanel!=null||!resumed)return;
+        if(!avatarStartup.ready()){
+            android.widget.Toast.makeText(this,configurationError.contains("所选角色")?"请先在角色页重新选择角色，再打开校准。":"角色仍在准备，请稍后打开校准。",android.widget.Toast.LENGTH_LONG).show();return;
+        }
         if(!options.input.equals("camera")){
             android.widget.Toast.makeText(this,"当前是测试录像输入，请重新以实时相机启动后校准。",android.widget.Toast.LENGTH_LONG).show();return;
         }
@@ -538,7 +653,7 @@ public final class MirrorActivity extends Activity {
     }
     private TextView label(String text) { TextView view = new TextView(this); view.setText(text); return view; }
     private Spinner spinner(String[] choices) {
-        Spinner view = new Spinner(this);
+        Spinner view = MirrorTheme.selectionSpinner(this,"选择运行参数");
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, choices);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         view.setAdapter(adapter); return view;

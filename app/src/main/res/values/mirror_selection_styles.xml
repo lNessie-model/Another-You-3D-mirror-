@@ -1,0 +1,17 @@
+<resources>
+    <style name="MirrorSelectionDialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <!-- Spinner's AlertDialog.Builder resolves this theme again; retain the selection styling. -->
+        <item name="android:alertDialogTheme">@style/MirrorSelectionDialog</item>
+        <item name="android:windowMinWidthMajor">64%</item>
+        <item name="android:windowMinWidthMinor">64%</item>
+        <item name="android:windowBackground">#1B1D22</item>
+        <item name="android:colorBackground">#1B1D22</item>
+        <item name="android:colorBackgroundFloating">#1B1D22</item>
+        <item name="android:textColorPrimary">#EEE7DE</item>
+        <item name="android:textColorSecondary">#BDB6AE</item>
+        <item name="android:colorAccent">#D1BA91</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.55</item>
+        <item name="android:windowCloseOnTouchOutside">true</item>
+    </style>
+</resources>

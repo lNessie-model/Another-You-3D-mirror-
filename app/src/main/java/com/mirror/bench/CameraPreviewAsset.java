@@ -1,6 +1,7 @@
 package com.mirror.bench;
 
 import android.content.res.AssetManager;
+import android.content.Context;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -16,6 +17,40 @@ final class CameraPreviewAsset {
     final String manifest,sha256,source,name;
     private CameraPreviewAsset(AvatarAsset asset,String manifest,String sha256,String source,String name){
         this.asset=asset;this.manifest=manifest;this.sha256=sha256;this.source=source;this.name=name;
+    }
+    /** Same precedence as the main renderer: explicit bundle, imported current, default bundle. */
+    static CameraPreviewAsset load(Context context,File storeRoot,int androidApi)throws Exception{
+        interrupted();
+        AssetManager assets=context.getAssets();
+        BundledAvatarCatalog.Entry entry=BundledAvatarCatalog.find(BundledAvatarCatalog.read(assets),
+                BundledAvatarSelection.load(context));
+        if(BundledAvatarSelection.hasSelection(context))return bundled(assets,entry);
+        if(AvatarPackageStore.supportsAndroidApi(androidApi)){
+            AvatarPackageStore.LoadedPackage loaded=AvatarPackageStore.open(storeRoot,androidApi).readCurrent();
+            interrupted();
+            if(loaded!=null)return new CameraPreviewAsset(loaded.asset,loaded.manifestJson,loaded.ticket.modelSha256,
+                    "current:"+loaded.ticket.packageId,loaded.rig.displayName());
+        }
+        return bundled(assets,entry);
+    }
+    private static CameraPreviewAsset bundled(AssetManager assets,BundledAvatarCatalog.Entry entry)throws Exception{
+        byte[] manifest,glb;
+        try(InputStream stream=assets.open(entry.directory+"/avatar.json")){manifest=read(stream,262144);}
+        if(!digest(manifest).equals(entry.manifestSha256))throw new IOException("Bundled preview manifest digest mismatch");
+        String text=new String(manifest,StandardCharsets.UTF_8);JSONObject metadata=new JSONObject(text);
+        if(!"character.glb".equals(metadata.getString("model")))throw new IOException("Invalid bundled preview model path");
+        try(InputStream stream=assets.open(entry.directory+"/character.glb")){glb=read(stream,AvatarGlbLoader.MAX_FILE_BYTES);}
+        String hash=digest(glb);
+        if(!hash.equals(entry.modelSha256)||!hash.equalsIgnoreCase(metadata.getString("modelSha256")))
+            throw new IOException("Bundled preview model digest mismatch");
+        interrupted();AvatarAsset asset=AvatarGlbLoader.load(glb);AvatarRig rig=new AvatarRig(asset,text);
+        AvatarGeometryBounds.fromAsset(asset,rig);interrupted();
+        return new CameraPreviewAsset(asset,text,hash,"bundled:"+entry.id,entry.displayName);
+    }
+    private static String digest(byte[] bytes)throws Exception{
+        StringBuilder hex=new StringBuilder();
+        for(byte value:MessageDigest.getInstance("SHA-256").digest(bytes))hex.append(String.format(java.util.Locale.ROOT,"%02x",value&255));
+        return hex.toString();
     }
     static CameraPreviewAsset load(AssetManager assets,File storeRoot,int androidApi)throws Exception{
         interrupted();

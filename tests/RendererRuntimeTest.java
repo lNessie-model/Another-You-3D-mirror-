@@ -22,18 +22,65 @@ public final class RendererRuntimeTest {
         stableWeightsPreservePreblendCache();
         runtimeConfigurationAndVisibility();
         inferenceWaitsForSuccessfulRuntimeFrame();
+        bundledAvatarConfigurationRejectsUnsafeMetadata();
         System.out.println("PASS: " + checks + " renderer assertions, including 1,000,000 runtime frames");
     }
+    private static void bundledAvatarConfigurationRejectsUnsafeMetadata() throws Exception {
+        String digest="0".repeat(64);
+        for(String path: new String[]{"../character", "avatars/catalog/../geralt", "/avatars/catalog/geralt",
+                "avatars/catalog/geralt/nested", "https://example.test/model", "avatars/catalog/Geralt"}) {
+            InterlaceRenderer r=renderer(true);boolean rejected=false;
+            try {r.setBundledRuntimeAvatar(null,path,"geralt",digest,digest,true);}
+            catch(IllegalArgumentException expected){rejected=true;}
+            check(rejected,"unsafe catalog directory rejected: "+path);
+            check(field(r,"bundledAvatarDirectory")==null,"unsafe catalog cannot publish a partial choice");
+        }
+        for(String hash: new String[]{"", "0".repeat(63), "g".repeat(64)}) {
+            InterlaceRenderer r=renderer(true);boolean rejected=false;
+            try {r.setBundledRuntimeAvatar(null,"avatars/catalog/geralt","geralt",hash,digest,true);}
+            catch(IllegalArgumentException expected){rejected=true;}
+            check(rejected,"catalog content must identify a valid exact digest");
+            check(field(r,"bundledAvatarDirectory")==null,"invalid digest leaves selection unset");
+        }
+        for(String[] pair: new String[][]{{"avatars/catalog/geralt","ada"},{"avatars/builtin-guide","geralt"},
+                {"avatars/catalog/builtin-guide","builtin-guide"}}){
+            InterlaceRenderer r=renderer(true);boolean badIdentity=false;
+            try {r.setBundledRuntimeAvatar(null,pair[0],pair[1],digest,digest,true);}
+            catch(IllegalArgumentException expected){badIdentity=true;}
+            check(badIdentity,"role identity cannot label another directory");
+            check(field(r,"bundledAvatarDirectory")==null,"identity mismatch leaves no partial selection");
+        }
+        InterlaceRenderer benchmark=renderer(false);boolean rejected=false;
+        try {benchmark.setBundledRuntimeAvatar(null,"avatars/catalog/geralt","geralt",digest,digest,true);}
+        catch(IllegalStateException expected){rejected=true;}
+        check(rejected,"benchmark cannot attach product role assets");
+        InterlaceRenderer initialized=renderer(true);
+        Field state=InterlaceRenderer.class.getDeclaredField("surfaceInitialized");state.setAccessible(true);state.set(initialized,true);
+        rejected=false;
+        try {initialized.setBundledRuntimeAvatar(null,"avatars/catalog/geralt","geralt",digest,digest,true);}
+        catch(IllegalStateException expected){rejected=true;}
+        check(rejected,"live GL ownership prevents changing role metadata in place");
+    }
+
     private static void inferenceWaitsForSuccessfulRuntimeFrame() throws Exception {
         InterlaceRenderer renderer=renderer(true);
         check(!renderer.hasRuntimeFrame(),"new runtime has no ready frame");
         Method record=method("recordFrame",long.class,long.class,boolean.class,long.class);
         record.invoke(renderer,1L,2L,false,1L);
-        check(renderer.hasRuntimeFrame(),"successful runtime submission releases input startup gate");
+        check(!renderer.hasRuntimeFrame(),"statistics alone cannot release input startup gate");
+        RuntimeGlLifecycle gate=(RuntimeGlLifecycle)field(renderer,"runtimeGlLifecycle");
+        gate.contextCreated();long enteredEpoch=gate.frameEpoch();
+        record.invoke(renderer,2L,3L,false,2L);
+        check(!renderer.hasRuntimeFrame(),"context without actual successful submission remains gated");
+        gate.successfulFrame(enteredEpoch);
+        check(renderer.hasRuntimeFrame(),"successful current-context submission releases input startup gate");
         renderer.resumeRuntimeAvatar();
         check(!renderer.hasRuntimeFrame(),"resume waits for its own first successful frame");
         record.invoke(renderer,3L,4L,false,3L);
-        check(renderer.hasRuntimeFrame(),"resumed frame releases startup gate");
+        gate.successfulFrame(enteredEpoch);
+        check(!renderer.hasRuntimeFrame(),"old frame or statistics cannot resurrect readiness after resume");
+        gate.successfulFrame(gate.frameEpoch());
+        check(renderer.hasRuntimeFrame(),"resumed successful frame releases startup gate");
         Field error=InterlaceRenderer.class.getDeclaredField("error");error.setAccessible(true);error.set(renderer,"GPU failed");
         check(!renderer.hasRuntimeFrame(),"latched GL error cannot permit input startup");
         InterlaceRenderer benchmark=renderer(false);record.invoke(benchmark,1L,2L,false,1L);

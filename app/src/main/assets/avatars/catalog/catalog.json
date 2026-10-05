@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "defaultId": "geralt",
+  "entries": [
+    {
+      "id": "geralt",
+      "displayName": "杰洛特",
+      "directory": "avatars/catalog/geralt",
+      "modelSha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
+      "manifestSha256": "b4d324f64ea3655fe01615ce97081c275d60d50312fd0d2b066f8a78e668032e",
+      "thumbnail": "avatars/catalog/geralt/thumbnail.png",
+      "status": "device_verified",
+      "vertices": 19907,
+      "triangles": 19157,
+      "drawCalls": 7,
+      "decodedBytes": 73552494
+    },
+    {
+      "id": "builtin-guide",
+      "displayName": "镜中向导",
+      "directory": "avatars/builtin-guide",
+      "modelSha256": "8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407",
+      "manifestSha256": "ddb819fc4f23477f6d7c18efbba82a9356d0eee46145bfb240de3491e51f710b",
+      "thumbnail": "avatars/builtin-guide/thumbnail.png",
+      "status": "legacy_reference",
+      "vertices": 15085,
+      "triangles": 29482,
+      "drawCalls": 7,
+      "decodedBytes": 5890656
+    }
+  ]
+}

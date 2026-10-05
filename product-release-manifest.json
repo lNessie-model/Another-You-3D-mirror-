@@ -1,0 +1,95 @@
+{
+  "schema": "another-you-product-release-v1",
+  "versionCode": 31,
+  "versionName": "0.2.0",
+  "source_commit": "8dcacdfb68eb305365f6bbac04e9f016abf765e4",
+  "public_parent": "c966355fa866baa4f1d3fb4bcb66b95eab3aa996",
+  "created_at_utc": "2026-10-05T03:17:49.835620+00:00",
+  "local_apk_filename": "AvatarRuntime-v31-another-you-safe-selectors.apk",
+  "apk_sha256": "2093ac779d8ed6e1391345937d050f73182b2a305ca928b24a5ad6faf4375767",
+  "apk_bytes": 54746304,
+  "apk_in_repository": false,
+  "certificate_sha256": "64a4af6baa9f10fd9d5bd09003ded7def368211604e3e91181bf015cdfbf6da8",
+  "signing_scope": "Existing device debug certificate; no store release signing",
+  "launcher": "com.mirror.bench.MirrorHomeActivity",
+  "package": "com.mirror.bench",
+  "qa_passed": true,
+  "qa_scope": "V31 product UI, bundled role loading, settings retention, actual navigation and activity exit; live-face and joint performance excluded",
+  "live_face_qa_passed": false,
+  "full_user_goal_complete": false,
+  "camera_blocker": "CAMERA_ERROR (3): stream configuration",
+  "joint_30fps_goal_met": false,
+  "private_fixtures_in_apk": false,
+  "personal_video_in_apk": false,
+  "apk_source_file_hashes_verified": 109,
+  "source_delta_file_count": 50,
+  "production_dependencies_match_v30": true,
+  "roles": [
+    {
+      "id": "geralt",
+      "displayName": "杰洛特",
+      "directory": "avatars/catalog/geralt",
+      "modelSha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
+      "manifestSha256": "b4d324f64ea3655fe01615ce97081c275d60d50312fd0d2b066f8a78e668032e",
+      "thumbnail": "avatars/catalog/geralt/thumbnail.png",
+      "status": "device_verified",
+      "vertices": 19907,
+      "triangles": 19157,
+      "drawCalls": 7,
+      "decodedBytes": 73552494
+    },
+    {
+      "id": "builtin-guide",
+      "displayName": "镜中向导",
+      "directory": "avatars/builtin-guide",
+      "modelSha256": "8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407",
+      "manifestSha256": "ddb819fc4f23477f6d7c18efbba82a9356d0eee46145bfb240de3491e51f710b",
+      "thumbnail": "avatars/builtin-guide/thumbnail.png",
+      "status": "legacy_reference",
+      "vertices": 15085,
+      "triangles": 29482,
+      "drawCalls": 7,
+      "decodedBytes": 5890656
+    }
+  ],
+  "backgrounds": {
+    "images": 4,
+    "procedural": 8,
+    "new_3d_backgrounds_accepted": false
+  },
+  "host_evidence": {
+    "catalog_selection_checks": 97,
+    "ui_startup_checks": 51,
+    "bundled_actual_asset_checks": 16,
+    "actual_asset_models": 2,
+    "renderer_suites": 12,
+    "sdk_camera_pose_parity_checks": 3000,
+    "management_checks": [
+      24,
+      42,
+      6
+    ]
+  },
+  "device_evidence": {
+    "actual_two_model_first_gl_frames": true,
+    "navigation_settings_persistence": true,
+    "settings_equal_previous_bytes": true,
+    "single_runtime_after_switch": true,
+    "no_runtime_gl_pose_threads_after_exit": true,
+    "home_pss_kib": 130526,
+    "home_pss_is_full_joint_load_measurement": false,
+    "personal_face_art_accepted": false
+  },
+  "experimental_offline_tools": {
+    "files": [
+      "scripts/asset_pipeline/__init__.py",
+      "scripts/asset_pipeline/prepare_head.py",
+      "scripts/asset_pipeline/profile.py",
+      "scripts/asset_pipeline/segment_face.py",
+      "tests/test_asset_pipeline_profile.py"
+    ],
+    "artistAccepted": false,
+    "not_general_landmark_provenance_gate": true
+  },
+  "release_document": "docs/production-app-v31-20261005.md"
+}

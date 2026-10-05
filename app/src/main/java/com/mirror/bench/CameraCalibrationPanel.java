@@ -58,7 +58,7 @@ final class CameraCalibrationPanel {
         try{
         previews.addView(avatarPreview,new LinearLayout.LayoutParams(0,-1,1));
         body.addView(previews,new LinearLayout.LayoutParams(-1,360));body.addView(avatarStatus);
-        rotation=new Spinner(activity);ArrayAdapter<String> adapter=new ArrayAdapter<>(activity,android.R.layout.simple_spinner_item,new String[]{"顺时针旋转 0°","顺时针旋转 90°","顺时针旋转 180°","顺时针旋转 270°"});
+        rotation=MirrorTheme.selectionSpinner(activity,"相机旋转方向");ArrayAdapter<String> adapter=new ArrayAdapter<>(activity,android.R.layout.simple_spinner_item,new String[]{"顺时针旋转 0°","顺时针旋转 90°","顺时针旋转 180°","顺时针旋转 270°"});
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);rotation.setAdapter(adapter);body.addView(rotation);
         reflect=check(activity,"校正摄像头自带的左右颠倒（旋转后）");body.addView(reflect);
         mirror=check(activity,"镜像互动（只改变角色动作）");body.addView(mirror);
@@ -92,7 +92,7 @@ final class CameraCalibrationPanel {
         clear.setOnClickListener(v->{clearNeutral();progress.setText("已清除本次基准，采集已取消。");});
         checked.setOnCheckedChangeListener((v,b)->refreshEnabled());
         dialog.setOnDismissListener(d->finish());
-        dialog.show();
+        dialog.show();MirrorTheme.safeDialog(activity,dialog);
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v->dialog.dismiss());
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v->{
             if(input==null)return;draft=new CameraControlSettings(input.effective.cameraId,input.effective.fingerprint,640,480,0,false,false,nextRevision());

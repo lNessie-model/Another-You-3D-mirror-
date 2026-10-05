@@ -6,30 +6,31 @@
 
 ## 当前版本
 
-本次源工程冻结点为 `device-lab` 本地提交 `30e4fe7b3506c474753610578b0435f7d47bfe33`。仓库采用独立源码快照，保留目标仓库原有 main 历史。
+当前版本为 **V31 / 0.2.0**（versionCode 31），源工程冻结点 `8dcacdfb68eb305365f6bbac04e9f016abf765e4`。仓库继续采用独立源码快照，保留原 main 历史。
 
-- 应用运行代码为 v30；固定生产模型和原生库与原稳定 v30 APK 解压内容一致。
-- 新眉眼与牙齿组合模型为 `geralt-rig-stage13-dentition-appearance-v3`，SHA-256 `9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531`，状态 **GPU_VERIFIED_CANDIDATE / LIVE_CAMERA_PENDING**。
-- 实际 Mali driver 与 multiview 检查在同一 run_id `568cbdb8-ba22-42f3-98bc-a7353cee66a6` 通过，root 查看实际 jaw-open 图确认牙冠暖白、切缘平顺。
-- 实时相机在更新前就报 `CAMERA_ERROR (3): endConfigure`。由于预览没有推进，发布流程回滚，设备当前保持 v30 + stage11 模型，stage11 SHA-256 `11397607700b2223d63b5cd05bb2f929fbc18d3dbc80b71ab47e0375a909041d`。候选尚未完成现场面捕整体验收。
-- 个人表情阈值和光学对齐仍待验收。16 视点 30 FPS 目标尚未达到；此前 stage11/v30 的固定回放短测实际呈现为 10.623 FPS，不能当作本候选的新性能实测。
+- 一个 Another You / 另一个你启动入口，原生首页、暗金属/酒红主题、椭圆安全区菜单与选择弹窗；角色、场景、校准、设置及返回首页均可达。
+- APK 内含杰洛特 stage13 校正版及原有参考向导两个角色，选择后才加载一个模型；保留原本地导入/恢复机制及四种图片、八种程序背景。其余九种 IP 头部正在逐项校正，未验收中间资产不入包。
+- 实际设备已验证两个模型的生产加载器与 GL 首帧、角色切换后唯一运行页、背景保存/取消、覆盖升级配置保留，以及退出后的运行/GL/姿态线程清理。
+- 当前相机仍报 `CAMERA_ERROR (3)` 流配置错误。完整实时面捕、个人眉眼/微笑美术验收及联合性能未通过；16 视点以上 30 FPS 目标仍未达标，不能把本次 UI/资源验收当作性能达标。
+- 本版保持原包名、debug 证书和 v30 生产原生依赖，覆盖升级不清除数据、不刷固件；属于当前设备内部安装版，未配置商店发布签名。APK 不含私人视频和人脸数值 fixture；APK、签名私钥与设备配置不上传。
 
-详见 [当前修正与设备状态](docs/face-feedback-refinement-20261005.md)、[牙齿修正](docs/dentition-appearance-20261005.md)、[眉眼作者流程](docs/geralt-brow-safety-authoring-20261005.md) 和 [仓库同步范围](docs/repository-sync-20261005.md)。
+详见 [V31 行为与实际验收](docs/production-app-v31-20261005.md)、[完整目标与后续规格](docs/production-app-spec-20261005.md)、[角色目录接口](docs/bundled-avatar-catalog-20261005.md) 和 [仓库同步范围](docs/repository-sync-20261005.md)。旧 [面部修正记录](docs/face-feedback-refinement-20261005.md) 保留其当时的候选/回滚状态，当前部署结论以 V31 发布说明为准。
 
 ## 目录
 
 | 路径 | 内容 |
 | --- | --- |
 | `app/` | 面捕、NPU、角色管理、渲染、交织与校准 Android 应用 |
+| `app/src/main/assets/avatars/catalog/` | V31 轻量角色目录及实际杰洛特模型、manifest、真实缩略图 |
 | `launcher/` | 轻量设备桌面 |
 | `native/` | RGA / RKNN / 多视点 JNI 源码及保留原声明的 SDK 头文件 |
 | `scripts/` | 构建、检查、资产处理与设备测试脚本 |
 | `tests/` | JVM、C、Python 和 Blender 检查入口 |
-| `runtime-assets/geralt/stage13-candidate/` | GPU 已验证、实时相机待复测的候选 `character.glb` 与 `avatar.json` |
+| `runtime-assets/geralt/stage13-candidate/` | 先前候选快照与作者检查入口，历史状态保留；V31 APK 使用 catalog 目录 |
 | `docs/` | 设计、测试条件、历史结果和当前状态说明 |
 | `third-party-notices/` | 实际依赖随附声明和来源说明 |
 
-默认 APK 内置原创 CC0 角色 `builtin-guide`。Geralt 头部以独立运行资产保存；它不自动替换内置角色，设备上的私有角色选择状态也不上传。
+默认包内目录角色为杰洛特；原创 CC0 向导 `builtin-guide` 仍保留为旧版参考（29,482 三角面，在现有 loader 30k 上限内，超后续新头部 20k 目标）。首次升级时隐式默认不覆盖既有导入选择；用户显式选择包内角色才改变优先级。设备上的私有选择与光学校准不上传。精确资源与发布范围见 `product-release-manifest.json`、`source-sync-manifest.json` 和 `production-dependency-manifest.json`。
 
 ## 构建
 
@@ -47,7 +48,7 @@ sdk.dir=C:/Android/Sdk
 & 'C:/Tools/gradle-8.5/bin/gradle.bat' --no-daemon :app:assembleDebug :launcher:assembleDebug
 ```
 
-Gradle 路径和 SDK 路径应按本机安装位置替换。首次构建需要下载 Maven 依赖；依赖缓存和 Android SDK 未上传。输出位于 `app/build/outputs/apk/debug/` 与 `launcher/build/outputs/apk/debug/`。
+Gradle 路径和 SDK 路径应按本机安装位置替换。首次构建需要下载 Maven 依赖；依赖缓存和 Android SDK 未上传。当前设备构建使用既有固定缓存，全新机器的无缓存构建尚未独立验证。输出位于 `app/build/outputs/apk/debug/` 与 `launcher/build/outputs/apk/debug/`。
 
 生产 Google/RKNN 模型和匹配的 `jniLibs/arm64-v8a` 均按稳定 v30 APK 的解压字节冻结，哈希见生产依赖清单。它们可直接参加构建，无需更换设备 runtime、驱动或刷机。重新编译原生部分需要 Android NDK r25c 和固定版本 RGA，见 [原生依赖](native/DEPENDENCIES.md)。重新获取或转换模型的脚本仍保留，见 `scripts/prepare_assets.py`、`scripts/convert_face_models.py` 与 `scripts/prepare_npu_assets.py`；不要用新版本依赖覆盖固定生产资产。
 
@@ -68,6 +69,15 @@ GLB / worker 检查使用真实 JSON-java 20240303。按 [loader 检查说明](t
 ./tests/run_avatar_worker_tests.ps1 -JavaHome 'C:/Program Files/Java/jdk-17' -AssetPath './runtime-assets/geralt/stage13-candidate/character.glb'
 ```
 
+新增角色目录、选择失败事务与两实际包内模型校准检查：
+
+```powershell
+./tests/run_bundled_avatar_tests.ps1 -CatalogPath './app/src/main/assets/avatars/catalog/catalog.json'
+./tests/run_camera_preview_bundled_tests.ps1
+```
+
+V31 实际通过 Catalog/Selection 97 项、UI/StartupGate 51 项、两个真实 GLB 校准加载 16 项及相关 SDK/管理/renderer 回归。主机统计与成功当前 EGL 首帧是不同门槛；主机检查不能证明物理相机或 30 FPS。五个 `asset_pipeline` profile/base/segmentation 文件仅为已知本地输入实验，配套四项测试不证明通用模型身份校验、完整面部绑定或 Ada 的艺术验收；其余管线和实验模型输出未上传。
+
 牙齿检查器的 3 项异常变更回归需要本地 stage12-safe、完整 stage13 作者报告及实际 pose fixtures。公开候选目录只带 GLB/清单，不包含这些前序作者输入；全新 checkout 运行 `tests/test_dentition_appearance_gate.py` 时会明确 skip，不能把 skip 当作回归通过。原实验环境中这 3 项回归以及实际 19 姿态/17520 闭唇采样已通过。
 
 Blender 作者检查使用 Blender 4.5.12 LTS，Python 几何检查通常需要 NumPy / Pillow。检查日志与完整工程资产并非所有测试都已上传；各历史文档中的本地 `E:/tripo/output/...` 仅是原实验记录位置，不是仓库内存在的文件。
@@ -76,7 +86,7 @@ Blender 作者检查使用 Blender 4.5.12 LTS，Python 几何检查通常需要 
 
 没有上传个人视频、NV21 录像、捕获到的人脸截图、真实面部坐标与表情数组、设备私有 preferences、签名密钥或 API 凭据。
 
-`app/src/main/assets/expression-validation/*.f32` 中的固定 92 组 fixture 含真实人脸样本，因此排除。`ExpressionAppCheckActivity` 的这组哈希固定验证需要在本地补回原 fixture；不能用不同数据替换后声称原验证仍通过。使用自己的本地视频执行 replay 测试，需要另行记录测试数据来源与条件。
+`app/src/main/assets/expression-validation/*.f32` 中的固定 92 组 fixture 含真实人脸样本，因此从 Git 和 V31 APK 打包排除，源本地原件保留。`ExpressionAppCheckActivity` 的这组哈希固定验证需要本地原 fixture；缺失必须明确报错，不能用不同数据替换后声称原验证仍通过。使用自己的本地视频执行 replay 测试，需要另行记录测试数据来源与条件。
 
 原始实验说明保存在 [device-lab 历史说明](docs/device-lab-history.md)，当前部署状态和限制应以本次同步说明为准。
 

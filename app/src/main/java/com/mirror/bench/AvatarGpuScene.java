@@ -71,6 +71,25 @@ final class AvatarGpuScene {
         AvatarAsset asset=AvatarGlbLoader.load(glb);
         return fromAsset(asset,new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,drawMode);
     }
+    /** APK catalog selection. Read and decode only this one model on its GL owner. */
+    static AvatarGpuScene bundled(AssetManager assets,String directory,String modelDigest,String manifestDigest,
+                                  boolean multiview,boolean asynchronous,DrawMode mode)throws Exception {
+        if(!directory.matches("avatars/(?:catalog/[a-z0-9][a-z0-9-]{0,63}|builtin-guide)"))
+            throw new IllegalArgumentException("Invalid bundled avatar directory");
+        if(!modelDigest.matches("[0-9a-f]{64}")||!manifestDigest.matches("[0-9a-f]{64}"))
+            throw new IllegalArgumentException("Bundled avatar catalog digests required");
+        byte[] manifest,glb;
+        try(InputStream input=assets.open(directory+"/avatar.json")){manifest=readBounded(input,262_144);}
+        if(!sha256(manifest).equals(manifestDigest))throw new IllegalArgumentException("Bundled avatar manifest digest mismatch");
+        JSONObject json=new JSONObject(new String(manifest,StandardCharsets.UTF_8));
+        String filename=json.getString("model");
+        if(!"character.glb".equals(filename))throw new IllegalArgumentException("Bundled avatar model filename");
+        try(InputStream input=assets.open(directory+"/"+filename)){glb=readBounded(input,AvatarGlbLoader.MAX_FILE_BYTES);}
+        String hash=sha256(glb);
+        if(!hash.equals(modelDigest)||!hash.equalsIgnoreCase(json.getString("modelSha256")))
+            throw new IllegalArgumentException("Bundled avatar GLB digest mismatch");
+        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode);
+    }
     /** Debug-only caller uses this fixed app-private diagnostic directory; never selects a stored avatar. */
     static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,DrawMode mode)throws Exception {
         return privateHeadCheck(files,multiview,false,mode);
