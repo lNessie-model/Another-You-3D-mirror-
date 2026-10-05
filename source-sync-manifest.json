@@ -1,8 +1,8 @@
 {
-  "source_commit": "8dcacdfb68eb305365f6bbac04e9f016abf765e4",
+  "source_commit": "db08d4a372a24cc3d9cbe257ed1af8958880437c",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 611,
+  "file_count": 675,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,27 +35,29 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 40945,
-      "source_sha256": "3ba38e28275bfbc2294aeae8265b97e329916f72470055b8bf74ad857a2238a1",
-      "repository_bytes": 40945,
-      "repository_sha256": "3ba38e28275bfbc2294aeae8265b97e329916f72470055b8bf74ad857a2238a1",
+      "source_bytes": 41696,
+      "source_sha256": "b649e30c639ac2570b726048ca16fd26ad47f1fbc75f33a02b0698804f3b6e3e",
+      "repository_bytes": 41696,
+      "repository_sha256": "b649e30c639ac2570b726048ca16fd26ad47f1fbc75f33a02b0698804f3b6e3e",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 885,
-      "source_sha256": "4e6c019e05c2f9b774f8b303448ae9900b2f1036228155a7cae800414a1cd886",
+      "source_sha256": "7c038cb3accbf4922e3f3dcb2eee9a9f23be9d14e3612d62ef0d734ebedca9ae",
       "repository_bytes": 885,
-      "repository_sha256": "4e6c019e05c2f9b774f8b303448ae9900b2f1036228155a7cae800414a1cd886"
+      "repository_sha256": "7c038cb3accbf4922e3f3dcb2eee9a9f23be9d14e3612d62ef0d734ebedca9ae",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/AndroidManifest.xml",
       "repository_path": "app/src/main/AndroidManifest.xml",
-      "source_bytes": 3529,
-      "source_sha256": "522efcd705e636da9c6ceb2fa4c9ee6c703dfa1096341984bf2684277d0aea28",
-      "repository_bytes": 3529,
-      "repository_sha256": "522efcd705e636da9c6ceb2fa4c9ee6c703dfa1096341984bf2684277d0aea28"
+      "source_bytes": 3691,
+      "source_sha256": "f532fd8cdf79ab26e1df2e211706f17ebbbe1ca0ed25cf7c2687c5b86929f92c",
+      "repository_bytes": 3691,
+      "repository_sha256": "f532fd8cdf79ab26e1df2e211706f17ebbbe1ca0ed25cf7c2687c5b86929f92c",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/assets/avatars/builtin-guide/LICENSE.txt",
@@ -135,6 +137,501 @@
       "repository_sha256": "836a594bf1113a35fc27333b7c4a9861a8dc117448568ea8e1f4449a147509f9"
     },
     {
+      "source_path": "app/src/main/assets/library/catalog.json",
+      "repository_path": "app/src/main/assets/library/catalog.json",
+      "source_bytes": 16828,
+      "source_sha256": "6afaf05841b37dbef5badccf4103c794a4a3a860d0a2505b5b7d6b75015f1dc7",
+      "repository_bytes": 16828,
+      "repository_sha256": "6afaf05841b37dbef5badccf4103c794a4a3a860d0a2505b5b7d6b75015f1dc7",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/cyberpunk-alcove-v1/preview.png",
+      "repository_path": "app/src/main/assets/library/cyberpunk-alcove-v1/preview.png",
+      "source_bytes": 103431,
+      "source_sha256": "3f4bf1907aadb6ff0ba980640769afb8b534ba5d591f6197271c94350601fe3a",
+      "repository_bytes": 103431,
+      "repository_sha256": "3f4bf1907aadb6ff0ba980640769afb8b534ba5d591f6197271c94350601fe3a",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/cyberpunk-alcove-v1/source.glb",
+      "repository_path": "app/src/main/assets/library/cyberpunk-alcove-v1/source.glb",
+      "source_bytes": 2074768,
+      "source_sha256": "0739f81eb64eec8966a7ca258d14702a739b1ae60ed27951f773d3d0efe64e62",
+      "repository_bytes": 2074768,
+      "repository_sha256": "0739f81eb64eec8966a7ca258d14702a739b1ae60ed27951f773d3d0efe64e62",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/cyberpunk-portal-v2/preview.png",
+      "repository_path": "app/src/main/assets/library/cyberpunk-portal-v2/preview.png",
+      "source_bytes": 91074,
+      "source_sha256": "951263d6c52462f707b3bdafb43a73cc30cbe292784cce20fc084616900da9ab",
+      "repository_bytes": 91074,
+      "repository_sha256": "951263d6c52462f707b3bdafb43a73cc30cbe292784cce20fc084616900da9ab",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/cyberpunk-portal-v2/source.glb",
+      "repository_path": "app/src/main/assets/library/cyberpunk-portal-v2/source.glb",
+      "source_bytes": 2654020,
+      "source_sha256": "bd32ed9f2452b7192ca4e8ea8e66f70366ddef19e449b8edb853837c6bfcd397",
+      "repository_bytes": 2654020,
+      "repository_sha256": "bd32ed9f2452b7192ca4e8ea8e66f70366ddef19e449b8edb853837c6bfcd397",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/gothic-alcove-v1/preview.png",
+      "repository_path": "app/src/main/assets/library/gothic-alcove-v1/preview.png",
+      "source_bytes": 65456,
+      "source_sha256": "b9c5212470672b1660499001764fcc1027bd8e14e5da84e43c73e2a8158520dd",
+      "repository_bytes": 65456,
+      "repository_sha256": "b9c5212470672b1660499001764fcc1027bd8e14e5da84e43c73e2a8158520dd",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/gothic-alcove-v1/source.glb",
+      "repository_path": "app/src/main/assets/library/gothic-alcove-v1/source.glb",
+      "source_bytes": 3198996,
+      "source_sha256": "032b02446f02b982f032d5e93b3b88903e9262c41825b2639f7900888c0c6671",
+      "repository_bytes": 3198996,
+      "repository_sha256": "032b02446f02b982f032d5e93b3b88903e9262c41825b2639f7900888c0c6671",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/gothic-portal-v2/preview.png",
+      "repository_path": "app/src/main/assets/library/gothic-portal-v2/preview.png",
+      "source_bytes": 166990,
+      "source_sha256": "74c7f3921e943ae748b2bb9cc63ef419e67e94bcd9b0de38abd92e2c64556b37",
+      "repository_bytes": 166990,
+      "repository_sha256": "74c7f3921e943ae748b2bb9cc63ef419e67e94bcd9b0de38abd92e2c64556b37",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/gothic-portal-v2/source.glb",
+      "repository_path": "app/src/main/assets/library/gothic-portal-v2/source.glb",
+      "source_bytes": 3967296,
+      "source_sha256": "70a0b8bb7cd66fcd1d77a3be75b51feefe9ae5ef1983a277a5ee395274b8a7b3",
+      "repository_bytes": 3967296,
+      "repository_sha256": "70a0b8bb7cd66fcd1d77a3be75b51feefe9ae5ef1983a277a5ee395274b8a7b3",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-ada-wong/preview.png",
+      "repository_path": "app/src/main/assets/library/head-ada-wong/preview.png",
+      "source_bytes": 264633,
+      "source_sha256": "d44880ee9ff2057f9765bf300fe050ea3992f466639acc75e1264ffcf98cd76d",
+      "repository_bytes": 264633,
+      "repository_sha256": "d44880ee9ff2057f9765bf300fe050ea3992f466639acc75e1264ffcf98cd76d",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-ada-wong/source.glb",
+      "repository_path": "app/src/main/assets/library/head-ada-wong/source.glb",
+      "source_bytes": 2617584,
+      "source_sha256": "6a00740664acb97edb54b540304d5013042f5c24734d9ec6aeef23fbed299263",
+      "repository_bytes": 2617584,
+      "repository_sha256": "6a00740664acb97edb54b540304d5013042f5c24734d9ec6aeef23fbed299263",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-builtin-guide/preview.png",
+      "repository_path": "app/src/main/assets/library/head-builtin-guide/preview.png",
+      "source_bytes": 89093,
+      "source_sha256": "95160ceb952afc2a153890e8a3ba8b598946131067abca23f2819c7e7576847f",
+      "repository_bytes": 89093,
+      "repository_sha256": "95160ceb952afc2a153890e8a3ba8b598946131067abca23f2819c7e7576847f",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-builtin-guide/source.glb",
+      "repository_path": "app/src/main/assets/library/head-builtin-guide/source.glb",
+      "source_bytes": 5501220,
+      "source_sha256": "8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407",
+      "repository_bytes": 5501220,
+      "repository_sha256": "8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-geralt-early/preview.png",
+      "repository_path": "app/src/main/assets/library/head-geralt-early/preview.png",
+      "source_bytes": 192661,
+      "source_sha256": "1a11731051b142fc258e11c8c3376f9728b0418fd433360bf2e70f4e4d08ba8b",
+      "repository_bytes": 192661,
+      "repository_sha256": "1a11731051b142fc258e11c8c3376f9728b0418fd433360bf2e70f4e4d08ba8b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-geralt-early/source.glb",
+      "repository_path": "app/src/main/assets/library/head-geralt-early/source.glb",
+      "source_bytes": 4098656,
+      "source_sha256": "93369e3555fb8125dd96f352c095f04263f2aa1b15a570fd57d3b27fb1a0e06d",
+      "repository_bytes": 4098656,
+      "repository_sha256": "93369e3555fb8125dd96f352c095f04263f2aa1b15a570fd57d3b27fb1a0e06d",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-geralt/preview.png",
+      "repository_path": "app/src/main/assets/library/head-geralt/preview.png",
+      "source_bytes": 55040,
+      "source_sha256": "76b141b9da293e7ace49527a4b11b98d6252356eafb711bea929f78f85491f69",
+      "repository_bytes": 55040,
+      "repository_sha256": "76b141b9da293e7ace49527a4b11b98d6252356eafb711bea929f78f85491f69",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-geralt/source.glb",
+      "repository_path": "app/src/main/assets/library/head-geralt/source.glb",
+      "source_bytes": 4460424,
+      "source_sha256": "e0961106ff56f40b8fe02c9058e684adfb0c709fee3deb3aa45860f5926804bf",
+      "repository_bytes": 4460424,
+      "repository_sha256": "e0961106ff56f40b8fe02c9058e684adfb0c709fee3deb3aa45860f5926804bf",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-gojo/preview.png",
+      "repository_path": "app/src/main/assets/library/head-gojo/preview.png",
+      "source_bytes": 245152,
+      "source_sha256": "4205f4da1b6fd6c40913081c08bbb35e35ad0fc3cebe407d718f8013972f1faf",
+      "repository_bytes": 245152,
+      "repository_sha256": "4205f4da1b6fd6c40913081c08bbb35e35ad0fc3cebe407d718f8013972f1faf",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-gojo/source.glb",
+      "repository_path": "app/src/main/assets/library/head-gojo/source.glb",
+      "source_bytes": 2775820,
+      "source_sha256": "c7b4c2cf5a9ae055da949f8fe20f167300b5d8e5befdca6ba3b87dcf32eb1389",
+      "repository_bytes": 2775820,
+      "repository_sha256": "c7b4c2cf5a9ae055da949f8fe20f167300b5d8e5befdca6ba3b87dcf32eb1389",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-joker/preview.png",
+      "repository_path": "app/src/main/assets/library/head-joker/preview.png",
+      "source_bytes": 301784,
+      "source_sha256": "2b7f1b1fc3b1309064b45b27172ccbe3a88de2ca0433a46f23af61b44435e67e",
+      "repository_bytes": 301784,
+      "repository_sha256": "2b7f1b1fc3b1309064b45b27172ccbe3a88de2ca0433a46f23af61b44435e67e",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-joker/source.glb",
+      "repository_path": "app/src/main/assets/library/head-joker/source.glb",
+      "source_bytes": 3860360,
+      "source_sha256": "57d0cf381ee3eb24bd6c847183bded4e004427a337e224b953c19cc4a77f0ab0",
+      "repository_bytes": 3860360,
+      "repository_sha256": "57d0cf381ee3eb24bd6c847183bded4e004427a337e224b953c19cc4a77f0ab0",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-makima-early/preview.png",
+      "repository_path": "app/src/main/assets/library/head-makima-early/preview.png",
+      "source_bytes": 186388,
+      "source_sha256": "cef6f5c007cd2ac6ac911e41ce834956c5e3204899df42b3f1acf9bd15ad9e27",
+      "repository_bytes": 186388,
+      "repository_sha256": "cef6f5c007cd2ac6ac911e41ce834956c5e3204899df42b3f1acf9bd15ad9e27",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-makima-early/source.glb",
+      "repository_path": "app/src/main/assets/library/head-makima-early/source.glb",
+      "source_bytes": 2835540,
+      "source_sha256": "21a2246428e449ab125e5d0b0dc849c1a64f5696686f18f511f1efaa7bdc25d6",
+      "repository_bytes": 2835540,
+      "repository_sha256": "21a2246428e449ab125e5d0b0dc849c1a64f5696686f18f511f1efaa7bdc25d6",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-makima/preview.png",
+      "repository_path": "app/src/main/assets/library/head-makima/preview.png",
+      "source_bytes": 267177,
+      "source_sha256": "6d1318733eacf9c4a462aee3a94d8237d9b6ce55af841e2b1b66adb66558ae41",
+      "repository_bytes": 267177,
+      "repository_sha256": "6d1318733eacf9c4a462aee3a94d8237d9b6ce55af841e2b1b66adb66558ae41",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-makima/source.glb",
+      "repository_path": "app/src/main/assets/library/head-makima/source.glb",
+      "source_bytes": 3050740,
+      "source_sha256": "eacf66cf4935376ff7690389b1b2e3d716084afa1d1c4f04b1a5e27812e1c43a",
+      "repository_bytes": 3050740,
+      "repository_sha256": "eacf66cf4935376ff7690389b1b2e3d716084afa1d1c4f04b1a5e27812e1c43a",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-maleficent/preview.png",
+      "repository_path": "app/src/main/assets/library/head-maleficent/preview.png",
+      "source_bytes": 274521,
+      "source_sha256": "7f69f1b69ce3d067bf37bff553898ce166eb4a71caee04006698c576637643ca",
+      "repository_bytes": 274521,
+      "repository_sha256": "7f69f1b69ce3d067bf37bff553898ce166eb4a71caee04006698c576637643ca",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-maleficent/source.glb",
+      "repository_path": "app/src/main/assets/library/head-maleficent/source.glb",
+      "source_bytes": 2592004,
+      "source_sha256": "47b62584658a3a97d8694312e352e1d50498d83dda92403bca7e30b0a64a604d",
+      "repository_bytes": 2592004,
+      "repository_sha256": "47b62584658a3a97d8694312e352e1d50498d83dda92403bca7e30b0a64a604d",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-maul/preview.png",
+      "repository_path": "app/src/main/assets/library/head-maul/preview.png",
+      "source_bytes": 306474,
+      "source_sha256": "87c650941b5f20d68b5d27ada0ecc5edcf54b9f2749a8e0661a4e23a4dd60623",
+      "repository_bytes": 306474,
+      "repository_sha256": "87c650941b5f20d68b5d27ada0ecc5edcf54b9f2749a8e0661a4e23a4dd60623",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-maul/source.glb",
+      "repository_path": "app/src/main/assets/library/head-maul/source.glb",
+      "source_bytes": 3796812,
+      "source_sha256": "aa544c3ded700b329a8de68466d30f4839f60055e80b0de3b8bf34ac5ddc7597",
+      "repository_bytes": 3796812,
+      "repository_sha256": "aa544c3ded700b329a8de68466d30f4839f60055e80b0de3b8bf34ac5ddc7597",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-sephiroth/preview.png",
+      "repository_path": "app/src/main/assets/library/head-sephiroth/preview.png",
+      "source_bytes": 278518,
+      "source_sha256": "c125ddb367d9c102788c2a62be55df588f36ced0d2e62345c696d7a65575be4b",
+      "repository_bytes": 278518,
+      "repository_sha256": "c125ddb367d9c102788c2a62be55df588f36ced0d2e62345c696d7a65575be4b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-sephiroth/source.glb",
+      "repository_path": "app/src/main/assets/library/head-sephiroth/source.glb",
+      "source_bytes": 4450392,
+      "source_sha256": "393e76628c0f5211bbecb3720ca330245135c1cc41ab1ec43693004dc5acef3e",
+      "repository_bytes": 4450392,
+      "repository_sha256": "393e76628c0f5211bbecb3720ca330245135c1cc41ab1ec43693004dc5acef3e",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-snape/preview.png",
+      "repository_path": "app/src/main/assets/library/head-snape/preview.png",
+      "source_bytes": 282295,
+      "source_sha256": "0b0d41ce77d42cc9ed4fe9e57aaecc0338a377114e24df0e886b848053b08d4b",
+      "repository_bytes": 282295,
+      "repository_sha256": "0b0d41ce77d42cc9ed4fe9e57aaecc0338a377114e24df0e886b848053b08d4b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-snape/source.glb",
+      "repository_path": "app/src/main/assets/library/head-snape/source.glb",
+      "source_bytes": 2377128,
+      "source_sha256": "e6399615166197124db8f8b05ccf4c30fb5afd2a28bf7215ab86548f4d06f436",
+      "repository_bytes": 2377128,
+      "repository_sha256": "e6399615166197124db8f8b05ccf4c30fb5afd2a28bf7215ab86548f4d06f436",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-sukuna/preview.png",
+      "repository_path": "app/src/main/assets/library/head-sukuna/preview.png",
+      "source_bytes": 178219,
+      "source_sha256": "1d6cf05e64864f6fd9a1c3196365ffee7f810f862de1e04bd82b847eb23eafd6",
+      "repository_bytes": 178219,
+      "repository_sha256": "1d6cf05e64864f6fd9a1c3196365ffee7f810f862de1e04bd82b847eb23eafd6",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-sukuna/source.glb",
+      "repository_path": "app/src/main/assets/library/head-sukuna/source.glb",
+      "source_bytes": 3203008,
+      "source_sha256": "aa59c8ea758fdab9bdc78c64d0510079ef0467ecae54f65d7afb12b553c907a2",
+      "repository_bytes": 3203008,
+      "repository_sha256": "aa59c8ea758fdab9bdc78c64d0510079ef0467ecae54f65d7afb12b553c907a2",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-ancient-dark-pattern-original/preview.png",
+      "repository_path": "app/src/main/assets/library/image-ancient-dark-pattern-original/preview.png",
+      "source_bytes": 528800,
+      "source_sha256": "8411ca9f53e61417ed4ad6eb40ce5efaa20999f7268203c12af817324b7a60d5",
+      "repository_bytes": 528800,
+      "repository_sha256": "8411ca9f53e61417ed4ad6eb40ce5efaa20999f7268203c12af817324b7a60d5",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-ancient-dark-pattern-original/source.png",
+      "repository_path": "app/src/main/assets/library/image-ancient-dark-pattern-original/source.png",
+      "source_bytes": 2062103,
+      "source_sha256": "89a40fc3354c8b8d3eafa975ce5da8689ec329fbde7a8479eee2bec5c85b46a7",
+      "repository_bytes": 2062103,
+      "repository_sha256": "89a40fc3354c8b8d3eafa975ce5da8689ec329fbde7a8479eee2bec5c85b46a7",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-ancient-dark-pattern-oval/preview.png",
+      "repository_path": "app/src/main/assets/library/image-ancient-dark-pattern-oval/preview.png",
+      "source_bytes": 676831,
+      "source_sha256": "4527bf8bbe96490c8005ccc3f24ed8b0c3e50c0e662e44587b4fce73611ff9c9",
+      "repository_bytes": 676831,
+      "repository_sha256": "4527bf8bbe96490c8005ccc3f24ed8b0c3e50c0e662e44587b4fce73611ff9c9",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-ancient-dark-pattern-oval/source.png",
+      "repository_path": "app/src/main/assets/library/image-ancient-dark-pattern-oval/source.png",
+      "source_bytes": 2481061,
+      "source_sha256": "38a7a1bf872401af884d287edb515faf03d566183748d09c0e179664be88bb44",
+      "repository_bytes": 2481061,
+      "repository_sha256": "38a7a1bf872401af884d287edb515faf03d566183748d09c0e179664be88bb44",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-cold-mist-original/preview.png",
+      "repository_path": "app/src/main/assets/library/image-cold-mist-original/preview.png",
+      "source_bytes": 338559,
+      "source_sha256": "4b5f10b680adf3f48598f1cb2dd6d7abaf71615c31720f38d439d866052f44a6",
+      "repository_bytes": 338559,
+      "repository_sha256": "4b5f10b680adf3f48598f1cb2dd6d7abaf71615c31720f38d439d866052f44a6",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-cold-mist-original/source.png",
+      "repository_path": "app/src/main/assets/library/image-cold-mist-original/source.png",
+      "source_bytes": 1226419,
+      "source_sha256": "e38cc39b86e30abd9845c2d715e30aa0d373adfea5e476a78d33c4394539d8ef",
+      "repository_bytes": 1226419,
+      "repository_sha256": "e38cc39b86e30abd9845c2d715e30aa0d373adfea5e476a78d33c4394539d8ef",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-cold-mist-oval/preview.png",
+      "repository_path": "app/src/main/assets/library/image-cold-mist-oval/preview.png",
+      "source_bytes": 444768,
+      "source_sha256": "d6fc5decd5bc25f3f0a1dd24c10c7a47c511c7088da4de61b3bfbf4bbb349384",
+      "repository_bytes": 444768,
+      "repository_sha256": "d6fc5decd5bc25f3f0a1dd24c10c7a47c511c7088da4de61b3bfbf4bbb349384",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-cold-mist-oval/source.png",
+      "repository_path": "app/src/main/assets/library/image-cold-mist-oval/source.png",
+      "source_bytes": 1571027,
+      "source_sha256": "a0dc5d01625a7a6d54105e13337cfa8fbc27121a43ea4c87ded0788cf4a141a8",
+      "repository_bytes": 1571027,
+      "repository_sha256": "a0dc5d01625a7a6d54105e13337cfa8fbc27121a43ea4c87ded0788cf4a141a8",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-crimson-mist-original/preview.png",
+      "repository_path": "app/src/main/assets/library/image-crimson-mist-original/preview.png",
+      "source_bytes": 389202,
+      "source_sha256": "4a0cc9a1f6eda31ba52ae0d35ba3d9d1b340c2078c68909fe002d9008e91dd5f",
+      "repository_bytes": 389202,
+      "repository_sha256": "4a0cc9a1f6eda31ba52ae0d35ba3d9d1b340c2078c68909fe002d9008e91dd5f",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-crimson-mist-original/source.png",
+      "repository_path": "app/src/main/assets/library/image-crimson-mist-original/source.png",
+      "source_bytes": 1454256,
+      "source_sha256": "149ca992c3375024e7a0b01682c56184d03552ae33a4f87390debd0cb120ebf0",
+      "repository_bytes": 1454256,
+      "repository_sha256": "149ca992c3375024e7a0b01682c56184d03552ae33a4f87390debd0cb120ebf0",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-crimson-mist-oval/preview.png",
+      "repository_path": "app/src/main/assets/library/image-crimson-mist-oval/preview.png",
+      "source_bytes": 481333,
+      "source_sha256": "2f064d7f7c4548243d833d2802ac09182cb7d9a9623e55b795f8938d31b0db28",
+      "repository_bytes": 481333,
+      "repository_sha256": "2f064d7f7c4548243d833d2802ac09182cb7d9a9623e55b795f8938d31b0db28",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-crimson-mist-oval/source.png",
+      "repository_path": "app/src/main/assets/library/image-crimson-mist-oval/source.png",
+      "source_bytes": 1742577,
+      "source_sha256": "3b725a6e70ac29f24672d305063746287759cf44cbf699e0fe5e49d08ca0d12b",
+      "repository_bytes": 1742577,
+      "repository_sha256": "3b725a6e70ac29f24672d305063746287759cf44cbf699e0fe5e49d08ca0d12b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-violet-stardust-original/preview.png",
+      "repository_path": "app/src/main/assets/library/image-violet-stardust-original/preview.png",
+      "source_bytes": 348133,
+      "source_sha256": "8dd71237f3f55e36699b37c1717c23b4b5b46b8b0fc2c1c41927cbc04e01b92d",
+      "repository_bytes": 348133,
+      "repository_sha256": "8dd71237f3f55e36699b37c1717c23b4b5b46b8b0fc2c1c41927cbc04e01b92d",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-violet-stardust-original/source.png",
+      "repository_path": "app/src/main/assets/library/image-violet-stardust-original/source.png",
+      "source_bytes": 1190441,
+      "source_sha256": "505c56ba01d8be7695d79cf5efbb94b652d2738c271642c7d576dc635499be34",
+      "repository_bytes": 1190441,
+      "repository_sha256": "505c56ba01d8be7695d79cf5efbb94b652d2738c271642c7d576dc635499be34",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-violet-stardust-oval/preview.png",
+      "repository_path": "app/src/main/assets/library/image-violet-stardust-oval/preview.png",
+      "source_bytes": 484974,
+      "source_sha256": "e373e6fb55560c2c4e6816cbf8cc4685464a5f0cdce2bc1ad285463c46ccfb1d",
+      "repository_bytes": 484974,
+      "repository_sha256": "e373e6fb55560c2c4e6816cbf8cc4685464a5f0cdce2bc1ad285463c46ccfb1d",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/image-violet-stardust-oval/source.png",
+      "repository_path": "app/src/main/assets/library/image-violet-stardust-oval/source.png",
+      "source_bytes": 1692843,
+      "source_sha256": "d03c09785180532066d8bb4b3e0187b7d8e75433f63d11faa8a9e51641996de4",
+      "repository_bytes": 1692843,
+      "repository_sha256": "d03c09785180532066d8bb4b3e0187b7d8e75433f63d11faa8a9e51641996de4",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/moon-guide-early/preview.png",
+      "repository_path": "app/src/main/assets/library/moon-guide-early/preview.png",
+      "source_bytes": 44173,
+      "source_sha256": "8f6aa74366ea4b004e99098c3bd8f184babd878bfe74adecc0da0a0f80d0ed69",
+      "repository_bytes": 44173,
+      "repository_sha256": "8f6aa74366ea4b004e99098c3bd8f184babd878bfe74adecc0da0a0f80d0ed69",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/moon-guide-early/source.glb",
+      "repository_path": "app/src/main/assets/library/moon-guide-early/source.glb",
+      "source_bytes": 471772,
+      "source_sha256": "b084c153bed338b7aa50d9d949979a34b63e2d7951908357157699409ea268e9",
+      "repository_bytes": 471772,
+      "repository_sha256": "b084c153bed338b7aa50d9d949979a34b63e2d7951908357157699409ea268e9",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/moon-guide-rig-early/preview.png",
+      "repository_path": "app/src/main/assets/library/moon-guide-rig-early/preview.png",
+      "source_bytes": 44204,
+      "source_sha256": "cfe8fc3d759143d1467048fed3803395ceb970adc96077e516873668545d6d00",
+      "repository_bytes": 44204,
+      "repository_sha256": "cfe8fc3d759143d1467048fed3803395ceb970adc96077e516873668545d6d00",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/moon-guide-rig-early/source.glb",
+      "repository_path": "app/src/main/assets/library/moon-guide-rig-early/source.glb",
+      "source_bytes": 731512,
+      "source_sha256": "2f2df54c85dbda8dcc726e6c26f9f46a6143ae94475e2fdbbd89c5cc65f4c7ce",
+      "repository_bytes": 731512,
+      "repository_sha256": "2f2df54c85dbda8dcc726e6c26f9f46a6143ae94475e2fdbbd89c5cc65f4c7ce",
+      "publication_transformation": null
+    },
+    {
       "source_path": "app/src/main/assets/scene-backgrounds/ancient-dark-pattern.png",
       "repository_path": "app/src/main/assets/scene-backgrounds/ancient-dark-pattern.png",
       "source_bytes": 2481061,
@@ -168,6 +665,24 @@
       "source_sha256": "d03c09785180532066d8bb4b3e0187b7d8e75433f63d11faa8a9e51641996de4",
       "repository_bytes": 1692843,
       "repository_sha256": "d03c09785180532066d8bb4b3e0187b7d8e75433f63d11faa8a9e51641996de4",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/AssetLibraryActivity.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/AssetLibraryActivity.java",
+      "source_bytes": 11110,
+      "source_sha256": "6d12236b1fea90a5f12866777f2804113cbacf83a14a0b4b3990257b483b08e4",
+      "repository_bytes": 11110,
+      "repository_sha256": "6d12236b1fea90a5f12866777f2804113cbacf83a14a0b4b3990257b483b08e4",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/AssetLibraryCatalog.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/AssetLibraryCatalog.java",
+      "source_bytes": 12200,
+      "source_sha256": "6a541d544e8998d517af4c9243e625999d30cb5244de1186e911946bab485f88",
+      "repository_bytes": 12200,
+      "repository_sha256": "6a541d544e8998d517af4c9243e625999d30cb5244de1186e911946bab485f88",
       "publication_transformation": null
     },
     {
@@ -685,10 +1200,11 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorRolesActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorRolesActivity.java",
-      "source_bytes": 8382,
-      "source_sha256": "22d55a5987dad9bc045e26ab097ac7936c39dbffe99873ffa5a94b61157cb882",
-      "repository_bytes": 8382,
-      "repository_sha256": "22d55a5987dad9bc045e26ab097ac7936c39dbffe99873ffa5a94b61157cb882"
+      "source_bytes": 8589,
+      "source_sha256": "370ab92e9fe43a01e156fcb8ed251b8e5b533caad45ca1f81637f9a0dccc06a4",
+      "repository_bytes": 8589,
+      "repository_sha256": "370ab92e9fe43a01e156fcb8ed251b8e5b533caad45ca1f81637f9a0dccc06a4",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorRuntimeControls.java",
@@ -1104,6 +1620,15 @@
       "source_sha256": "807a244d15ad714e8dd4b3e704c5523dfeef97e138393ca1ceb2b1c416a78483",
       "repository_bytes": 132,
       "repository_sha256": "807a244d15ad714e8dd4b3e704c5523dfeef97e138393ca1ceb2b1c416a78483",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/asset-library-catalog-v32-20261005.md",
+      "repository_path": "docs/asset-library-catalog-v32-20261005.md",
+      "source_bytes": 7398,
+      "source_sha256": "e07767b1590823f31552e9c813a5c95bbcfaeed3d07cb4f73c9c7454bb524b73",
+      "repository_bytes": 7398,
+      "repository_sha256": "e07767b1590823f31552e9c813a5c95bbcfaeed3d07cb4f73c9c7454bb524b73",
       "publication_transformation": null
     },
     {
@@ -1669,6 +2194,15 @@
       "source_sha256": "a31615ca89b824bb89ec8f5a03e403e487842f6fefbaa067d0f86978c82234a1",
       "repository_bytes": 5717,
       "repository_sha256": "a31615ca89b824bb89ec8f5a03e403e487842f6fefbaa067d0f86978c82234a1"
+    },
+    {
+      "source_path": "docs/production-app-v32-20261005.md",
+      "repository_path": "docs/production-app-v32-20261005.md",
+      "source_bytes": 4847,
+      "source_sha256": "f83ad3cf570e99ee0bb63f0670114eeffac05acc54f192ba6fa37e27ba4d42f5",
+      "repository_bytes": 4847,
+      "repository_sha256": "f83ad3cf570e99ee0bb63f0670114eeffac05acc54f192ba6fa37e27ba4d42f5",
+      "publication_transformation": null
     },
     {
       "source_path": "docs/render-stage-validation.md",
@@ -3376,6 +3910,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "scripts/verify_library_assets.py",
+      "repository_path": "scripts/verify_library_assets.py",
+      "source_bytes": 3464,
+      "source_sha256": "fdd5d5e334d476cba47b85f6e34d592eac182b7c11c255e6da40782e86504a49",
+      "repository_bytes": 3464,
+      "repository_sha256": "fdd5d5e334d476cba47b85f6e34d592eac182b7c11c255e6da40782e86504a49",
+      "publication_transformation": null
+    },
+    {
       "source_path": "settings.gradle",
       "repository_path": "settings.gradle",
       "source_bytes": 337,
@@ -3387,18 +3930,38 @@
     {
       "source_path": "tasks/plan.md",
       "repository_path": "tasks/plan.md",
-      "source_bytes": 1771,
-      "source_sha256": "24b44c12d9de37b9288f951e23d127235638aee73e69ec24d505d31c8e967fb4",
-      "repository_bytes": 1771,
-      "repository_sha256": "24b44c12d9de37b9288f951e23d127235638aee73e69ec24d505d31c8e967fb4"
+      "source_bytes": 2264,
+      "source_sha256": "9954ceb8e6b34f4393b940378c7d38d58f81101292a8d6b148e50b2a41afab99",
+      "repository_bytes": 2264,
+      "repository_sha256": "9954ceb8e6b34f4393b940378c7d38d58f81101292a8d6b148e50b2a41afab99",
+      "publication_transformation": null
     },
     {
       "source_path": "tasks/todo.md",
       "repository_path": "tasks/todo.md",
-      "source_bytes": 2020,
-      "source_sha256": "b93ab0767c39d8343ca7914e895584d1a14479f20c79a93a9514cb53f4d67429",
-      "repository_bytes": 2020,
-      "repository_sha256": "b93ab0767c39d8343ca7914e895584d1a14479f20c79a93a9514cb53f4d67429"
+      "source_bytes": 2627,
+      "source_sha256": "92788f612fdf050d91d05439671b440993f52246707ebde785bea187e3ff24c1",
+      "repository_bytes": 2627,
+      "repository_sha256": "92788f612fdf050d91d05439671b440993f52246707ebde785bea187e3ff24c1",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/AssetLibraryCatalogTest.java",
+      "repository_path": "tests/AssetLibraryCatalogTest.java",
+      "source_bytes": 16808,
+      "source_sha256": "a4c7ec2641738ba1c53163abc5e046413d34c0361849982de39a319536ff1713",
+      "repository_bytes": 16808,
+      "repository_sha256": "a4c7ec2641738ba1c53163abc5e046413d34c0361849982de39a319536ff1713",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/AssetLibraryLifecycleTest.java",
+      "repository_path": "tests/AssetLibraryLifecycleTest.java",
+      "source_bytes": 5047,
+      "source_sha256": "2aa721f144ef71e14f6b914d0d90b8b0039af5ebc44376d366ab96a19fc37ddb",
+      "repository_bytes": 5047,
+      "repository_sha256": "2aa721f144ef71e14f6b914d0d90b8b0039af5ebc44376d366ab96a19fc37ddb",
+      "publication_transformation": null
     },
     {
       "source_path": "tests/AvatarAlbedoAtlasTest.java",
@@ -4722,6 +5285,24 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/run_asset_library_lifecycle_tests.ps1",
+      "repository_path": "tests/run_asset_library_lifecycle_tests.ps1",
+      "source_bytes": 1649,
+      "source_sha256": "5168d72ede7cad8f97f9173699abf2e914543ad3ff5cc1201b5e51c7d7d1df6c",
+      "repository_bytes": 1649,
+      "repository_sha256": "5168d72ede7cad8f97f9173699abf2e914543ad3ff5cc1201b5e51c7d7d1df6c",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/run_asset_library_tests.ps1",
+      "repository_path": "tests/run_asset_library_tests.ps1",
+      "source_bytes": 1672,
+      "source_sha256": "871b1738cf9c7027ea37be1def6b80054d3287074cf1d17d5c201c3984ba6b31",
+      "repository_bytes": 1672,
+      "repository_sha256": "871b1738cf9c7027ea37be1def6b80054d3287074cf1d17d5c201c3984ba6b31",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/run_avatar_framing_tests.ps1",
       "repository_path": "tests/run_avatar_framing_tests.ps1",
       "source_bytes": 1660,
@@ -5468,5 +6049,15 @@
   "public_parent_commit": "c966355fa866baa4f1d3fb4bcb66b95eab3aa996",
   "versionCode": 31,
   "versionName": "0.2.0",
-  "release_apk_sha256": "2093ac779d8ed6e1391345937d050f73182b2a305ca928b24a5ad6faf4375767"
+  "release_apk_sha256": "2093ac779d8ed6e1391345937d050f73182b2a305ca928b24a5ad6faf4375767",
+  "last_iteration": {
+    "versionCode": 32,
+    "versionName": "0.2.1",
+    "approved_source_delta_files": 70,
+    "public_parent": "e027fb4d8c8389f0f0350cf66a00a400c3c96a80",
+    "frozen_copy_hashes_verified": true,
+    "unreviewed_model_pipeline_work_included": false
+  },
+  "source_sha_scope": "Frozen publication working bytes. Existing reviewed V31 mappings are retained; current unfrozen model-authoring worktree edits are excluded.",
+  "source_git_text_normalization": "Existing source Git converts CRLF to LF for three committed text files. Public copies preserve the approved frozen working bytes via * -text."
 }

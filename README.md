@@ -6,27 +6,29 @@
 
 ## 当前版本
 
-当前版本为 **V31 / 0.2.0**（versionCode 31），源工程冻结点 `8dcacdfb68eb305365f6bbac04e9f016abf765e4`。仓库继续采用独立源码快照，保留原 main 历史。
+当前版本为 **V32 / 0.2.1**（versionCode 32），源工程冻结点 `db08d4a372a24cc3d9cbe257ed1af8958880437c`。仓库继续采用独立源码快照，保留原 main 历史。
 
-- 一个 Another You / 另一个你启动入口，原生首页、暗金属/酒红主题、椭圆安全区菜单与选择弹窗；角色、场景、校准、设置及返回首页均可达。
-- APK 内含杰洛特 stage13 校正版及原有参考向导两个角色，选择后才加载一个模型；保留原本地导入/恢复机制及四种图片、八种程序背景。其余九种 IP 头部正在逐项校正，未验收中间资产不入包。
-- 实际设备已验证两个模型的生产加载器与 GL 首帧、角色切换后唯一运行页、背景保存/取消、覆盖升级配置保留，以及退出后的运行/GL/姿态线程清理。
-- 当前相机仍报 `CAMERA_ERROR (3)` 流配置错误。完整实时面捕、个人眉眼/微笑美术验收及联合性能未通过；16 视点以上 30 FPS 目标仍未达标，不能把本次 UI/资源验收当作性能达标。
-- 本版保持原包名、debug 证书和 v30 生产原生依赖，覆盖升级不清除数据、不刷固件；属于当前设备内部安装版，未配置商店发布签名。APK 不含私人视频和人脸数值 fixture；APK、签名私钥与设备配置不上传。
+- Another You / 另一个你单启动入口，原生首页、暗金属/酒红主题和椭圆安全区；角色页顶部新增“素材库”入口。
+- 素材库实际打包 **27 项、55 文件、79,285,490 字节**：15 项头部原件/历史版本、4 项三维场景原件、8 项原版/椭圆图片。十个 IP 身份中，杰洛特已接入魔镜，其余九个继续面部校正；参考向导也可选用。原件与校正版的哈希分开追踪。
+- 每次仅加载所选静态预览，不解码全库模型；静态/档案没有“使用角色”按钮。可用角色经后台校验当前模型和清单后才保存选择，准备期间可返回取消。失败的初版场景保留为档案，两个有效后续场景仍为静态预览；当前实时背景继续为四种图片、八种程序背景。
+- 实际设备已验证预览、取消/返回、两角色新会话 GL 首帧、切换和退出后的线程清理；原四份设置与导入状态逐字节恢复。首页退出后 PSS 为 119,234 KiB，此数不代表联合面捕/交织负载。
+- 相机仍报 `CAMERA_ERROR (3)` 流配置错误。完整实时面捕、个人表情美术及联合性能未通过；16 视点以上 30 FPS 仍未达标。资产入库和 GL 首帧通过不能替代这些门槛。
+- 保持原包名、debug 证书、固定生产原生依赖；覆盖升级保留数据与 ADB，不刷固件。当前为设备内部安装版，未配置商店发布签名。APK、私人测试数据、签名私钥和设备配置不上传。
 
-详见 [V31 行为与实际验收](docs/production-app-v31-20261005.md)、[完整目标与后续规格](docs/production-app-spec-20261005.md)、[角色目录接口](docs/bundled-avatar-catalog-20261005.md) 和 [仓库同步范围](docs/repository-sync-20261005.md)。旧 [面部修正记录](docs/face-feedback-refinement-20261005.md) 保留其当时的候选/回滚状态，当前部署结论以 V31 发布说明为准。
+详见 [V32 行为与实际验收](docs/production-app-v32-20261005.md)、[素材库接口](docs/asset-library-catalog-v32-20261005.md)、[完整目标规格](docs/production-app-spec-20261005.md)和[仓库同步历史](docs/repository-sync-20261005.md)。[V31 记录](docs/production-app-v31-20261005.md)及更早测试保留其当时条件，当前部署结论以 V32 发布说明和 `product-release-manifest.json` 为准。
 
 ## 目录
 
 | 路径 | 内容 |
 | --- | --- |
 | `app/` | 面捕、NPU、角色管理、渲染、交织与校准 Android 应用 |
-| `app/src/main/assets/avatars/catalog/` | V31 轻量角色目录及实际杰洛特模型、manifest、真实缩略图 |
+| `app/src/main/assets/avatars/catalog/` | 运行角色轻量目录及实际杰洛特模型、manifest、真实缩略图 |
+| `app/src/main/assets/library/` | 27 项源资产、认证静态预览与就绪状态目录 |
 | `launcher/` | 轻量设备桌面 |
 | `native/` | RGA / RKNN / 多视点 JNI 源码及保留原声明的 SDK 头文件 |
 | `scripts/` | 构建、检查、资产处理与设备测试脚本 |
 | `tests/` | JVM、C、Python 和 Blender 检查入口 |
-| `runtime-assets/geralt/stage13-candidate/` | 先前候选快照与作者检查入口，历史状态保留；V31 APK 使用 catalog 目录 |
+| `runtime-assets/geralt/stage13-candidate/` | 先前候选快照与作者检查入口，历史状态保留；当前 APK 使用 catalog 目录 |
 | `docs/` | 设计、测试条件、历史结果和当前状态说明 |
 | `third-party-notices/` | 实际依赖随附声明和来源说明 |
 
@@ -76,6 +78,16 @@ GLB / worker 检查使用真实 JSON-java 20240303。按 [loader 检查说明](t
 ./tests/run_camera_preview_bundled_tests.ps1
 ```
 
+V32 素材库与真实最终 APK 检查：
+
+```powershell
+./tests/run_asset_library_tests.ps1 -AssetsRoot './app/src/main/assets'
+./tests/run_asset_library_tests.ps1 -Apk 'PATH-TO-YOUR-BUILT-APK'
+./tests/run_asset_library_lifecycle_tests.ps1
+```
+
+目录/实际 APK 源与完整 PNG 解码共 187 项检查通过；真实 Activity 选择边界并发检查 22 项通过。生命周期 runner 使用实际 Android SDK 和已编译 app 依赖，默认路径可通过参数替换，不会自行启动 Gradle。补充已知资产核对可运行 `python scripts/verify_library_assets.py --assets app/src/main/assets`；使用未优化的 Python，不以该脚本代替严格 Java 目录/GPU/艺术门槛。
+
 V31 实际通过 Catalog/Selection 97 项、UI/StartupGate 51 项、两个真实 GLB 校准加载 16 项及相关 SDK/管理/renderer 回归。主机统计与成功当前 EGL 首帧是不同门槛；主机检查不能证明物理相机或 30 FPS。五个 `asset_pipeline` profile/base/segmentation 文件仅为已知本地输入实验，配套四项测试不证明通用模型身份校验、完整面部绑定或 Ada 的艺术验收；其余管线和实验模型输出未上传。
 
 牙齿检查器的 3 项异常变更回归需要本地 stage12-safe、完整 stage13 作者报告及实际 pose fixtures。公开候选目录只带 GLB/清单，不包含这些前序作者输入；全新 checkout 运行 `tests/test_dentition_appearance_gate.py` 时会明确 skip，不能把 skip 当作回归通过。原实验环境中这 3 项回归以及实际 19 姿态/17520 闭唇采样已通过。
@@ -86,7 +98,7 @@ Blender 作者检查使用 Blender 4.5.12 LTS，Python 几何检查通常需要 
 
 没有上传个人视频、NV21 录像、捕获到的人脸截图、真实面部坐标与表情数组、设备私有 preferences、签名密钥或 API 凭据。
 
-`app/src/main/assets/expression-validation/*.f32` 中的固定 92 组 fixture 含真实人脸样本，因此从 Git 和 V31 APK 打包排除，源本地原件保留。`ExpressionAppCheckActivity` 的这组哈希固定验证需要本地原 fixture；缺失必须明确报错，不能用不同数据替换后声称原验证仍通过。使用自己的本地视频执行 replay 测试，需要另行记录测试数据来源与条件。
+`app/src/main/assets/expression-validation/*.f32` 中的固定 92 组 fixture 含真实人脸样本，因此从 Git 和产品 APK 打包排除，源本地原件保留。`ExpressionAppCheckActivity` 的这组哈希固定验证需要本地原 fixture；缺失必须明确报错，不能用不同数据替换后声称原验证仍通过。使用自己的本地视频执行 replay 测试，需要另行记录测试数据来源与条件。
 
 原始实验说明保存在 [device-lab 历史说明](docs/device-lab-history.md)，当前部署状态和限制应以本次同步说明为准。
 
