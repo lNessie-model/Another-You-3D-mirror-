@@ -35,6 +35,8 @@ public final class MirrorRolesActivity extends Activity {
         body.addView(MirrorTheme.text(this,"镜中角色",25,true));
         status=MirrorTheme.text(this,"正在读取角色…",13,false);body.addView(status);
         enter=MirrorTheme.button(this,"进入魔镜",true,this::openMirror);MirrorTheme.addButton(body,enter);
+        Button library=MirrorTheme.button(this,"素材库",false,
+                ()->startActivity(new Intent(this,AssetLibraryActivity.class)));navigation.add(library);MirrorTheme.addButton(body,library);
         gallery=new LinearLayout(this);gallery.setOrientation(LinearLayout.VERTICAL);body.addView(gallery);
         Button manage=MirrorTheme.button(this,"导入与管理本地角色",false,
                 ()->startActivity(new Intent(this,AvatarManagementActivity.class)));navigation.add(manage);MirrorTheme.addButton(body,manage);
