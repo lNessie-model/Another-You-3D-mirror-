@@ -46,30 +46,39 @@ final class CameraCalibrationPanel {
     private final boolean writable;
     CameraCalibrationPanel(Activity activity,CameraControlSettings initial,FaceControlCalibration initialCalibration,boolean writable,Host host){
         this.host=host;this.draft=initial;this.calibration=new FaceControlCalibration(initialCalibration.revision(),initial.mirrorInteraction,null,null);this.writable=writable;
-        LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(20,8,20,8);
+        LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(MirrorTheme.dp(activity,14),MirrorTheme.dp(activity,8),MirrorTheme.dp(activity,14),MirrorTheme.dp(activity,8));
+        TextView directionTitle=text(activity,"01 · 核对方向",18);body.addView(directionTitle);
         identity=text(activity,"等待相机准备完成……");body.addView(identity);
-        body.addView(text(activity,"左侧为规范输入（不额外镜像），用字母 F 或文字确认方向；右侧角色用于检查左右眼、张口和转头。"));
+        body.addView(text(activity,"用文字或字母 F 核对相机方向，再检查角色的左右眨眼、张口和转头。"));
         image=new ImageView(activity);image.setAdjustViewBounds(true);image.setScaleType(ImageView.ScaleType.FIT_CENTER);
         LinearLayout previews=new LinearLayout(activity);previews.setOrientation(LinearLayout.HORIZONTAL);
-        previews.addView(image,new LinearLayout.LayoutParams(0,-1,1));
+        LinearLayout cameraColumn=new LinearLayout(activity);cameraColumn.setOrientation(LinearLayout.VERTICAL);
+        TextView cameraLabel=MirrorTheme.text(activity,"相机画面",13,false);cameraColumn.addView(cameraLabel);
+        cameraColumn.addView(image,new LinearLayout.LayoutParams(-1,0,1));
+        previews.addView(cameraColumn,new LinearLayout.LayoutParams(0,-1,1));
         avatarStatus=text(activity,"角色正在加载……");
         avatarPreview=new CameraCalibrationAvatarPreview(activity,new java.io.File(activity.getFilesDir(),"avatars"),
-                android.os.Build.VERSION.SDK_INT,value->{avatarStatus.setText(avatarLabel(value));if(initialized&&!isClosed())refreshEnabled();});
+                android.os.Build.VERSION.SDK_INT,value->{setTextIfChanged(avatarStatus,avatarLabel(value));if(initialized&&!isClosed())refreshEnabled();});
         try{
-        previews.addView(avatarPreview,new LinearLayout.LayoutParams(0,-1,1));
-        body.addView(previews,new LinearLayout.LayoutParams(-1,360));body.addView(avatarStatus);
+        LinearLayout roleColumn=new LinearLayout(activity);roleColumn.setOrientation(LinearLayout.VERTICAL);
+        roleColumn.addView(MirrorTheme.text(activity,"角色动作",13,false));
+        roleColumn.addView(avatarPreview,new LinearLayout.LayoutParams(-1,0,1));
+        previews.addView(roleColumn,new LinearLayout.LayoutParams(0,-1,1));
+        body.addView(previews,new LinearLayout.LayoutParams(-1,MirrorTheme.dp(activity,180)));body.addView(avatarStatus);
         rotation=MirrorTheme.selectionSpinner(activity,"相机旋转方向");ArrayAdapter<String> adapter=new ArrayAdapter<>(activity,android.R.layout.simple_spinner_item,new String[]{"顺时针旋转 0°","顺时针旋转 90°","顺时针旋转 180°","顺时针旋转 270°"});
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);rotation.setAdapter(adapter);body.addView(rotation);
         reflect=check(activity,"校正摄像头自带的左右颠倒（旋转后）");body.addView(reflect);
         mirror=check(activity,"镜像互动（只改变角色动作）");body.addView(mirror);
+        TextView baselineTitle=text(activity,"02 · 放松，建立基准",18);body.addView(baselineTitle);
         personal=check(activity,"本次同时校准个人眼口与视线偏置");body.addView(personal);
-        body.addView(text(activity,"正视、放松、睁眼、闭口，保持约 2 秒。中性阈值尚待真人验证；采集成功后仍需检查动作。"));
+        body.addView(text(activity,"正视、放松、自然睁眼并闭口，保持约 2 秒。采集后点击确认，再检查动作。"));
         LinearLayout buttons=new LinearLayout(activity);body.addView(buttons);
         collect=new Button(activity);collect.setText("采集中性");buttons.addView(collect,new LinearLayout.LayoutParams(0,-2,1));
         confirm=new Button(activity);confirm.setText("确认本次中性");confirm.setEnabled(false);buttons.addView(confirm,new LinearLayout.LayoutParams(0,-2,1));
         Button clear=new Button(activity);clear.setText("清除本次基准 / 取消采集");body.addView(clear);
         progress=text(activity,"头部与个人基准仅用于本次会话，不写入安装设置。");body.addView(progress);
         actions=text(activity,"等待动作数据");body.addView(actions);
+        TextView checkTitle=text(activity,"03 · 检查并保存",18);body.addView(checkTitle);
         checked=check(activity,"已核对文字方向、左右眨眼、张口、视线与转头");body.addView(checked);
         ScrollView scroll=new ScrollView(activity);scroll.addView(body);
         dialog=new AlertDialog.Builder(activity).setTitle("相机与动作校准").setView(scroll)
@@ -93,6 +102,9 @@ final class CameraCalibrationPanel {
         checked.setOnCheckedChangeListener((v,b)->refreshEnabled());
         dialog.setOnDismissListener(d->finish());
         dialog.show();MirrorTheme.safeDialog(activity,dialog);
+        if(dialog.getWindow()!=null)dialog.getWindow().setBackgroundDrawable(MirrorTheme.surface(activity,MirrorTheme.SURFACE|0xff000000));
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x44d1ba91),MirrorTheme.surface(activity,MirrorTheme.WINE),null));
+        for(TextView heading:new TextView[]{directionTitle,baselineTitle,checkTitle}){heading.setTextColor(MirrorTheme.GOLD);if(android.os.Build.VERSION.SDK_INT>=28)heading.setAccessibilityHeading(true);}
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v->dialog.dismiss());
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v->{
             if(input==null)return;draft=new CameraControlSettings(input.effective.cameraId,input.effective.fingerprint,640,480,0,false,false,nextRevision());
@@ -116,12 +128,13 @@ final class CameraCalibrationPanel {
             case "READY" -> "角色动作预览";case "ERROR" -> "角色预览失败";
             case "PAUSED" -> "角色预览已暂停";case "CLOSED" -> "角色预览已关闭";default -> value.state();};
         return state+(value.displayName().isEmpty()?"":" · "+value.displayName())
-                +(value.modelSha256().isEmpty()?"":" · "+value.modelSha256().substring(0,12))
                 +(value.error().isEmpty()?"":"\n"+value.error());
     }
     private long nextRevision(){return Math.addExact(Math.max(draft.revision,calibration.revision()),1);}
-    private static TextView text(Activity a,String value){TextView v=new TextView(a);v.setText(value);v.setTextSize(13);return v;}
-    private static CheckBox check(Activity a,String value){CheckBox v=new CheckBox(a);v.setText(value);v.setTextSize(13);return v;}
+    private static void setTextIfChanged(TextView target,String value){if(!value.contentEquals(target.getText()))target.setText(value);}
+    private static TextView text(Activity a,String value){return text(a,value,14);}
+    private static TextView text(Activity a,String value,int size){TextView v=new TextView(a);v.setText(value);v.setTextSize(size);v.setTextColor(MirrorTheme.INK);v.setPadding(0,MirrorTheme.dp(a,6),0,MirrorTheme.dp(a,6));return v;}
+    private static CheckBox check(Activity a,String value){CheckBox v=new CheckBox(a);v.setText(value);v.setTextSize(14);return v;}
     private void syncControls(){binding=true;rotation.setSelection(draft.rotationDegrees/90);reflect.setChecked(draft.reflectInput);mirror.setChecked(draft.mirrorInteraction);binding=false;}
     private void editInput(){
         if(input==null){syncControls();return;}cancelCollection();checked.setChecked(false);inputChanged=true;
@@ -149,8 +162,8 @@ final class CameraCalibrationPanel {
                 }
                 if(hadInput)inputChanged=true;
                 clearNeutral();
-                identity.setText("Camera2 "+current.effective.cameraId+" · 640×480 → "+(current.effective.rotationDegrees%180==0?"640×480":"480×640")
-                        +"\n描述指纹 "+current.effective.fingerprint.substring(0,12)+"…（不等同 USB 序列号）\n"+current.warning);
+                identity.setText("相机已准备 · "+(current.effective.rotationDegrees%180==0?"640×480":"480×640")
+                        +(current.warning.isEmpty()?"":"\n"+current.warning));
             }else identity.setText("正在释放旧输入 / 重新打开相机……");
         }
         Bitmap preview=takePreview(current==null?null:current.token);if(preview!=null)image.setImageBitmap(preview);
@@ -164,7 +177,7 @@ final class CameraCalibrationPanel {
             if(mapped.state()==InteractionController.State.WAITING&&(calibration.hasNeutralPose()||calibration.personalBaseline()!=null)){
                 clearNeutral();progress.setText("已离开互动，当前个人基准已清除；可重新采集。");
             }
-            float[] w=mapped.blendshapes52();actions.setText(String.format(Locale.ROOT,"角色输入 · 左眨眼 %.2f / 右眨眼 %.2f / 张口 %.2f\n%s",w[9],w[10],w[25],mapped.calibrationError()));}
+            float[] w=mapped.blendshapes52();setTextIfChanged(actions,String.format(Locale.ROOT,"角色输入 · 左眨眼 %.2f / 右眨眼 %.2f / 张口 %.2f\n%s",w[9],w[10],w[25],mapped.calibrationError()));}
         refreshEnabled();
     }
     private static String collectorStatus(NeutralCalibrationCollector.Status state){return switch(state){

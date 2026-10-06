@@ -204,11 +204,22 @@ public final class MirrorActivity extends Activity {
         return configured;
     }
     private void showSceneView(){
-        if(sceneViewPanel!=null)return;
+        if(sceneViewPanel!=null||!resumed||isFinishing()||isDestroyed())return;
         sceneViewPanel=new SceneViewPanel(this,sceneViewSettings,new SceneViewPanel.Host(){
+            private boolean closed;
             public void preview(SceneViewSettings value){sceneViewSettings=value;renderer.setSceneView(value);}
-            public void closed(){sceneViewPanel=null;}
+            public void fullPreview(boolean active){runtimeControls.view().setVisibility(active?View.GONE:View.VISIBLE);}
+            public void closed(){
+                if(closed)return;closed=true;sceneViewPanel=null;
+                returnToSettingsAfterEditor();
+            }
         },options.viewCount);sceneViewPanel.show();
+    }
+    private boolean returnToSettingsAfterEditor(){
+        // onPause dismisses drafts too; only a live user dismissal navigates back.
+        if(!resumed||isFinishing()||isDestroyed()
+                ||!getIntent().getBooleanExtra(MirrorSettingsActivity.RETURN_TO_SETTINGS,false))return false;
+        productActionConsumed=true;finish();return true;
     }
     private void saveRuntimeProfile(int fps,String preset,int views) {
         boolean changed=fps!=settings.activeFps||!preset.equals(settings.viewPreset)||views!=settings.viewCount;
@@ -227,7 +238,7 @@ public final class MirrorActivity extends Activity {
         main.post(this::showRequestedProductPage);
     }
     private void showRequestedProductPage(){
-        if(!resumed||productActionConsumed)return;
+        if(!resumed||productActionConsumed||isFinishing()||isDestroyed())return;
         String action=getIntent().getStringExtra(MirrorHomeActivity.PRODUCT_ACTION);
         // Camera calibration needs the actual role and its first frame; retain the request until both exist.
         if("camera".equals(action)&&(!avatarStartup.ready()||!renderer.hasRuntimeFrame()))return;
@@ -568,7 +579,7 @@ public final class MirrorActivity extends Activity {
         dialog.setOnDismissListener(d->productSettings=null);dialog.show();MirrorTheme.safeDialog(this,dialog);
     }
     private void showCameraCalibration(){
-        if(cameraPanel!=null||!resumed)return;
+        if(cameraPanel!=null||!resumed||isFinishing()||isDestroyed())return;
         if(!avatarStartup.ready()){
             android.widget.Toast.makeText(this,configurationError.contains("所选角色")?"请先在角色页重新选择角色，再打开校准。":"角色仍在准备，请稍后打开校准。",android.widget.Toast.LENGTH_LONG).show();return;
         }
@@ -628,13 +639,15 @@ public final class MirrorActivity extends Activity {
                         if(inputChanged){cameraInput=null;cameraObservation=null;interaction.reset();cancelWorker();}
                     }
                 }
-                if(resumed){renderer.resumeRuntimeAvatar();surface.onResume();}
+                if(resumed&&!isFinishing()&&!isDestroyed()&&!returnToSettingsAfterEditor()){
+                    renderer.resumeRuntimeAvatar();surface.onResume();
+                }
             }
         });
         cameraPanel.startPreview();
         }catch(RuntimeException failure){
             if(cameraPanel!=null)cameraPanel.dismiss();
-            else if(resumed){renderer.resumeRuntimeAvatar();surface.onResume();}
+            else if(resumed&&!isFinishing()&&!isDestroyed()){renderer.resumeRuntimeAvatar();surface.onResume();}
             android.widget.Toast.makeText(this,"无法打开校准预览："+concise(failure),android.widget.Toast.LENGTH_LONG).show();
         }
         startIfReady(false);
