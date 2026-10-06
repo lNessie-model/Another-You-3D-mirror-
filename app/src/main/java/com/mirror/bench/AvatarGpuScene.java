@@ -280,6 +280,17 @@ final class AvatarGpuScene {
     void draw(float[] viewProjections,int viewCount,float aspect) {
         drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.ALL);
     }
+    /** Explicit diagnostic only; shares the reference's current uploaded VBOs, fit and world matrices. */
+    void drawMaterialCoverage(float[] viewProjections,int viewCount,float aspect,int estimateTexture) {
+        if(drawMode!=DrawMode.BATCHED||batch==null||ormComparison!=null||pbrComparison!=null)
+            throw new IllegalStateException("Ordinary batched diagnostic scene required");
+        copyFitMatrix(aspect,fit);
+        batch.drawMaterialCoverage(viewProjections,viewCount,fit,displayedWorlds,estimateTexture);
+    }
+    org.json.JSONArray materialCoverageEntries()throws Exception {
+        if(drawMode!=DrawMode.BATCHED||batch==null)throw new IllegalStateException("Batched diagnostic scene required");
+        return batch.materialCoverageEntries();
+    }
     boolean hasCacheableStaticBackground(){return drawMode==DrawMode.INDIVIDUAL&&drawPartition.canCacheTrailingBackground();}
     String modelSha256(){return sha256;}
     int staticBackgroundStateFloats(){return 16*(1+staticBackgroundNodes.length);}

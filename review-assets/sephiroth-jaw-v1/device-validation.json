@@ -1,0 +1,57 @@
+{
+  "model_sha256": "d086ec755d554d87c261ed557cfa784b3aa4016277a71c230ebed6d5d5ce5484",
+  "apk_sha256": "2a3b110b99d16053cf0dad522b7e41a47380c4e1dbaf1eaee2ff67c330e2cd08",
+  "run_id": "79e7160d-2f36-4b61-8d28-d4529188421f",
+  "actual_device_pngs": 10,
+  "serial_vs_ovr": true,
+  "individual_vs_batch": true,
+  "configs_byte_exact": true,
+  "artwork_accepted": false,
+  "formal_integrated": false,
+  "performance_evidence": false,
+  "scope": "Fresh Mali PBR renders and deterministic 9 poses x16 layers for each comparison; no live camera, optical or artistic acceptance",
+  "geometry": {
+    "vertices": 19523,
+    "triangles": 18250,
+    "draw_items": 8,
+    "model_bytes": 15967056
+  },
+  "comparisons": {
+    "serial_vs_ovr": {
+      "passed": true,
+      "views": 16,
+      "completed_fixtures": 9,
+      "layer_comparisons": 144,
+      "max_rgb_error_allowed": 0,
+      "rmse_allowed": 0,
+      "alpha_error_allowed": 0,
+      "pose_variation_visible": true
+    },
+    "individual_vs_batch": {
+      "passed": true,
+      "views": 16,
+      "completed_fixtures": 9,
+      "layer_comparisons": 144,
+      "max_rgb_error_allowed": 1,
+      "rmse_allowed": 0.1,
+      "alpha_error_allowed": 0,
+      "pose_variation_visible": true
+    }
+  },
+  "observed_comparisons": {
+    "serial_vs_ovr": {
+      "layers": 144,
+      "max_rgb_error": 0,
+      "max_rmse": 0,
+      "rgb_byte_mismatches": 0,
+      "alpha_mismatches": 0
+    },
+    "individual_vs_batch": {
+      "layers": 144,
+      "max_rgb_error": 0,
+      "max_rmse": 0,
+      "rgb_byte_mismatches": 0,
+      "alpha_mismatches": 0
+    }
+  }
+}
