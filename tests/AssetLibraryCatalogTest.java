@@ -129,6 +129,13 @@ public final class AssetLibraryCatalogTest {
         Assets notVerified=new Assets(catalog(ready));notVerified.files.put("avatars/catalog/catalog.json",
             liveCatalog().toString().replace("device_verified","candidate").getBytes(StandardCharsets.UTF_8));
         rejected(()->AssetLibraryCatalog.read(notVerified),"unverified current role ready claim");
+        Assets trial=new Assets(catalog(ready));
+        trial.files.put("avatars/catalog/catalog.json",liveCatalog().toString()
+            .replace("device_verified","corrected_trial").getBytes(StandardCharsets.UTF_8));
+        var trialEntry=AssetLibraryCatalog.read(trial).get(0);
+        check(AssetLibraryCatalog.verifiedRuntimeEntry(trial,trialEntry).status.equals("corrected_trial"),"Calibrated trial role authenticated without claiming live-face acceptance");
+        trial.files.put("avatars/catalog/geralt/character.glb","changed trial".getBytes(StandardCharsets.UTF_8));
+        rejected(()->AssetLibraryCatalog.verifiedRuntimeEntry(trial,trialEntry),"Trial role still requires matching actual GLB bytes");
         Assets missingLive=new Assets(catalog(ready));missingLive.files.remove("avatars/catalog/catalog.json");rejected(()->AssetLibraryCatalog.read(missingLive),"missing live catalog");
         readyAssets.files.put("avatars/catalog/geralt/character.glb","changed".getBytes(StandardCharsets.UTF_8));
         rejected(()->AssetLibraryCatalog.verifiedRuntimeEntry(readyAssets,readyEntry),"modified actual live bytes");

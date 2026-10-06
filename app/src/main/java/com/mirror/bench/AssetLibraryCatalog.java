@@ -93,7 +93,7 @@ public final class AssetLibraryCatalog {
     private static BundledAvatarCatalog.Entry matchingLive(List<BundledAvatarCatalog.Entry> entries,Entry entry)throws IOException{
         BundledAvatarCatalog.Entry live=BundledAvatarCatalog.find(entries,entry.liveRoleId);
         if(!live.modelSha256.equals(entry.liveModelSha256)
-            ||!(live.status.equals("device_verified")||live.status.equals("legacy_reference")))throw invalid("Library ready state does not match a verified current role");
+            ||!(live.status.equals("device_verified")||live.status.equals("legacy_reference")||live.status.equals("corrected_trial")))throw invalid("Library ready state does not match a verified current role");
         return live;
     }
     /** Open exactly one selected preview; authenticate bytes and bound PNG dimensions before decoding. */
