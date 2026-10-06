@@ -6,15 +6,15 @@
 
 ## 当前版本
 
-当前版本为 **V35 / 0.2.4**（versionCode 35），源工程冻结点 `87c5e83e37975874fb4f16717add450d0d29d65f`。新增默认关闭的 GPU 诊断：debug 明确 Boolean `test_gpu_profile=true` 或采集脚本 `--gpu-profile` 才开启，普通页面没有新增诊断控件。三个可选择身份与 27 项素材、默认杰洛特和暗红雾保持 V34，仓库保留原 main 历史。
+当前版本为 **V36 / 0.2.5**（versionCode 36），源工程冻结点 `032707ed4b280dd96b7fe50a475ef1b076455c20`。增加默认关闭的杰洛特 ORM 上传诊断：只在 debug 明确 Boolean `test_orm_rg8=true` 时尝试 RG8；模型/材质/三图哈希都必须匹配，未知模型回退 RGBA8。普通入口仍用原格式；三个可选择身份、27 项素材和页面保持 V35。
 
-- V2 只计时绑定 framebuffer 0 后的最终一次交织绘制；固定查询池、异步读取，每 8 个真实回调采样。OVR 多视图 GPU 时间明确不支持，背景融合也不能单独拆分；不使用差值推算。错误跨 OVR 查询的 V1 候选已撤回，没有发布。
-- 实际同 APK 16 视点、每视点 400×640、输出 1200×1920，正式完整杰洛特配合录制人脸推理/渲染，短测 off/on/off 呈现 FPS 为 **8.915 / 8.870 / 8.865**。33 个有效最终绘制查询中位 **16.258 ms**、p95 **16.629 ms**；不能当成整帧或独占 GPU busy。录制输入不含 USB 采集/视频解码，顺序短测受温度影响，不认定精确开销或长期稳定性。
-- 实机 HOME 保持与重建 EGL、正式入口默认关闭、正常 Back 退出和四份原配置恢复通过。最终 APK 的全部 **78 assets、9 native libraries** 与 V34 逐字节一致；保留原内部 debug 证书、包名、CAMERA 权限与设备数据，不刷固件。
-- 相机仍报 `CAMERA_ERROR (3)` / `endConfigure` 流配置失败，没有成功 USB 帧。完整正式模型没有达到 30 FPS，历史诊断网格成绩不冒充当前模型。艾达个人确认、其余八个 IP 的校正、三维背景接入和实时本人联合验证仍待完成；NPU 已承担面捕，不能直接执行 OpenGL 交织/材质着色。
-- 素材库仍为 **27 项、55 文件、79,547,460 字节**；艾达保留 `corrected_trial` 和既有美术限制。固定 15 项生产依赖及原 LICENSE/NOTICE 保留。APK、个人影像/向量、设备私有配置、凭据、V1 实验及其它未验收模型/背景管线不上传。
+- 保留原 GLB、几何、表情、颜色/法线、PBR shader、mip/过滤及绘制顺序。只在上传时提取 R/G，完整 ORM mip 格式数据从 22,369,620 降至 11,184,810 字节；这不是实际 GPU 驻留或内存/FPS 收益测量。
+- 真实 Mali-G52 的 69 姿态在串行 individual / OVR4 batch 中比较 16 视点，共 **2208 对像素差异为零**，实际纹理绑定、可见画面/姿态变化、清理和状态恢复通过。516 秒的阻塞 readback 检查不作为运行 FPS。
+- 同 APK 录制动态人脸推理+真实杰洛特，16×400×640、输出 1200×1920，原/候选/原呈现 FPS **8.949 / 8.712 / 8.889**；未证明提升，没有达到 30 FPS。顺序短测受温度影响，不断言精确因果退化或长期表现；不含 USB 采集/视频解码，GPU timer 全程关闭。
+- 正式入口 RG8 和 GPU 采样都关闭，杰洛特首帧、正常 Back、无 GL/Pose 工作线程和四份原配置通过。相机仍有 Camera2 流配置错误，没有实时 USB 帧。最终 APK 的 **78 assets、9 native entries** 与 V35 逐字节一致，保留原内部 debug 签名、包名、CAMERA 权限和设备数据。
+- 素材库仍为 **27 项、55 文件、79,547,460 字节**；艾达保持 `corrected_trial`。其余模型与三维背景在研内容没有混入。本版补齐 11 个 standalone runner 的新增类显式依赖；固定 15 项生产依赖和原 LICENSE/NOTICE 保留。APK、output、个人影像/向量、配置、凭据不上传。
 
-详见 [V35 测量范围与实际验收](docs/production-app-v35-20261006.md)、[V34 角色记录](docs/production-app-v34-20261006.md)、[V33 预览记录](docs/production-app-v33-20261005.md)、[正式 App 规格](docs/production-app-spec-20261005.md)和[同步历史](docs/repository-sync-20261005.md)。此前结果保留当时条件，当前发布范围以 V35 说明和 `product-release-manifest.json` 为准。
+详见 [V36 实现与实际验收](docs/production-app-v36-20261006.md)、[V35 最终绘制计时记录](docs/production-app-v35-20261006.md)、[V34 角色记录](docs/production-app-v34-20261006.md)、[正式 App 规格](docs/production-app-spec-20261005.md)和[同步历史](docs/repository-sync-20261005.md)。V35 的 timer 查询保留为历史结果，当前版本的像素/性能结论以 V36 文档与 `product-release-manifest.json` 为准。实时面捕、个人艺术验收、更多三维背景及正式角色 16+ 视点 30 FPS 仍未完成。
 
 ## 目录
 

@@ -43,6 +43,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     private boolean privateHead;
     private boolean verifyPrivateHead;
     private boolean verifyBackgroundCache;
+    private boolean verifyOrmRg8,ormVerificationComplete;
     private int backgroundVerificationViews=20;
     private int verificationViewCount=20;
     private int verificationViewHeight=720;
@@ -75,11 +76,18 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     @Override protected void onPause(){cancelled=true;surface.onPause();super.onPause();}
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
         // Old GL names belong to the destroyed context; do not dispose them in this new context.
-        scene=null;error="";runId=UUID.randomUUID().toString();startedNs=SystemClock.elapsedRealtimeNanos();contextGeneration++;
+        scene=null;error="";ormVerificationComplete=false;runId=UUID.randomUUID().toString();startedNs=SystemClock.elapsedRealtimeNanos();contextGeneration++;
         try {
-            write(new JSONObject().put("running",true).put("passed",false));
             readVerificationConfiguration(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
             verifyBackgroundCache=readBackgroundVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,privateHead);
+            verifyOrmRg8=readOrmVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,
+                    privateHead||verifyPrivateHead||verifyBackgroundCache||verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16);
+            if(verifyOrmRg8){
+                writeArtifact("avatar-orm-rg8-check.json",new JSONObject().put("running",true).put("passed",false).put("performance_evidence",false));
+                show("正在核对原始材质与纹理优化的设备画面；此检查不测帧率");
+                return;
+            }
+            write(new JSONObject().put("running",true).put("passed",false));
             if(verifyBackgroundCache){
                 backgroundVerificationViews=RuntimeViewCount.read(getIntent().getExtras(),true);
                 AvatarMultiviewCheck.backgroundProfile(backgroundVerificationViews);
@@ -97,6 +105,17 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     }
     @Override public void onSurfaceChanged(GL10 gl,int width,int height) {
         this.width=width;this.height=height;
+        if(verifyOrmRg8){
+            if(ormVerificationComplete||!error.isEmpty()||cancelled)return;
+            try {
+                JSONObject report=AvatarOrmRg8Check.run(getAssets(),()->cancelled);
+                if(cancelled)report.put("passed",false).put("cancelled",true);
+                writeArtifact("avatar-orm-rg8-check.json",report.put("running",false).put("performance_evidence",false));
+                ormVerificationComplete=true;
+                show(report.optBoolean("passed")?"纹理画面对比通过；帧率与内存另行实测":"纹理画面对比未通过，请查看检查报告");
+            }catch(Throwable failure){reportFailure(failure);}
+            return;
+        }
         if(scene==null)return;
         try {
             captureStates();
@@ -183,12 +202,22 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
             write(new JSONObject().put("running",false).put("passed",false).put("error",error));
             if(verifyPrivateHead)writeArtifact("tripo-head-multiview-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error));
             if(verifyBackgroundCache)writeArtifact(backgroundVerificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
+            if(getIntent().getExtras()!=null&&getIntent().getExtras().containsKey("verify_orm_rg8"))
+                writeArtifact("avatar-orm-rg8-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error).put("performance_evidence",false));
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
         }
         catch(Exception writeError){android.util.Log.e("AvatarPreview","Could not publish failure; do not use an older report",writeError);show("失败报告写入失败；不可使用旧报告："+writeError);}
     }
     private static void checkGl(String operation){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(operation+" GL error "+code);}
     private String backgroundVerificationFile(){return "tripo-head-background-cache-"+backgroundVerificationViews+"-check.json";}
+    @SuppressWarnings("deprecation") static boolean readOrmVerification(Bundle extras,boolean debug,boolean otherMode){
+        String key="verify_orm_rg8";
+        if(extras==null||!extras.containsKey(key))return false;
+        Object value=extras.get(key);
+        if(!debug||!(value instanceof Boolean))throw new IllegalArgumentException("ORM verification requires an explicit debug Boolean");
+        if(Boolean.TRUE.equals(value)&&otherMode)throw new IllegalArgumentException("Select only the ORM verification");
+        return Boolean.TRUE.equals(value);
+    }
     @SuppressWarnings("deprecation") static boolean readBackgroundVerification(Bundle extras,boolean debug,boolean privateHead){
         String key="verify_private_background_cache";
         if(extras==null||!extras.containsKey(key))return false;

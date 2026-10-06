@@ -279,13 +279,13 @@ public final class AvatarMultiviewCheck {
         }
         return report;
     }
-    private static JSONObject toJson(AvatarPixelComparison.Stats s)throws Exception {
+    static JSONObject toJson(AvatarPixelComparison.Stats s)throws Exception {
         return new JSONObject().put("passed",s.passed()).put("max_rgb_error",s.maxRgbError).put("rgb_byte_mismatches",s.rgbMismatches)
                 .put("rmse",s.rmse).put("alpha_mismatches",s.alphaMismatches).put("serial_foreground",s.serialForeground)
                 .put("ovr_foreground",s.candidateForeground).put("serial_nonopaque",s.serialNonOpaque).put("ovr_nonopaque",s.candidateNonOpaque)
                 .put("serial_sha256",s.serialSha256).put("ovr_sha256",s.candidateSha256);
     }
-    private static float[] viewMatrices(int views,float aspect) {
+    static float[] viewMatrices(int views,float aspect) {
         float[] all=new float[views*16],view=new float[16],projection=new float[16];
         for(int i=0;i<views;i++) {
             float eye=(i/(float)(views-1)-.5f)*.4f,shift=-eye*.1f/3;
@@ -314,17 +314,17 @@ public final class AvatarMultiviewCheck {
                 .put("actual_projection_order_monotonic",monotonic).put("eye_min",-.2f).put("eye_max",.2f)
                 .put("scope","actual diagnostic VP matrices versus independent original renderer expressions for 16 evenly spaced eyes; no reused middle camera; platform Android Matrix");
     }
-    private static void clear(){GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);}
+    static void clear(){GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);}
     private static final int[] DEPTH_ATTACHMENT={GLES30.GL_DEPTH_ATTACHMENT};
     private static void copyPixels(ByteBuffer source,ByteBuffer target){source.clear();target.clear();target.put(source);target.flip();source.clear();}
-    private static void complete(String label){if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)throw new IllegalStateException(label+" framebuffer incomplete");checkGl(label);}
-    private static void checkCancelled(BooleanSupplier cancelled){if(cancelled!=null&&cancelled.getAsBoolean())throw new CancellationException("Avatar multiview check cancelled");}
-    private static void checkGl(String operation){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(operation+" GL error "+code);}
-    private static int integer(int name){int[] value=new int[1];GLES30.glGetIntegerv(name,value,0);return value[0];}
-    private static final int[] DISABLED={GLES30.GL_SCISSOR_TEST,GLES30.GL_BLEND,GLES30.GL_DITHER,GLES30.GL_STENCIL_TEST,
+    static void complete(String label){if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)throw new IllegalStateException(label+" framebuffer incomplete");checkGl(label);}
+    static void checkCancelled(BooleanSupplier cancelled){if(cancelled!=null&&cancelled.getAsBoolean())throw new CancellationException("Avatar multiview check cancelled");}
+    static void checkGl(String operation){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(operation+" GL error "+code);}
+    static int integer(int name){int[] value=new int[1];GLES30.glGetIntegerv(name,value,0);return value[0];}
+    static final int[] DISABLED={GLES30.GL_SCISSOR_TEST,GLES30.GL_BLEND,GLES30.GL_DITHER,GLES30.GL_STENCIL_TEST,
             GLES30.GL_RASTERIZER_DISCARD,GLES30.GL_SAMPLE_COVERAGE,GLES30.GL_SAMPLE_ALPHA_TO_COVERAGE,GLES30.GL_POLYGON_OFFSET_FILL};
     /** Restore every mutable context state this checker/AvatarGpuScene touches; private VAO isolates attribute pointers. */
-    private static final class SavedState {
+    static final class SavedState {
         final int drawFbo=integer(GLES30.GL_DRAW_FRAMEBUFFER_BINDING),readFbo=integer(GLES30.GL_READ_FRAMEBUFFER_BINDING);
         final int vao=integer(GLES30.GL_VERTEX_ARRAY_BINDING),arrayBuffer=integer(GLES30.GL_ARRAY_BUFFER_BINDING);
         final int packBuffer=integer(GLES30.GL_PIXEL_PACK_BUFFER_BINDING),renderbuffer=integer(GLES30.GL_RENDERBUFFER_BINDING),program=integer(GLES30.GL_CURRENT_PROGRAM);

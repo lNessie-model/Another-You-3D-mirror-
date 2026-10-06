@@ -19,7 +19,7 @@ $testClasses=Join-Path $projectRoot 'app\build\avatar-management-tests\host-test
 New-Item -ItemType Directory -Force -Path $classes,$testClasses | Out-Null
 if (Test-Path -LiteralPath (Join-Path $classes 'android')) { throw 'Production output contains an Android substitute; SDK linkage must stay isolated.' }
 # Phase one: only production sources, linked against the actual SDK. No boundary substitute.
-$productionNames=@('AvatarManagementActivity','AvatarManagementGate','AvatarPackageStore','AvatarAsset','AvatarRig','AvatarGlbLoader','AvatarDeformer','AvatarFraming','AvatarGeometryBounds','BlendshapeSchema','AvatarPoseWorker','AvatarGpuScene','AvatarDrawPartition','AvatarPoseProgressWatchdog','AvatarBatchGpu','AvatarBatchLayout',
+$productionNames=@('AvatarManagementActivity','AvatarManagementGate','AvatarPackageStore','AvatarAsset','AvatarRig','AvatarGlbLoader','AvatarDeformer','AvatarFraming','AvatarGeometryBounds','BlendshapeSchema','AvatarPoseWorker','AvatarGpuScene','AvatarOrmUploadPolicy','AvatarDrawPartition','AvatarPoseProgressWatchdog','AvatarBatchGpu','AvatarBatchLayout',
     'BundledAvatarCatalog','BundledAvatarSelection','MultiviewGl','PersistentMultiviewFbos','PersistentMultiviewGl',
     'AvatarCameraProjectionCache','AvatarBackgroundCache','AvatarBackgroundGl','SceneViewSettings')
 $productionSources=$productionNames | ForEach-Object {Join-Path $projectRoot "app\src\main\java\com\mirror\bench\$_.java"}
