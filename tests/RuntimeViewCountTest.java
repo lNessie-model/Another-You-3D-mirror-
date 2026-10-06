@@ -67,6 +67,30 @@ public final class RuntimeViewCountTest {
         Object options=read.invoke(null,dimensions,true);
         Field preset=type.getDeclaredField("viewPreset");preset.setAccessible(true);
         check(preset.get(options).equals("400x640")&&count.getInt(options)==16);rejected(dimensions,false);
+        // Proportional candidates are debug session overrides, never saved product profiles.
+        for(String candidate:new String[]{"240x384","200x320"}){
+            Bundle trial=new Bundle();trial.putInt("test_view_count",16);trial.putString("test_view_preset",candidate);
+            Object selected=read.invoke(null,trial,true);
+            check(preset.get(selected).equals(candidate)&&count.getInt(selected)==16);
+            rejected(trial,false);
+            check(!java.util.Arrays.asList(MirrorSettings.VIEW_PRESETS).contains(candidate));
+            MirrorSettings saved=MirrorSettings.decode(java.util.Map.of("view_preset",candidate));
+            check(saved.viewWidth==400&&saved.viewHeight==640&&!saved.warning.isEmpty());
+            try{MirrorSettings.decode(java.util.Map.of()).withProfile(17,candidate);throw new AssertionError("Debug tile saved as product profile");}
+            catch(IllegalArgumentException expected){checks++;}
+        }
+        for(String bad:new String[]{"240x385","200x321","0x0","240X384","240x384 ","8000x8000"}){
+            Bundle trial=new Bundle();trial.putString("test_view_preset",bad);rejected(trial,true);
+        }
+        for(Object bad:new Object[]{null,240,240L,240f,true}){
+            Bundle trial=new Bundle();
+            if(bad instanceof Integer)trial.putInt("test_view_preset",(Integer)bad);
+            else if(bad instanceof Long)trial.putLong("test_view_preset",(Long)bad);
+            else if(bad instanceof Float)trial.putFloat("test_view_preset",(Float)bad);
+            else if(bad instanceof Boolean)trial.putBoolean("test_view_preset",(Boolean)bad);
+            else trial.putString("test_view_preset",null);
+            rejected(trial,true);rejected(trial,false);
+        }
         InterlaceRenderer configured=new InterlaceRenderer(16,.3f,true);configured.setViewSize(400,640);
         for(String field:new String[]{"requestedViewWidth","requestedViewHeight"}){
             Field size=InterlaceRenderer.class.getDeclaredField(field);size.setAccessible(true);

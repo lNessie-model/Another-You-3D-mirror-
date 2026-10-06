@@ -43,13 +43,26 @@ public final class ProductRuntimeViewCountTest {
             MirrorSettings saved=MirrorSettings.decode(Map.of("schema_version",4,"view_count",savedCount,"view_preset","400x640")).withPanel(panel);
             stored=new HashMap<>(saved.toMap());
             Object options=parse.invoke(null,null,debug,savedCount);
-            MirrorActivity activity=(MirrorActivity)unsafe.allocateInstance(MirrorActivity.class);set(activity,"settings",saved);set(activity,"options",options);
+            MirrorActivity activity=(MirrorActivity)unsafe.allocateInstance(MirrorActivity.class);set(activity,"settings",saved);set(activity,"options",options);set(activity,"sceneViewSettings",SceneViewSettings.DEFAULT);
             InterlaceRenderer renderer=(InterlaceRenderer)call(activity,"createRuntimeRenderer",new Class<?>[]{});
             check(renderer.runtimeStatus().getInt("view_count")==savedCount,"production runtime renderer uses stored count in debug/release");
             for(String size:new String[]{"requestedViewWidth","requestedViewHeight"}){
                 Field field=InterlaceRenderer.class.getDeclaredField(size);field.setAccessible(true);
                 check(field.getInt(renderer)==(size.equals("requestedViewWidth")?400:640),"actual requested dimensions retained");
             }
+            for(String candidate:new String[]{"240x384","200x320"}){
+                Bundle trial=new Bundle();trial.putString("test_view_preset",candidate);trial.putInt("test_view_count",16);
+                var snapshot=new HashMap<>(stored);set(activity,"options",parse.invoke(null,trial,true,savedCount));
+                var proportional=(InterlaceRenderer)call(activity,"createRuntimeRenderer",new Class<?>[]{});
+                int[] dimensions=java.util.Arrays.stream(candidate.split("x")).mapToInt(Integer::parseInt).toArray();
+                for(int axis=0;axis<2;axis++){
+                    Field size=InterlaceRenderer.class.getDeclaredField(axis==0?"requestedViewWidth":"requestedViewHeight");size.setAccessible(true);
+                    check(size.getInt(proportional)==dimensions[axis],"actual runtime routes proportional debug size");
+                }
+                check(proportional.runtimeStatus().getInt("view_count")==16,"debug size keeps actual16views");
+                check(stored.equals(snapshot)&&commits==0,"proportional runtime never saves preferences");
+            }
+            set(activity,"options",options);
             var calibration=CalibrationActivity.intent(null,savedCount,debug);
             int calibrated=RuntimeViewCount.readConfigured(calibration.getExtras(),debug,20);
             var preview=PanelPreviewActivity.intent(null,panel,calibrated,debug);
@@ -69,7 +82,7 @@ public final class ProductRuntimeViewCountTest {
         }
         MirrorSettings legacy=MirrorSettings.decode(Map.of("schema_version",3,"active_fps",20,"view_preset","400x720")).withPanel(panel);
         stored=new HashMap<>(legacy.toMap());stored.put("schema_version",3);stored.remove("view_count");var original=new HashMap<>(stored);
-        MirrorActivity activity=(MirrorActivity)unsafe.allocateInstance(MirrorActivity.class);set(activity,"settings",legacy);set(activity,"options",parse.invoke(null,null,false,legacy.viewCount));
+        MirrorActivity activity=(MirrorActivity)unsafe.allocateInstance(MirrorActivity.class);set(activity,"settings",legacy);set(activity,"options",parse.invoke(null,null,false,legacy.viewCount));set(activity,"sceneViewSettings",SceneViewSettings.DEFAULT);
         InterlaceRenderer activeRenderer=(InterlaceRenderer)call(activity,"createRuntimeRenderer",new Class<?>[]{});set(activity,"renderer",activeRenderer);
         Activity.recreates=0;int before=commits;
         call(activity,"saveRuntimeProfile",new Class<?>[]{int.class,String.class,int.class},20,"400x720",20);

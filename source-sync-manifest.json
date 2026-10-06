@@ -1,8 +1,8 @@
 {
-  "source_commit": "5400f46e511b45003e0604c075157d4e13d945c4",
+  "source_commit": "5a6b31a4fdf09b8be1dd7bcfc85d51d52d54e3f9",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 723,
+  "file_count": 724,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,19 +35,19 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 43915,
-      "source_sha256": "2364e6387c82e7e1121cd736a283534286f4489076df61f3151e9ce53a7456b2",
-      "repository_bytes": 43915,
-      "repository_sha256": "2364e6387c82e7e1121cd736a283534286f4489076df61f3151e9ce53a7456b2",
+      "source_bytes": 44529,
+      "source_sha256": "98f57b14fc7713315c72012d624498577cf38d8e7fefe2668758f9ea71867406",
+      "repository_bytes": 44529,
+      "repository_sha256": "98f57b14fc7713315c72012d624498577cf38d8e7fefe2668758f9ea71867406",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 910,
-      "source_sha256": "5c1410c9ca1b69927625fa359f28fb4ab876b67de463e6b2319cd43327559519",
+      "source_sha256": "885b34b55c2614d1cae6a637ac2ed9cba05a94d5ad62368dea987eac01d49fe8",
       "repository_bytes": 910,
-      "repository_sha256": "5c1410c9ca1b69927625fa359f28fb4ab876b67de463e6b2319cd43327559519",
+      "repository_sha256": "885b34b55c2614d1cae6a637ac2ed9cba05a94d5ad62368dea987eac01d49fe8",
       "publication_transformation": null
     },
     {
@@ -1269,10 +1269,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
-      "source_bytes": 82154,
-      "source_sha256": "e00129af473db4c422f343c88bd6c222f9ed09dbbfd327317e4f5b6229647eca",
-      "repository_bytes": 82154,
-      "repository_sha256": "e00129af473db4c422f343c88bd6c222f9ed09dbbfd327317e4f5b6229647eca",
+      "source_bytes": 82234,
+      "source_sha256": "f95e1ccb4d2c3d7fddeee2f6b15567cbf01421cdcbab21eb5e98205dff45fd21",
+      "repository_bytes": 82234,
+      "repository_sha256": "f95e1ccb4d2c3d7fddeee2f6b15567cbf01421cdcbab21eb5e98205dff45fd21",
       "publication_transformation": null
     },
     {
@@ -2361,6 +2361,15 @@
       "source_sha256": "26cc7d752af19c46ac30247041319b1cb3e32a84e2a22c9dc582bbcd84199273",
       "repository_bytes": 4199,
       "repository_sha256": "26cc7d752af19c46ac30247041319b1cb3e32a84e2a22c9dc582bbcd84199273",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v39-20261006.md",
+      "repository_path": "docs/production-app-v39-20261006.md",
+      "source_bytes": 6464,
+      "source_sha256": "0291e657217bc8275c9515fbe27ef07fe98830ba1eea09d7ce8e840c3756532e",
+      "repository_bytes": 6464,
+      "repository_sha256": "0291e657217bc8275c9515fbe27ef07fe98830ba1eea09d7ce8e840c3756532e",
       "publication_transformation": null
     },
     {
@@ -3883,10 +3892,10 @@
     {
       "source_path": "scripts/run_runtime_check.py",
       "repository_path": "scripts/run_runtime_check.py",
-      "source_bytes": 51035,
-      "source_sha256": "419f81e05a8204f1380c1d234142b505ef465f1c299d48b6f295eda3209b93fc",
-      "repository_bytes": 51035,
-      "repository_sha256": "419f81e05a8204f1380c1d234142b505ef465f1c299d48b6f295eda3209b93fc",
+      "source_bytes": 51057,
+      "source_sha256": "c04a503d4a05e1f8dfc6f8bf52e12f202063cc25c418cd99aaa202f3c27ab353",
+      "repository_bytes": 51057,
+      "repository_sha256": "c04a503d4a05e1f8dfc6f8bf52e12f202063cc25c418cd99aaa202f3c27ab353",
       "publication_transformation": null
     },
     {
@@ -4893,10 +4902,10 @@
     {
       "source_path": "tests/ProductRuntimeViewCountTest.java",
       "repository_path": "tests/ProductRuntimeViewCountTest.java",
-      "source_bytes": 10194,
-      "source_sha256": "35ebcad143195c7b3c51a96c8ef0310294d9e0bddb3210aa65d697d1148eded0",
-      "repository_bytes": 10194,
-      "repository_sha256": "35ebcad143195c7b3c51a96c8ef0310294d9e0bddb3210aa65d697d1148eded0",
+      "source_bytes": 11476,
+      "source_sha256": "49521e24f910b8e039b1114f5abea483961b5a502d3439ad49d6dbb26af597c1",
+      "repository_bytes": 11476,
+      "repository_sha256": "49521e24f910b8e039b1114f5abea483961b5a502d3439ad49d6dbb26af597c1",
       "publication_transformation": null
     },
     {
@@ -5017,10 +5026,10 @@
     {
       "source_path": "tests/RuntimeViewCountTest.java",
       "repository_path": "tests/RuntimeViewCountTest.java",
-      "source_bytes": 14826,
-      "source_sha256": "7a24885071e2668406267c0bbdf4111390b6994a31d4f16095b24c30774461e0",
-      "repository_bytes": 14826,
-      "repository_sha256": "7a24885071e2668406267c0bbdf4111390b6994a31d4f16095b24c30774461e0",
+      "source_bytes": 16603,
+      "source_sha256": "97e7f3491c0f0dc98eaf6ed2fa065f545d5547c67aa30e99e948352c17e77540",
+      "repository_bytes": 16603,
+      "repository_sha256": "97e7f3491c0f0dc98eaf6ed2fa065f545d5547c67aa30e99e948352c17e77540",
       "publication_transformation": null
     },
     {
@@ -6485,16 +6494,16 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "6b3a5694433a935c2ea85414c1c12bad55c6de52",
-  "public_parent_commit": "00dbdca7f6400fd0568489f8d2fd9b1ce4377b61",
-  "versionCode": 38,
-  "versionName": "0.2.7",
-  "release_apk_sha256": "fba44e64390f1968385aba54134d595e571d88414a2ce17df0cd8fe558dc328c",
+  "previous_source_commit": "5400f46e511b45003e0604c075157d4e13d945c4",
+  "public_parent_commit": "e5bc9971e34cfe58503192a31e6980dc9f89cf83",
+  "versionCode": 39,
+  "versionName": "0.2.8",
+  "release_apk_sha256": "2d5e4fab5c10e1e116b28ea0f4631e018855f52aad1c45a71b1aa80ed948f64f",
   "last_iteration": {
-    "versionCode": 38,
-    "versionName": "0.2.7",
-    "approved_source_delta_files": 8,
-    "public_parent": "00dbdca7f6400fd0568489f8d2fd9b1ce4377b61",
+    "versionCode": 39,
+    "versionName": "0.2.8",
+    "approved_source_delta_files": 7,
+    "public_parent": "e5bc9971e34cfe58503192a31e6980dc9f89cf83",
     "frozen_copy_hashes_verified": true,
     "unreviewed_model_pipeline_work_included": false,
     "v1_experiment_included": false
