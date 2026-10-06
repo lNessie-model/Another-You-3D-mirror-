@@ -423,6 +423,7 @@ def arguments():
     parser.add_argument("--gpu-profile", action="store_true", help="Debug-only asynchronous GPU timer sampling; defaults off; can perturb driver scheduling")
     parser.add_argument("--orm-rg8", action="store_true", help="Debug-only validated Geralt ORM RG8 upload; defaults off; other models retain RGBA8")
     parser.add_argument("--specialized-batch", action="store_true", help="Debug-only per-material shader candidate, original Geralt and reference PBR; defaults off")
+    parser.add_argument("--constant-white-primary", action="store_true", help="Debug-only bit-verified constant-white primary shader; requires avatar-batched and specialized-batch; defaults off")
     parser.add_argument("--empty-interlace", action="store_true", help="Debug-only conservative empty-region texture sampling candidate; defaults off")
     parser.add_argument("--pbr-fast-math", action="store_true", help="Debug-only highp PBR arithmetic candidate; defaults off; retains full material and geometry")
     parser.add_argument("--npu-blendshapes", action="store_true", help="Debug-only explicit normalized mixed CPU/NPU expression suffix; omission uses the app default (currently enabled)")
@@ -431,6 +432,8 @@ def arguments():
     parser.add_argument("--view-count", type=int, choices=(16, 20), help="Debug-only count override; omission uses the saved application count, never saves preferences")
     parser.add_argument("--active-target-fps", type=int, choices=(31, 35), help="Debug-only frame pacing control; leaves idle rate and preferences unchanged")
     args = parser.parse_args()
+    if args.constant_white_primary and not (args.avatar_batched and args.specialized_batch):
+        parser.error("--constant-white-primary requires --avatar-batched and --specialized-batch")
     if not re.fullmatch(r"[a-zA-Z0-9_-]{1,120}", args.name):
         parser.error("Invalid run name")
     if not 20 <= args.seconds <= 7200:
@@ -639,6 +642,8 @@ def run(args):
         extras += " --ez test_orm_rg8 true"
     if getattr(args,"specialized_batch",False):
         extras += " --ez test_specialized_batch true"
+    if getattr(args,"constant_white_primary",False):
+        extras += " --ez test_constant_white_primary true"
     if getattr(args,"empty_interlace",False):
         extras += " --ez test_empty_interlace true"
     if getattr(args,"pbr_fast_math",False):
