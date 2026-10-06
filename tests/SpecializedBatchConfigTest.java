@@ -15,6 +15,10 @@ public final class SpecializedBatchConfigTest {
         Field field=parsed(bundle,debug).getClass().getDeclaredField("constantWhitePrimary");field.setAccessible(true);
         return field.getBoolean(parsed(bundle,debug));
     }
+    private static boolean group(Bundle bundle,boolean debug)throws Exception{
+        Object opts=parsed(bundle,debug);Field field=opts.getClass().getDeclaredField("reuseGroupUniforms");field.setAccessible(true);
+        return field.getBoolean(opts);
+    }
     private static void rejected(Bundle bundle,boolean debug)throws Exception{
         try{parsed(bundle,debug);throw new AssertionError("Invalid Specialized batch override accepted");}
         catch(InvocationTargetException expected){check(expected.getCause() instanceof IllegalArgumentException);}
@@ -80,6 +84,46 @@ public final class SpecializedBatchConfigTest {
         check(scene.get(fresh)==null);init.setBoolean(fresh,true);
         try{fresh.setConstantWhitePrimary(false);throw new AssertionError("Primary mode changed after GL init");}
         catch(IllegalStateException expected){check(true);}
+        check(!group(null,true));check(!group(null,false));check(!group(new Bundle(),true));check(!group(new Bundle(),false));
+        Bundle reuse=new Bundle();reuse.putBoolean("test_avatar_batched",true);reuse.putBoolean("test_specialized_batch",true);reuse.putBoolean("test_constant_white_primary",true);
+        for(boolean value:new boolean[]{false,true}){
+            reuse.putBoolean("test_reuse_group_uniforms",value);check(group(reuse,true)==value);rejected(reuse,false);
+        }
+        reuse.putString("test_reuse_group_uniforms",null);rejected(reuse,true);rejected(reuse,false);
+        reuse.putString("test_reuse_group_uniforms","true");rejected(reuse,true);
+        reuse.putInt("test_reuse_group_uniforms",1);rejected(reuse,true);
+        reuse.putLong("test_reuse_group_uniforms",1L);rejected(reuse,true);
+        reuse.putFloat("test_reuse_group_uniforms",1f);rejected(reuse,true);
+        Bundle noPrimary=new Bundle();noPrimary.putBoolean("test_avatar_batched",true);noPrimary.putBoolean("test_specialized_batch",true);noPrimary.putBoolean("test_reuse_group_uniforms",true);rejected(noPrimary,true);
+        noPrimary.putBoolean("test_constant_white_primary",false);rejected(noPrimary,true);
+        noPrimary.putBoolean("test_constant_white_primary",true);check(group(noPrimary,true));
+        for(String dependency:new String[]{"test_avatar_batched","test_specialized_batch"}){
+            Bundle missingGroup=new Bundle();missingGroup.putBoolean("test_avatar_batched",true);missingGroup.putBoolean("test_specialized_batch",true);missingGroup.putBoolean("test_constant_white_primary",true);missingGroup.putBoolean("test_reuse_group_uniforms",true);missingGroup.putBoolean(dependency,false);rejected(missingGroup,true);
+        }
+        Bundle groupOff=new Bundle();groupOff.putBoolean("test_reuse_group_uniforms",false);check(!group(groupOff,true));
+        for(String incompatible:new String[]{"test_pbr_fast_math","test_orm_rg8","test_static_background_cache","test_empty_interlace"}){
+            Bundle mixedGroup=new Bundle();mixedGroup.putBoolean("test_avatar_batched",true);mixedGroup.putBoolean("test_specialized_batch",true);mixedGroup.putBoolean("test_constant_white_primary",true);mixedGroup.putBoolean("test_reuse_group_uniforms",true);mixedGroup.putBoolean(incompatible,true);rejected(mixedGroup,true);
+        }
+        InterlaceRenderer groupRenderer=new InterlaceRenderer(16,.3f,true);groupRenderer.setRuntimeMode(true);
+        check(!groupRenderer.runtimeStatus().getBoolean("reuse_group_uniforms_requested"));
+        try{groupRenderer.setReuseGroupUniforms(true);throw new AssertionError("Group reuse without primary mode accepted");}
+        catch(IllegalArgumentException expected){check(true);}
+        groupRenderer.setSpecializedBatch(true);
+        try{groupRenderer.setReuseGroupUniforms(true);throw new AssertionError("Group reuse without constant primary accepted");}
+        catch(IllegalArgumentException expected){check(true);}
+        groupRenderer.setConstantWhitePrimary(true);groupRenderer.setReuseGroupUniforms(true);check(groupRenderer.runtimeStatus().getBoolean("reuse_group_uniforms_requested"));
+        try{groupRenderer.setConstantWhitePrimary(false);throw new AssertionError("Silently disabled required primary mode");}
+        catch(IllegalArgumentException expected){check(groupRenderer.runtimeStatus().getBoolean("constant_white_primary_requested"));}
+        try{groupRenderer.setSpecializedBatch(false);throw new AssertionError("Silently disabled required specialized mode for group reuse");}
+        catch(IllegalArgumentException expected){check(groupRenderer.runtimeStatus().getBoolean("specialized_batch_requested"));}
+        groupRenderer.setReuseGroupUniforms(false);groupRenderer.setConstantWhitePrimary(false);groupRenderer.setSpecializedBatch(false);
+        check(!groupRenderer.runtimeStatus().getBoolean("reuse_group_uniforms_requested"));
+        check(scene.get(groupRenderer)==null);
+        groupRenderer.setSpecializedBatch(true);groupRenderer.setConstantWhitePrimary(true);groupRenderer.setReuseGroupUniforms(true);init.setBoolean(groupRenderer,true);
+        for(boolean value:new boolean[]{false,true}){
+            try{groupRenderer.setReuseGroupUniforms(value);throw new AssertionError("Group reuse changed after GL init");}
+            catch(IllegalStateException expected){check(true);}
+        }
         System.out.println("SpecializedBatchConfigTest: "+checks+" checks passed; actual options/renderer, no GPU evidence");
     }
 }

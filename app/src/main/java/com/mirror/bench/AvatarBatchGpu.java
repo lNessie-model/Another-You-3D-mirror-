@@ -246,10 +246,11 @@ final class AvatarBatchGpu {
     }
     /** Lazy opt-in. No candidate GL allocation on the default batch path. */
     void beginSpecializedComparison(){beginSpecializedComparison(false);}
-    void beginSpecializedComparison(boolean constantWhitePrimary){
+    void beginSpecializedComparison(boolean constantWhitePrimary){beginSpecializedComparison(constantWhitePrimary,false);}
+    void beginSpecializedComparison(boolean constantWhitePrimary,boolean reuseGroupUniforms){
         if(disposed||!atlas||!pbr||pbrFastMath||selectedFastMath||comparisonSingle!=null||coverageDiagnostic!=null||specialized!=null)
             throw new IllegalStateException("Exclusive reference-PBR specialized comparison required");
-        AvatarBatchSpecializedGpu created=new AvatarBatchSpecializedGpu(layout,buffers,multiview!=null,colors,params,pbrParams,constantWhitePrimary);
+        AvatarBatchSpecializedGpu created=new AvatarBatchSpecializedGpu(layout,buffers,multiview!=null,colors,params,pbrParams,constantWhitePrimary,reuseGroupUniforms);
         specialized=created;selectedSpecialized=false;
     }
     void selectSpecialized(boolean enabled){

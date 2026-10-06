@@ -316,11 +316,12 @@ final class AvatarGpuScene {
     }
     /** Debug candidate: shared original textures/VBOs, only per-material programs and draw ranges change. */
     void beginSpecializedBatch(){beginSpecializedBatch(false);}
-    void beginSpecializedBatch(boolean constantWhitePrimary){
+    void beginSpecializedBatch(boolean constantWhitePrimary){beginSpecializedBatch(constantWhitePrimary,false);}
+    void beginSpecializedBatch(boolean constantWhitePrimary,boolean reuseGroupUniforms){
         if(disposed||specializedBatch||(drawMode!=DrawMode.BATCHED&&drawMode!=DrawMode.VERIFY)||batch==null||ormComparison!=null||pbrComparison!=null
                 ||ormRg8Uploaded||pbrFastMathRequested||!sha256.equals("9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531"))
             throw new IllegalStateException("Specialized candidate requires original Geralt PBR batched scene without other material experiments");
-        batch.beginSpecializedComparison(constantWhitePrimary);specializedBatch=true;
+        batch.beginSpecializedComparison(constantWhitePrimary,reuseGroupUniforms);specializedBatch=true;
     }
     void selectSpecializedBatch(boolean enabled){
         if(!specializedBatch)throw new IllegalStateException("Specialized comparison not initialized");
