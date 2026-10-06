@@ -5,7 +5,6 @@ import android.opengl.EGL14;
 import android.opengl.EGLContext;
 import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
-import android.opengl.Matrix;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -131,15 +130,16 @@ public final class CameraCalibrationAvatarPreview extends GLSurfaceView implemen
 
     private final class PreviewRenderer implements GLSurfaceView.Renderer {
         private AvatarGpuScene scene;
+        private CameraPreviewFraming framing;
         private Request showing;
         private EGLContext owningContext;
         private volatile long contextGeneration;
         private int width,height;
         private long drawnAt;
-        private final float[] full52=new float[52],angles=new float[3],view=new float[16],projection=new float[16],vp=new float[16];
+        private final float[] full52=new float[52],angles=new float[3],vp=new float[16];
         @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
             // Previous IDs belong to a destroyed context. Only stop its CPU owner, never glDelete here.
-            if(scene!=null)scene.stopCpu();scene=null;showing=null;drawnAt=0;
+            if(scene!=null)scene.stopCpu();scene=null;framing=null;showing=null;drawnAt=0;
             owningContext=EGL14.eglGetCurrentContext();contextGeneration++;
             gate.contextRecreated(owner,now());
         }
@@ -150,14 +150,12 @@ public final class CameraCalibrationAvatarPreview extends GLSurfaceView implemen
             if(next==null||!gate.accepts(next.token)){disposeCurrent();clear();return;}
             long start=now();if(showing==next&&start-drawnAt<PERIOD_NS)return;
             try {
-                if(showing!=next){disposeCurrent();scene=AvatarGpuScene.fromAsset(next.asset.asset,next.asset.manifest,next.asset.sha256,false,false);showing=next;}
+                if(showing!=next){disposeCurrent();framing=CameraPreviewFraming.fromAsset(next.asset.asset,next.asset.manifest);scene=AvatarGpuScene.fromAsset(next.asset.asset,next.asset.manifest,next.asset.sha256,false,false);showing=next;}
                 if(!gate.accepts(next.token)){disposeCurrent();clear();return;}
                 clear();int[] viewport=CameraPreviewPose.viewport(width,height);
                 GLES30.glViewport(viewport[0],viewport[1],viewport[2],viewport[3]);
-                Matrix.setLookAtM(view,0,0,0,3,0,0,0,0,1,0);
-                Matrix.frustumM(projection,0,-.052f*.625f,.052f*.625f,-.052f,.052f,.1f,10);
-                Matrix.multiplyMM(vp,0,projection,0,view,0);
-                pose.sample(now(),full52,angles);scene.prepare(full52,angles);scene.draw(vp,1,.625f);
+                pose.sample(now(),full52,angles);framing.copyViewProjection(angles,viewport[2],viewport[3],vp);
+                scene.prepare(full52,angles);scene.draw(vp,1,.625f);
                 int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException("Avatar preview GL error "+code);
                 long done=now();drawnAt=start;
                 if(gate.rendered(next.token,done))frameState=new FrameState(frameState.count+1,done,viewport[2],viewport[3]);
@@ -170,12 +168,12 @@ public final class CameraCalibrationAvatarPreview extends GLSurfaceView implemen
             GLES30.glClearColor(.035f,.045f,.06f,1);GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
         }
         private void disposeCurrent(){
-            AvatarGpuScene old=scene;scene=null;showing=null;
+            AvatarGpuScene old=scene;scene=null;framing=null;showing=null;
             if(old==null)return;old.stopCpu();EGLContext current=EGL14.eglGetCurrentContext();
             if(owningContext!=null&&!EGL14.EGL_NO_CONTEXT.equals(current)&&owningContext.equals(current))old.dispose();
         }
         void disposeIfGeneration(long expected){if(contextGeneration==expected)disposeCurrent();}
         // onPause has returned, so no GL callback is using these Java refs and context is not preserved.
-        void forgetAfterPlatformPause(){if(scene!=null)scene.stopCpu();scene=null;showing=null;owningContext=null;}
+        void forgetAfterPlatformPause(){if(scene!=null)scene.stopCpu();scene=null;framing=null;showing=null;owningContext=null;}
     }
 }

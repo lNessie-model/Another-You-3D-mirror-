@@ -1,8 +1,8 @@
 {
-  "source_commit": "fea19bbdd980b36a89e4c593a9db9e45ae458d2a",
+  "source_commit": "f0daebf31c7f3d842a16e2bfca8f4ef251238795",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 733,
+  "file_count": 740,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,19 +35,19 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 45090,
-      "source_sha256": "7ad5e0a25a5d9d6bcc615a661d7022694bdb65f04d788df1e8b10cc48d72d5f9",
-      "repository_bytes": 45090,
-      "repository_sha256": "7ad5e0a25a5d9d6bcc615a661d7022694bdb65f04d788df1e8b10cc48d72d5f9",
+      "source_bytes": 45593,
+      "source_sha256": "40216415bd4e11e3ca1bfb1dec97674055c81d99c7ce31570cf66aee5f36abcb",
+      "repository_bytes": 45593,
+      "repository_sha256": "40216415bd4e11e3ca1bfb1dec97674055c81d99c7ce31570cf66aee5f36abcb",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
-      "source_bytes": 910,
-      "source_sha256": "29d9510b4a2df15c02e2975fbf1d1abf54270b79bc5210fd52c5b727b02c2b42",
-      "repository_bytes": 910,
-      "repository_sha256": "29d9510b4a2df15c02e2975fbf1d1abf54270b79bc5210fd52c5b727b02c2b42",
+      "source_bytes": 911,
+      "source_sha256": "0e92c27ca8c6de5cd24aa93c19013f83eb59daa08822827157b9da5e329dedc3",
+      "repository_bytes": 911,
+      "repository_sha256": "0e92c27ca8c6de5cd24aa93c19013f83eb59daa08822827157b9da5e329dedc3",
       "publication_transformation": null
     },
     {
@@ -1038,18 +1038,28 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/CameraCalibrationAvatarPreview.java",
       "repository_path": "app/src/main/java/com/mirror/bench/CameraCalibrationAvatarPreview.java",
-      "source_bytes": 11746,
-      "source_sha256": "d9c80ca1d513493bd510bc5a586ed533520d33c6d45e89d6da3a9efada7674ae",
-      "repository_bytes": 11746,
-      "repository_sha256": "d9c80ca1d513493bd510bc5a586ed533520d33c6d45e89d6da3a9efada7674ae"
+      "source_bytes": 11699,
+      "source_sha256": "10a1f8ba390a8ae74cb4a54fdaab1e7250bb516b37bd2b1e500d4f24a8ba8f7d",
+      "repository_bytes": 11699,
+      "repository_sha256": "10a1f8ba390a8ae74cb4a54fdaab1e7250bb516b37bd2b1e500d4f24a8ba8f7d",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/CameraCalibrationInputStatus.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/CameraCalibrationInputStatus.java",
+      "source_bytes": 1674,
+      "source_sha256": "1608bb0c6ebc41940227c113788e4142683d859da50eaf65a4f81df8ac807cad",
+      "repository_bytes": 1674,
+      "repository_sha256": "1608bb0c6ebc41940227c113788e4142683d859da50eaf65a4f81df8ac807cad",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/java/com/mirror/bench/CameraCalibrationPanel.java",
       "repository_path": "app/src/main/java/com/mirror/bench/CameraCalibrationPanel.java",
-      "source_bytes": 18923,
-      "source_sha256": "a62447cd0a8a7ddca9e725387525afc95f8aae61334cd041e91432078780b0e5",
-      "repository_bytes": 18923,
-      "repository_sha256": "a62447cd0a8a7ddca9e725387525afc95f8aae61334cd041e91432078780b0e5",
+      "source_bytes": 20229,
+      "source_sha256": "1922bba8ef0c49f7c93cd092268455a7c0276453aaa9190508776996c33e04db",
+      "repository_bytes": 20229,
+      "repository_sha256": "1922bba8ef0c49f7c93cd092268455a7c0276453aaa9190508776996c33e04db",
       "publication_transformation": null
     },
     {
@@ -1095,6 +1105,15 @@
       "source_sha256": "c2a445c002245e1680b779b7ff1aecd747636c8ffd420d0c3424f0356533ffbb",
       "repository_bytes": 5584,
       "repository_sha256": "c2a445c002245e1680b779b7ff1aecd747636c8ffd420d0c3424f0356533ffbb"
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/CameraPreviewFraming.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/CameraPreviewFraming.java",
+      "source_bytes": 11121,
+      "source_sha256": "dc516f4e9d5e5c14f2b97b4ead18e17b4c2b97c12c8ce9580f15724be6401bd6",
+      "repository_bytes": 11121,
+      "repository_sha256": "dc516f4e9d5e5c14f2b97b4ead18e17b4c2b97c12c8ce9580f15724be6401bd6",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/java/com/mirror/bench/CameraPreviewPose.java",
@@ -1270,10 +1289,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
-      "source_bytes": 83103,
-      "source_sha256": "8904052035ffabb193efb849242d128a75732d35f955f4453c55d9eee97ed550",
-      "repository_bytes": 83103,
-      "repository_sha256": "8904052035ffabb193efb849242d128a75732d35f955f4453c55d9eee97ed550",
+      "source_bytes": 83328,
+      "source_sha256": "a53c084a786505304f6346dcf2125da443f5b77ece7982f9bc143b9f3790d3ac",
+      "repository_bytes": 83328,
+      "repository_sha256": "a53c084a786505304f6346dcf2125da443f5b77ece7982f9bc143b9f3790d3ac",
       "publication_transformation": null
     },
     {
@@ -2381,6 +2400,15 @@
       "source_sha256": "96c742949aeaf9bf251f5b71ad931aee3b33fd3af43a8bd2195727eebe56ab8b",
       "repository_bytes": 5214,
       "repository_sha256": "96c742949aeaf9bf251f5b71ad931aee3b33fd3af43a8bd2195727eebe56ab8b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v41-20261006.md",
+      "repository_path": "docs/production-app-v41-20261006.md",
+      "source_bytes": 6322,
+      "source_sha256": "de1da5187126957672fcb67b50a23c1a30bdbe3bcb65130c135c5647e5fd9ab4",
+      "repository_bytes": 6322,
+      "repository_sha256": "de1da5187126957672fcb67b50a23c1a30bdbe3bcb65130c135c5647e5fd9ab4",
       "publication_transformation": null
     },
     {
@@ -4572,6 +4600,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/CameraCalibrationInputStatusTest.java",
+      "repository_path": "tests/CameraCalibrationInputStatusTest.java",
+      "source_bytes": 2588,
+      "source_sha256": "b6c63814673a195e2e524d79270f3e457d72e5a241611d2ea99312fba823c135",
+      "repository_bytes": 2588,
+      "repository_sha256": "b6c63814673a195e2e524d79270f3e457d72e5a241611d2ea99312fba823c135",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/CameraControlSettingsTest.java",
       "repository_path": "tests/CameraControlSettingsTest.java",
       "source_bytes": 6205,
@@ -4596,6 +4633,15 @@
       "source_sha256": "03081a9b5b4a80da8bf4fde8863b69fa8ca113722c51f0b4013576ee156bc121",
       "repository_bytes": 4558,
       "repository_sha256": "03081a9b5b4a80da8bf4fde8863b69fa8ca113722c51f0b4013576ee156bc121"
+    },
+    {
+      "source_path": "tests/CameraPreviewFramingTest.java",
+      "repository_path": "tests/CameraPreviewFramingTest.java",
+      "source_bytes": 10121,
+      "source_sha256": "3a53101b1e9a1db556eac68e874479d948c4fc2c7da59fdd9c7858cc4d8a35a2",
+      "repository_bytes": 10121,
+      "repository_sha256": "3a53101b1e9a1db556eac68e874479d948c4fc2c7da59fdd9c7858cc4d8a35a2",
+      "publication_transformation": null
     },
     {
       "source_path": "tests/CameraPreviewPoseParityTest.java",
@@ -4913,10 +4959,10 @@
     {
       "source_path": "tests/ProductEditorNavigationTest.java",
       "repository_path": "tests/ProductEditorNavigationTest.java",
-      "source_bytes": 11724,
-      "source_sha256": "3cdb25f45c1275a75103f3418ba52cf3e8d83e4cd6e996bf7329b1b22e15ab0d",
-      "repository_bytes": 11724,
-      "repository_sha256": "3cdb25f45c1275a75103f3418ba52cf3e8d83e4cd6e996bf7329b1b22e15ab0d",
+      "source_bytes": 13343,
+      "source_sha256": "7d54cc05484ff714db689ba3869a48bc95b43fac779c8359d42245498ab2d1cc",
+      "repository_bytes": 13343,
+      "repository_sha256": "7d54cc05484ff714db689ba3869a48bc95b43fac779c8359d42245498ab2d1cc",
       "publication_transformation": null
     },
     {
@@ -5403,10 +5449,10 @@
     {
       "source_path": "tests/editor-navigation-stubs/android/app/Activity.java",
       "repository_path": "tests/editor-navigation-stubs/android/app/Activity.java",
-      "source_bytes": 809,
-      "source_sha256": "065ed87438e8ffe377e0024397327f28e65ae929c4f45f863342fab95aced5fd",
-      "repository_bytes": 809,
-      "repository_sha256": "065ed87438e8ffe377e0024397327f28e65ae929c4f45f863342fab95aced5fd",
+      "source_bytes": 895,
+      "source_sha256": "bc93a728cccd99a4aa5e43bd6e9cd5677d1fd592d5825946366af6703144dd24",
+      "repository_bytes": 895,
+      "repository_sha256": "bc93a728cccd99a4aa5e43bd6e9cd5677d1fd592d5825946366af6703144dd24",
       "publication_transformation": null
     },
     {
@@ -5439,10 +5485,10 @@
     {
       "source_path": "tests/editor-navigation-stubs/com/mirror/bench/CameraCalibrationPanel.java",
       "repository_path": "tests/editor-navigation-stubs/com/mirror/bench/CameraCalibrationPanel.java",
-      "source_bytes": 1500,
-      "source_sha256": "f9b51e5bc462ceb47cbb28945d797b472f354ae083a09efb14f96fc10fe733bd",
-      "repository_bytes": 1500,
-      "repository_sha256": "f9b51e5bc462ceb47cbb28945d797b472f354ae083a09efb14f96fc10fe733bd",
+      "source_bytes": 1584,
+      "source_sha256": "8319074f14fa62420eb3c0d08351f2e9c19d8094668f0dbf5715e39f0be67074",
+      "repository_bytes": 1584,
+      "repository_sha256": "8319074f14fa62420eb3c0d08351f2e9c19d8094668f0dbf5715e39f0be67074",
       "publication_transformation": null
     },
     {
@@ -5886,6 +5932,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/run_camera_calibration_input_status_tests.ps1",
+      "repository_path": "tests/run_camera_calibration_input_status_tests.ps1",
+      "source_bytes": 834,
+      "source_sha256": "cd56145204d62157ce978a66fc1cb1ac31bfa6f6b5402f54847a5bc8765694c1",
+      "repository_bytes": 834,
+      "repository_sha256": "cd56145204d62157ce978a66fc1cb1ac31bfa6f6b5402f54847a5bc8765694c1",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/run_camera_controls_tests.ps1",
       "repository_path": "tests/run_camera_controls_tests.ps1",
       "source_bytes": 2528,
@@ -5912,12 +5967,21 @@
       "repository_sha256": "88f08e4b4235c94f94423409dc79e37e2e906966fe1c19e521704dde7c351ff3"
     },
     {
+      "source_path": "tests/run_camera_preview_framing_tests.ps1",
+      "repository_path": "tests/run_camera_preview_framing_tests.ps1",
+      "source_bytes": 2108,
+      "source_sha256": "cd6ca5a1c4ef8b4279aecb2ffdce75ab2f1f93c3c87411a2d0a23f9acc7d0173",
+      "repository_bytes": 2108,
+      "repository_sha256": "cd6ca5a1c4ef8b4279aecb2ffdce75ab2f1f93c3c87411a2d0a23f9acc7d0173",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/run_camera_preview_sdk_tests.ps1",
       "repository_path": "tests/run_camera_preview_sdk_tests.ps1",
-      "source_bytes": 2386,
-      "source_sha256": "494e5722c542f7f0c0117a29c1ae2078669c974c013f1aab43df3cacda6734fd",
-      "repository_bytes": 2386,
-      "repository_sha256": "494e5722c542f7f0c0117a29c1ae2078669c974c013f1aab43df3cacda6734fd",
+      "source_bytes": 2409,
+      "source_sha256": "0b5f0050c4fc31d21968bc62afeeb159c5ba4d31caee6f8282ed92edff58cfb9",
+      "repository_bytes": 2409,
+      "repository_sha256": "0b5f0050c4fc31d21968bc62afeeb159c5ba4d31caee6f8282ed92edff58cfb9",
       "publication_transformation": null
     },
     {
@@ -6103,10 +6167,10 @@
     {
       "source_path": "tests/run_product_editor_navigation_tests.ps1",
       "repository_path": "tests/run_product_editor_navigation_tests.ps1",
-      "source_bytes": 2125,
-      "source_sha256": "2ad86f7cb05293533119a870cd2cdffeb73f5e63e7523001fe6c62fa75c89631",
-      "repository_bytes": 2125,
-      "repository_sha256": "2ad86f7cb05293533119a870cd2cdffeb73f5e63e7523001fe6c62fa75c89631",
+      "source_bytes": 2204,
+      "source_sha256": "a8f6481a55fc15622c62ded6a8afd995da1b678d81c1d6a559ae0b6ae4bf1b6b",
+      "repository_bytes": 2204,
+      "repository_sha256": "a8f6481a55fc15622c62ded6a8afd995da1b678d81c1d6a559ae0b6ae4bf1b6b",
       "publication_transformation": null
     },
     {
@@ -6577,19 +6641,19 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "5a6b31a4fdf09b8be1dd7bcfc85d51d52d54e3f9",
-  "public_parent_commit": "600b01ddbff38a342c141373448e923ce2e6c302",
-  "versionCode": 40,
-  "versionName": "0.2.9",
-  "release_apk_sha256": "bcc4de7eff26a7882e4d67146dad952a8e9438795923a8f0323f67a7c4871892",
+  "previous_source_commit": "fea19bbdd980b36a89e4c593a9db9e45ae458d2a",
+  "public_parent_commit": "9ec116481e7bf45eee04cbb874e39debcdbaa2db",
+  "versionCode": 41,
+  "versionName": "0.2.10",
+  "release_apk_sha256": "eb1fc36006b34270d72bba7cb312a4c6c9448fd18b680f5290a1073912a19df3",
   "last_iteration": {
-    "versionCode": 40,
-    "versionName": "0.2.9",
-    "approved_source_delta_files": 14,
-    "public_parent": "600b01ddbff38a342c141373448e923ce2e6c302",
+    "versionCode": 41,
+    "versionName": "0.2.10",
+    "approved_source_delta_files": 17,
+    "public_parent": "9ec116481e7bf45eee04cbb874e39debcdbaa2db",
     "frozen_copy_hashes_verified": true,
     "unreviewed_model_pipeline_work_included": false,
-    "v1_experiment_included": false
+    "new_gpu_candidate_included": false
   },
   "source_sha_scope": "Frozen publication working bytes. Reviewed mappings from earlier iterations are retained; current unfrozen model-authoring worktree edits are excluded.",
   "source_git_text_normalization": "Source Git may normalize CRLF text to LF. Public copies preserve root-approved frozen working bytes via * -text; per-version index receipts record exact differences."

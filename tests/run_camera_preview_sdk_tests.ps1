@@ -7,7 +7,7 @@ New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $names=@('AvatarAsset','AvatarGlbLoader','AvatarRig','AvatarDeformer','AvatarFraming','AvatarGeometryBounds','BlendshapeSchema','AvatarPackageStore',
     'AvatarPoseWorker','AvatarPoseProgressWatchdog','AvatarBatchLayout','AvatarBatchGpu','AvatarGpuScene','AvatarPbrShaderVariant','ResourceCleanup','AvatarOrmUploadPolicy','AvatarDrawPartition','MultiviewGl','PersistentMultiviewFbos','PersistentMultiviewGl','AvatarCameraProjectionCache',
     'FaceFrame','FaceControlCalibration','FaceControlMapper','InteractionController',
-    'CameraPreviewSession','CameraPreviewPose','CameraPreviewAsset','CameraCalibrationAvatarPreview')
+    'CameraPreviewSession','CameraPreviewPose','CameraPreviewFraming','CameraPreviewAsset','CameraCalibrationAvatarPreview')
 $names+=@('AvatarBackgroundCache','AvatarBackgroundGl','BundledAvatarCatalog','BundledAvatarSelection','SceneViewSettings')
 $sources=$names | ForEach-Object {Join-Path $projectRoot "app\src\main\java\com\mirror\bench\$_.java"}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp $AndroidJar -d $classes @sources

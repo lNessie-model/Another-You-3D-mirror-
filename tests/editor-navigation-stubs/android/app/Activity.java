@@ -12,6 +12,7 @@ public class Activity extends ContextWrapper {
     public boolean hostFinishing,hostDestroyed;
     public Activity(){super(null);}
     public Intent getIntent(){return hostIntent;}
+    public int checkSelfPermission(String permission){return 0;}
     public boolean isFinishing(){return hostFinishing;}
     public boolean isDestroyed(){return hostDestroyed;}
     public void finish(){finishes++;hostFinishing=true;}

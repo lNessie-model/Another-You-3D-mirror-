@@ -12,6 +12,7 @@ import java.util.Locale;
 final class CameraCalibrationPanel {
     interface Host {
         void changeInput(CameraControlSettings controls);
+        void retryInput(CameraCalibrationPanel owner);
         boolean changeCalibration(Input expected,FaceControlCalibration calibration);
         boolean confirmCalibration(CameraCalibrationPanel owner,Input expected,NeutralCalibrationCollector.Session session,
                 NeutralCalibrationCollector.Result result,FaceControlCalibration calibration);
@@ -32,7 +33,7 @@ final class CameraCalibrationPanel {
     private final ImageView image;
     private final Spinner rotation;
     private final CheckBox reflect,mirror,personal,checked;
-    private final Button collect,confirm;
+    private final Button collect,confirm,retry;
     private CameraControlSettings draft;
     private FaceControlCalibration calibration;
     private Input input;
@@ -44,11 +45,14 @@ final class CameraCalibrationPanel {
     private long previewAt;
     private boolean closed,binding,saved,inputChanged,initialized;
     private final boolean writable;
+    private boolean inputUsable,retryAvailable;
     CameraCalibrationPanel(Activity activity,CameraControlSettings initial,FaceControlCalibration initialCalibration,boolean writable,Host host){
         this.host=host;this.draft=initial;this.calibration=new FaceControlCalibration(initialCalibration.revision(),initial.mirrorInteraction,null,null);this.writable=writable;
         LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(MirrorTheme.dp(activity,14),MirrorTheme.dp(activity,8),MirrorTheme.dp(activity,14),MirrorTheme.dp(activity,8));
         TextView directionTitle=text(activity,"01 · 核对方向",18);body.addView(directionTitle);
-        identity=text(activity,"等待相机准备完成……");body.addView(identity);
+        identity=text(activity,"正在准备相机……");body.addView(identity);
+        retry=MirrorTheme.button(activity,"重新连接相机",false,()->host.retryInput(this));
+        retry.setVisibility(View.GONE);body.addView(retry);
         body.addView(text(activity,"用文字或字母 F 核对相机方向，再检查角色的左右眨眼、张口和转头。"));
         image=new ImageView(activity);image.setAdjustViewBounds(true);image.setScaleType(ImageView.ScaleType.FIT_CENTER);
         LinearLayout previews=new LinearLayout(activity);previews.setOrientation(LinearLayout.HORIZONTAL);
@@ -143,16 +147,18 @@ final class CameraCalibrationPanel {
     }
     private void clearNeutral(){cancelCollection();calibration=new FaceControlCalibration(nextRevision(),draft.mirrorInteraction,null,null);host.changeCalibration(input,calibration);checked.setChecked(false);}
     private void cancelCollection(){synchronized(this){if(collector!=null&&session!=null)collector.cancel(session);collector=null;session=null;ready=null;}confirm.setEnabled(false);}
-    private boolean readyForInput(){return input!=null&&draft.matches(input.effective.cameraId,input.effective.fingerprint,640,480)
+    private boolean readyForInput(){return inputUsable&&input!=null&&draft.matches(input.effective.cameraId,input.effective.fingerprint,640,480)
             &&input.effective.rotationDegrees==draft.rotationDegrees&&input.effective.reflectInput==draft.reflectInput;}
     private boolean avatarReady(){return "READY".equals(avatarPreview.status().state());}
     private void refreshEnabled(){
         boolean ready=readyForInput();collect.setEnabled(ready);rotation.setEnabled(input!=null);reflect.setEnabled(input!=null);mirror.setEnabled(input!=null);
         checked.setEnabled(ready&&avatarReady());
+        retry.setVisibility(retryAvailable?View.VISIBLE:View.GONE);retry.setEnabled(retryAvailable);
+        Button defaults=dialog.getButton(AlertDialog.BUTTON_NEUTRAL);if(defaults!=null)defaults.setEnabled(input!=null);
         Button save=dialog.getButton(AlertDialog.BUTTON_POSITIVE);if(save!=null)save.setEnabled(ready&&avatarReady()&&writable&&checked.isChecked());
     }
     /** UI-thread update. Identity transitions revoke draft sampling; no obsolete raw frame is relabelled. */
-    void tick(Input current,FaceFrame raw,Object rawToken,InteractionController.Snapshot mapped){
+    void tick(Input current,FaceFrame raw,Object rawToken,InteractionController.Snapshot mapped,String runtimeError){
         if(isClosed())return;
         if(current!=input){
             boolean hadInput=input!=null;cancelCollection();synchronized(this){input=current;}image.setImageBitmap(null);checked.setChecked(false);
@@ -162,22 +168,26 @@ final class CameraCalibrationPanel {
                 }
                 if(hadInput)inputChanged=true;
                 clearNeutral();
-                identity.setText("相机已准备 · "+(current.effective.rotationDegrees%180==0?"640×480":"480×640")
-                        +(current.warning.isEmpty()?"":"\n"+current.warning));
-            }else identity.setText("正在释放旧输入 / 重新打开相机……");
+            }
         }
-        Bitmap preview=takePreview(current==null?null:current.token);if(preview!=null)image.setImageBitmap(preview);
+        CameraCalibrationInputStatus.Status status=CameraCalibrationInputStatus.describe(current!=null,
+                current==null?draft.rotationDegrees:current.effective.rotationDegrees,current==null?"":current.warning,
+                mapped==null?InteractionController.State.WAITING:mapped.state(),runtimeError);
+        boolean wasUsable=inputUsable;inputUsable=status.usable();retryAvailable=status.canRetry();setTextIfChanged(identity,status.label());
+        if(!inputUsable){cancelCollection();checked.setChecked(false);if(wasUsable){image.setImageBitmap(null);progress.setText("输入已暂停，采集已取消；相机恢复后请重新采集中性。");}}
+        Bitmap preview=takePreview(!inputUsable||current==null?null:current.token);if(preview!=null)image.setImageBitmap(preview);
         if(collector!=null){
             NeutralCalibrationCollector.Update update=collector.poll(session,SystemClock::elapsedRealtimeNanos);
             ready=update.result();confirm.setEnabled(collector.isCurrentReady(session,ready));
             progress.setText(collectorStatus(update.status())+" · "+update.samples()+" 个样本 / "+update.stableMillis()+" ms\n"+reason(update.reason())
                     +(ready==null?"":"\n采集完成，点击确认后才用于角色。"));
         }
-        if(mapped!=null){
+        if(mapped!=null&&inputUsable){
             if(mapped.state()==InteractionController.State.WAITING&&(calibration.hasNeutralPose()||calibration.personalBaseline()!=null)){
                 clearNeutral();progress.setText("已离开互动，当前个人基准已清除；可重新采集。");
             }
             float[] w=mapped.blendshapes52();setTextIfChanged(actions,String.format(Locale.ROOT,"角色输入 · 左眨眼 %.2f / 右眨眼 %.2f / 张口 %.2f\n%s",w[9],w[10],w[25],mapped.calibrationError()));}
+        else setTextIfChanged(actions,"尚无有效动作数据；相机恢复后再核对左右眨眼、张口与转头。");
         refreshEnabled();
     }
     private static String collectorStatus(NeutralCalibrationCollector.Status state){return switch(state){
