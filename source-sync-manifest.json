@@ -1,8 +1,8 @@
 {
-  "source_commit": "9e401539428fd40333e427f488c1bebea6dbd0c6",
+  "source_commit": "87c5e83e37975874fb4f16717add450d0d29d65f",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 680,
+  "file_count": 693,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,19 +35,19 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 42073,
-      "source_sha256": "fd9663c6b64d7c34befbdbcb8b3b99f799d18c9f88637afec048ac00b037e0a4",
-      "repository_bytes": 42073,
-      "repository_sha256": "fd9663c6b64d7c34befbdbcb8b3b99f799d18c9f88637afec048ac00b037e0a4",
+      "source_bytes": 42471,
+      "source_sha256": "c0433bca3fe473aff2bd7e0b7c35788cb4ae7f7456ff3fc07f57a81ef6cb9034",
+      "repository_bytes": 42471,
+      "repository_sha256": "c0433bca3fe473aff2bd7e0b7c35788cb4ae7f7456ff3fc07f57a81ef6cb9034",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 910,
-      "source_sha256": "8d6a8511322fb77e9fa382b30bb30c3ba9fad6dd626646162d7304a30a182736",
+      "source_sha256": "f7ceaed705eb44cdd907e8240b9b87f6959538b10c5a45ff2353a0e54eaa3932",
       "repository_bytes": 910,
-      "repository_sha256": "8d6a8511322fb77e9fa382b30bb30c3ba9fad6dd626646162d7304a30a182736",
+      "repository_sha256": "f7ceaed705eb44cdd907e8240b9b87f6959538b10c5a45ff2353a0e54eaa3932",
       "publication_transformation": null
     },
     {
@@ -1194,6 +1194,24 @@
       "publication_transformation": null
     },
     {
+      "source_path": "app/src/main/java/com/mirror/bench/Gles30GpuTimerBackend.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/Gles30GpuTimerBackend.java",
+      "source_bytes": 2980,
+      "source_sha256": "22b345d30a682190f27c600ccbf6ce7f33641c2b5245df3b123038698e6a59ba",
+      "repository_bytes": 2980,
+      "repository_sha256": "22b345d30a682190f27c600ccbf6ce7f33641c2b5245df3b123038698e6a59ba",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/GpuTimerProbe.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/GpuTimerProbe.java",
+      "source_bytes": 13888,
+      "source_sha256": "01f64ef4942800c726f20f4918cd55f1cf8c02c0dfaea09ba80ada3d96c02d73",
+      "repository_bytes": 13888,
+      "repository_sha256": "01f64ef4942800c726f20f4918cd55f1cf8c02c0dfaea09ba80ada3d96c02d73",
+      "publication_transformation": null
+    },
+    {
       "source_path": "app/src/main/java/com/mirror/bench/InteractionController.java",
       "repository_path": "app/src/main/java/com/mirror/bench/InteractionController.java",
       "source_bytes": 12915,
@@ -1205,18 +1223,20 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/InterlaceRenderer.java",
       "repository_path": "app/src/main/java/com/mirror/bench/InterlaceRenderer.java",
-      "source_bytes": 103267,
-      "source_sha256": "26beb85601d1d07b8508465d25dc4e90fa8d9814b719bf3990d07e81fad330bd",
-      "repository_bytes": 103267,
-      "repository_sha256": "26beb85601d1d07b8508465d25dc4e90fa8d9814b719bf3990d07e81fad330bd"
+      "source_bytes": 105538,
+      "source_sha256": "a97bd468292777aa48e9a6bb2ad9ed667df15c6a46f3219047ad2bdfe78e6eef",
+      "repository_bytes": 105538,
+      "repository_sha256": "a97bd468292777aa48e9a6bb2ad9ed667df15c6a46f3219047ad2bdfe78e6eef",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
-      "source_bytes": 80163,
-      "source_sha256": "ecda2467f193f032dcfc4380ea6968ac58766c1775b8edd533cca2390698cc50",
-      "repository_bytes": 80163,
-      "repository_sha256": "ecda2467f193f032dcfc4380ea6968ac58766c1775b8edd533cca2390698cc50"
+      "source_bytes": 80635,
+      "source_sha256": "b42be120292cfe84964d59866caf0d3e009db76a9dafaea512ee86600dbd6b1e",
+      "repository_bytes": 80635,
+      "repository_sha256": "b42be120292cfe84964d59866caf0d3e009db76a9dafaea512ee86600dbd6b1e",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorHomeActivity.java",
@@ -1491,6 +1511,15 @@
       "source_sha256": "51f7496e414765e411cbb07da2ef3551f9547f13acb75c58f69af84a206f12d2",
       "repository_bytes": 1507,
       "repository_sha256": "51f7496e414765e411cbb07da2ef3551f9547f13acb75c58f69af84a206f12d2",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/RuntimeGpuProfile.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/RuntimeGpuProfile.java",
+      "source_bytes": 14012,
+      "source_sha256": "23da1aa21a08e25cd31c8d8c8fe8f66e6b211d65ce0a3472f1453f3dd9f18fdb",
+      "repository_bytes": 14012,
+      "repository_sha256": "23da1aa21a08e25cd31c8d8c8fe8f66e6b211d65ce0a3472f1453f3dd9f18fdb",
       "publication_transformation": null
     },
     {
@@ -2250,6 +2279,15 @@
       "source_sha256": "10f6ce158d313d9971b1dff4f9d2ed03c129c8821c2c83fe1fc2e76f25256233",
       "repository_bytes": 8066,
       "repository_sha256": "10f6ce158d313d9971b1dff4f9d2ed03c129c8821c2c83fe1fc2e76f25256233",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v35-20261006.md",
+      "repository_path": "docs/production-app-v35-20261006.md",
+      "source_bytes": 8708,
+      "source_sha256": "542009292a10769918d10229c15b141e93f8ca7bfcd6955e036987f510fac74d",
+      "repository_bytes": 8708,
+      "repository_sha256": "542009292a10769918d10229c15b141e93f8ca7bfcd6955e036987f510fac74d",
       "publication_transformation": null
     },
     {
@@ -3772,10 +3810,10 @@
     {
       "source_path": "scripts/run_runtime_check.py",
       "repository_path": "scripts/run_runtime_check.py",
-      "source_bytes": 49468,
-      "source_sha256": "b0bd30243b72440e94dad54805d8ab77da135b896ec585100bc0b1c876a05619",
-      "repository_bytes": 49468,
-      "repository_sha256": "b0bd30243b72440e94dad54805d8ab77da135b896ec585100bc0b1c876a05619",
+      "source_bytes": 49716,
+      "source_sha256": "aba48ca54bcf8635e0b8bc212e69442d2750f8ffbfb3407c9a0f284f84d2c4ab",
+      "repository_bytes": 49716,
+      "repository_sha256": "aba48ca54bcf8635e0b8bc212e69442d2750f8ffbfb3407c9a0f284f84d2c4ab",
       "publication_transformation": null
     },
     {
@@ -4521,6 +4559,33 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/GpuProfileConfigTest.java",
+      "repository_path": "tests/GpuProfileConfigTest.java",
+      "source_bytes": 4203,
+      "source_sha256": "c27555f835f82aa3065784ff45b9cbfcf7e0b4a52975256db1a853d82f1bca08",
+      "repository_bytes": 4203,
+      "repository_sha256": "c27555f835f82aa3065784ff45b9cbfcf7e0b4a52975256db1a853d82f1bca08",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/GpuTimerAdapterTest.java",
+      "repository_path": "tests/GpuTimerAdapterTest.java",
+      "source_bytes": 1715,
+      "source_sha256": "a04ca4855fdece9eae853ba91f2a6a5368abf15cfb3af62baa3b350682d8400b",
+      "repository_bytes": 1715,
+      "repository_sha256": "a04ca4855fdece9eae853ba91f2a6a5368abf15cfb3af62baa3b350682d8400b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/GpuTimerProbeTest.java",
+      "repository_path": "tests/GpuTimerProbeTest.java",
+      "source_bytes": 10703,
+      "source_sha256": "426fe33ff6920aa500e212c434adf96c9a764e35d4a80e1158b5a992bb6a3305",
+      "repository_bytes": 10703,
+      "repository_sha256": "426fe33ff6920aa500e212c434adf96c9a764e35d4a80e1158b5a992bb6a3305",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/InteractionControllerTest.java",
       "repository_path": "tests/InteractionControllerTest.java",
       "source_bytes": 11998,
@@ -4739,6 +4804,15 @@
       "source_sha256": "823ddf267868f8da39ea029c328db8701d473b87a5cb4041218afeb1b5d4164a",
       "repository_bytes": 4690,
       "repository_sha256": "823ddf267868f8da39ea029c328db8701d473b87a5cb4041218afeb1b5d4164a",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/RuntimeGpuFinalProfileTest.java",
+      "repository_path": "tests/RuntimeGpuFinalProfileTest.java",
+      "source_bytes": 7695,
+      "source_sha256": "a5da0b5d79a17be5daa77175300c711c1dee29abc90a0b003ffef47735ff57b1",
+      "repository_bytes": 7695,
+      "repository_sha256": "a5da0b5d79a17be5daa77175300c711c1dee29abc90a0b003ffef47735ff57b1",
       "publication_transformation": null
     },
     {
@@ -5150,6 +5224,33 @@
       "source_sha256": "9652d9149a38d36b381cbb898e80db6f3352a7ea62fe3f951786de5d58caf870",
       "repository_bytes": 421,
       "repository_sha256": "9652d9149a38d36b381cbb898e80db6f3352a7ea62fe3f951786de5d58caf870",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/gpu-timer-stubs/android/opengl/EGL14.java",
+      "repository_path": "tests/gpu-timer-stubs/android/opengl/EGL14.java",
+      "source_bytes": 247,
+      "source_sha256": "896f24e61031af9f5d5a3ce9e01986e1bd29d1a91ff11f8395b7200c6f9aa148",
+      "repository_bytes": 247,
+      "repository_sha256": "896f24e61031af9f5d5a3ce9e01986e1bd29d1a91ff11f8395b7200c6f9aa148",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/gpu-timer-stubs/android/opengl/EGLContext.java",
+      "repository_path": "tests/gpu-timer-stubs/android/opengl/EGLContext.java",
+      "source_bytes": 273,
+      "source_sha256": "3e90d09d0495caf2c85722e7bb2d602a50ea197f430149804e02980735fc57c6",
+      "repository_bytes": 273,
+      "repository_sha256": "3e90d09d0495caf2c85722e7bb2d602a50ea197f430149804e02980735fc57c6",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/gpu-timer-stubs/android/opengl/GLES30.java",
+      "repository_path": "tests/gpu-timer-stubs/android/opengl/GLES30.java",
+      "source_bytes": 1725,
+      "source_sha256": "12e5c149bc8cf98903f054d2d9c3f3c9567e82d4ab902877ead101c01faa17af",
+      "repository_bytes": 1725,
+      "repository_sha256": "12e5c149bc8cf98903f054d2d9c3f3c9567e82d4ab902877ead101c01faa17af",
       "publication_transformation": null
     },
     {
@@ -5581,6 +5682,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/run_gpu_profile_config_tests.ps1",
+      "repository_path": "tests/run_gpu_profile_config_tests.ps1",
+      "source_bytes": 1163,
+      "source_sha256": "e11e02b080441228b6cdf0ec15159501321748b8aee427ef2bf69b6d06bdfff0",
+      "repository_bytes": 1163,
+      "repository_sha256": "e11e02b080441228b6cdf0ec15159501321748b8aee427ef2bf69b6d06bdfff0",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/run_neutral_calibration_tests.ps1",
       "repository_path": "tests/run_neutral_calibration_tests.ps1",
       "source_bytes": 1223,
@@ -5722,6 +5832,15 @@
       "source_sha256": "25102c9c5b7cc742cfb5a4e07c59b3b284d66b596731ab1832003212893d9b70",
       "repository_bytes": 1785,
       "repository_sha256": "25102c9c5b7cc742cfb5a4e07c59b3b284d66b596731ab1832003212893d9b70",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/run_runtime_gpu_profile_tests.ps1",
+      "repository_path": "tests/run_runtime_gpu_profile_tests.ps1",
+      "source_bytes": 2098,
+      "source_sha256": "5ad02a95d22dc3aab17b669b4277e1e763566f2843df0762cc5046ee619bbd70",
+      "repository_bytes": 2098,
+      "repository_sha256": "5ad02a95d22dc3aab17b669b4277e1e763566f2843df0762cc5046ee619bbd70",
       "publication_transformation": null
     },
     {
@@ -6050,10 +6169,10 @@
     {
       "source_path": "tests/test_runtime_metrics.py",
       "repository_path": "tests/test_runtime_metrics.py",
-      "source_bytes": 28724,
-      "source_sha256": "78ad72899bb3e67e6ea9e3e7080eec1a15ef07e1426963cff3c3271a97978596",
-      "repository_bytes": 28724,
-      "repository_sha256": "78ad72899bb3e67e6ea9e3e7080eec1a15ef07e1426963cff3c3271a97978596",
+      "source_bytes": 29649,
+      "source_sha256": "e1a3e12447a08d48575a71733292275500b7b39fc22e4a9cad77f089fe56a051",
+      "repository_bytes": 29649,
+      "repository_sha256": "e1a3e12447a08d48575a71733292275500b7b39fc22e4a9cad77f089fe56a051",
       "publication_transformation": null
     },
     {
@@ -6093,18 +6212,19 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "51325693a12c85eb4db16a8766576c75d3d3c4ea",
-  "public_parent_commit": "e205dc27cbcc32478369c9d250fee6544575aba9",
-  "versionCode": 34,
-  "versionName": "0.2.3",
-  "release_apk_sha256": "df642530804d7976f0c8f85da454f2c2944768d24da3092dc28e411382d211ae",
+  "previous_source_commit": "9e401539428fd40333e427f488c1bebea6dbd0c6",
+  "public_parent_commit": "ec41f9ad6b043bddbe7f256508e68d3e446a9988",
+  "versionCode": 35,
+  "versionName": "0.2.4",
+  "release_apk_sha256": "3a179c3be168588d92b78280e65ccfd0bbc6d7caa4f9521ffdb4e40fd886d1de",
   "last_iteration": {
-    "versionCode": 34,
-    "versionName": "0.2.3",
-    "approved_source_delta_files": 13,
-    "public_parent": "e205dc27cbcc32478369c9d250fee6544575aba9",
+    "versionCode": 35,
+    "versionName": "0.2.4",
+    "approved_source_delta_files": 19,
+    "public_parent": "ec41f9ad6b043bddbe7f256508e68d3e446a9988",
     "frozen_copy_hashes_verified": true,
-    "unreviewed_model_pipeline_work_included": false
+    "unreviewed_model_pipeline_work_included": false,
+    "v1_experiment_included": false
   },
   "source_sha_scope": "Frozen publication working bytes. Reviewed mappings from earlier iterations are retained; current unfrozen model-authoring worktree edits are excluded.",
   "source_git_text_normalization": "Source Git may normalize CRLF text to LF. Public copies preserve root-approved frozen working bytes via * -text; per-version index receipts record exact differences."

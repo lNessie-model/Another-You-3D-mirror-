@@ -77,6 +77,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private volatile int persistentFboCount;
     private PersistentMultiviewFbos persistentFbos;
     private long glContextGeneration;
+    private boolean gpuProfileRequested;
+    private volatile RuntimeGpuProfile gpuProfile;
+    private long gpuCallbackId,gpuFramePacingEpoch;
+    private int gpuFrameTarget;
+    private boolean gpuCallbackActive;
     private boolean cachedCameraVpRequested;
     private volatile String cameraVpActual="uninitialized";
     private final AvatarCameraProjectionCache cameraVpCache=new AvatarCameraProjectionCache();
@@ -252,6 +257,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(surfaceInitialized)throw new IllegalStateException("Camera matrix mode must be configured before GL initialization");
         cachedCameraVpRequested=enabled;
     }
+    synchronized void setGpuProfile(boolean enabled) {
+        if(surfaceInitialized)throw new IllegalStateException("GPU sampling must be configured before GL initialization");
+        gpuProfileRequested=enabled;
+    }
     synchronized void setStaticBackgroundCache(boolean enabled) {
         if(surfaceInitialized)throw new IllegalStateException("Background cache must be configured before GL initialization");
         staticBackgroundCacheRequested=enabled;
@@ -318,6 +327,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
         glContextGeneration=runtimeGlLifecycle.contextCreated();
+        RuntimeGpuProfile previousGpuProfile=gpuProfile;
+        gpuProfile=null;
         // EGL owns destruction of the lost context: never delete/reuse its numeric framebuffer names.
         persistentFbos=null;persistentFboCount=0;multiviewFboActual="uninitialized";
         cameraVpCache.invalidate();cameraVpActual="uninitialized";
@@ -395,6 +406,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 if(avatarShutdown)avatarScene.stopCpu();
             }
             else makeMesh();
+            if(gpuProfileRequested) {
+                if(!runtimeMode||avatarAssets==null)throw new IllegalArgumentException("GPU sampling requires a runtime avatar");
+                gpuProfile=new RuntimeGpuProfile(true,glContextGeneration,previousGpuProfile);
+            }
         } catch(Throwable problem) { fail(problem); }
     }
     @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
@@ -497,6 +512,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 GLES30.glDeleteSync(fences[fenceSlot]); fences[fenceSlot]=0;
             }
             boolean split=!runtimeMode&&profileStages&&!pipeline&&measuring&&workMs.size()%30==0;
+            if(gpuProfile!=null) {
+                gpuFramePacingEpoch=frameEpoch;gpuFrameTarget=frameTargetFps;
+                gpuCallbackId=gpuProfile.nextCallback();
+                gpuCallbackActive=true;
+            }
             if(runtimeMode) {
                 runtimePrepareStart=runtimePrepareEnd=SystemClock.elapsedRealtimeNanos();
                 runtimeViewTiming.reset();
@@ -523,7 +543,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                     runtimePrepareStart-before,runtimePrepareEnd-runtimePrepareStart,
                     viewsEnd-runtimePrepareEnd,interlaceEnd-viewsEnd,after-interlaceEnd);
             else recordFrame(before,after,split,sceneEnd);
-        } catch(Throwable problem) { fail(problem); }
+            if(gpuProfile!=null)gpuProfile.finishCallback();
+        } catch(Throwable problem) {
+            if(gpuProfile!=null)try{gpuProfile.abort(problem);}catch(Throwable cleanup){if(cleanup!=problem)problem.addSuppressed(cleanup);}
+            fail(problem);
+        } finally {gpuCallbackActive=false;}
     }
     private synchronized void recordPacedRuntimeFrame(int frameTarget,long frameEpoch,long entered,
             long before,long after,long pacerWait,int parkCalls,long fenceWait,boolean fenceCalled,
@@ -558,6 +582,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     synchronized JSONObject runtimeStatus() throws Exception {
         RuntimeGlLifecycle.Snapshot glState=runtimeGlLifecycle.snapshot();
+        RuntimeGpuProfile currentGpuProfile=gpuProfile;
         return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",avatarAssets==null)
                 .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
                 .put("multiview_fbo_actual",multiviewFboActual).put("persistent_fbo_count",persistentFboCount)
@@ -566,6 +591,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("static_background_cache_actual",backgroundCacheActual).put("static_background_cache_warning",backgroundCacheWarning)
                 .put("static_background_cache_bytes",backgroundCacheBytes).put("static_background_cache_builds",backgroundCacheBuilds)
                 .put("static_background_cache_qualified",false)
+                .put("gpu_profile",currentGpuProfile==null?new JSONObject().put("requested",gpuProfileRequested)
+                        .put("state",gpuProfileRequested?"uninitialized":"disabled")
+                        .put("query_pool_capacity",0):new JSONObject(currentGpuProfile.statusJson()))
                 .put("scene_view",new JSONObject(frameSceneView.toMap()))
                 .put("scene_view_requested",new JSONObject(sceneView.toMap()))
                 .put("face_playback",facePlaybackStatus)
@@ -739,7 +767,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uLookup"),1);
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
         } else phaseUniforms(program);
+        // OVR multiview forbids timer queries. Only the final draw on framebuffer 0 is measured.
+        if(gpuCallbackActive&&gpuProfile!=null)gpuProfile.beginFinal(gpuCallbackId,true);
         GLES30.glDrawArrays(GLES30.GL_TRIANGLES,0,3);
+        if(gpuCallbackActive&&gpuProfile!=null)gpuProfile.endFinal();
     }
     private void makeLookup() {
         if(lookupTexture!=0) GLES30.glDeleteTextures(1,new int[]{lookupTexture},0);
@@ -1003,6 +1034,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             runtimePrepareEnd=SystemClock.elapsedRealtimeNanos();
             runtimeViewTiming.begin(runtimePrepareEnd,views/(multiview?4:1));
         }
+        if(gpuCallbackActive&&gpuProfile!=null)gpuProfile.captureFrameScope(gpuCallbackId,gpuFramePacingEpoch,gpuFrameTarget,runtimeFaceActive,
+                frameSceneView,width,height,viewWidth,viewHeight,views);
         boolean drawAtlas=atlas&&!atlasCopy;
         boolean useBackgroundCache=staticBackgroundCacheRequested&&prepareStaticBackgroundCache();
         if(persistentFbosRequested) {
@@ -1339,6 +1372,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                         :"glFinish completion wall time; includes CPU submission and GPU execution; excludes EGL swap");
     }
     private void fail(Throwable problem) {
+        if(gpuProfile!=null)try{gpuProfile.close();}catch(Throwable cleanup){if(cleanup!=problem)problem.addSuppressed(cleanup);}
         if(cachedCameraVpRequested)cameraVpActual="failed";
         if(persistentFbosRequested){multiviewFboActual="failed";try{releasePersistentFbos();}catch(Throwable cleanup){problem.addSuppressed(cleanup);}}
         error=problem.toString(); Log.e("MirrorBench","GL failure",problem);
