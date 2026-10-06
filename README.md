@@ -6,15 +6,15 @@
 
 ## 当前版本
 
-当前版本为 **V36 / 0.2.5**（versionCode 36），源工程冻结点 `032707ed4b280dd96b7fe50a475ef1b076455c20`。增加默认关闭的杰洛特 ORM 上传诊断：只在 debug 明确 Boolean `test_orm_rg8=true` 时尝试 RG8；模型/材质/三图哈希都必须匹配，未知模型回退 RGBA8。普通入口仍用原格式；三个可选择身份、27 项素材和页面保持 V35。
+当前版本为 **V37 / 0.2.6**（versionCode 37），源工程冻结点 `6b3a5694433a935c2ea85414c1c12bad55c6de52`。新增默认关闭的 PBR 算术候选：仅显式 debug Boolean `test_pbr_fast_math=true` 启用 Schlick 五次幂乘法与 Smith/spec 分母合并。普通入口继续原着色器；ORM RG8 和 GPU 计时也默认关闭。
 
-- 保留原 GLB、几何、表情、颜色/法线、PBR shader、mip/过滤及绘制顺序。只在上传时提取 R/G，完整 ORM mip 格式数据从 22,369,620 降至 11,184,810 字节；这不是实际 GPU 驻留或内存/FPS 收益测量。
-- 真实 Mali-G52 的 69 姿态在串行 individual / OVR4 batch 中比较 16 视点，共 **2208 对像素差异为零**，实际纹理绑定、可见画面/姿态变化、清理和状态恢复通过。516 秒的阻塞 readback 检查不作为运行 FPS。
-- 同 APK 录制动态人脸推理+真实杰洛特，16×400×640、输出 1200×1920，原/候选/原呈现 FPS **8.949 / 8.712 / 8.889**；未证明提升，没有达到 30 FPS。顺序短测受温度影响，不断言精确因果退化或长期表现；不含 USB 采集/视频解码，GPU timer 全程关闭。
-- 正式入口 RG8 和 GPU 采样都关闭，杰洛特首帧、正常 Back、无 GL/Pose 工作线程和四份原配置通过。相机仍有 Camera2 流配置错误，没有实时 USB 帧。最终 APK 的 **78 assets、9 native entries** 与 V35 逐字节一致，保留原内部 debug 签名、包名、CAMERA 权限和设备数据。
-- 素材库仍为 **27 项、55 文件、79,547,460 字节**；艾达保持 `corrected_trial`。其余模型与三维背景在研内容没有混入。本版补齐 11 个 standalone runner 的新增类显式依赖；固定 15 项生产依赖和原 LICENSE/NOTICE 保留。APK、output、个人影像/向量、配置、凭据不上传。
+- 完整 Geralt、原贴图、highp、TBN、全部 normalize、GGX 下限、掠射夹限及16独立视点保持。实际 Mali-G52 的九姿态×16层×两种绘制方式共 **288 对**通过预设像素门：最大RGB差1、最高逐层RMSE0.0011411、alpha差0；144/144/36/36次实际程序绑定核验。不是全69姿态、美术或光学验收。
+- 同APK、完整Geralt、16×400×640、1200×1920输出、动态NV21录像推理，原/候选/原实际呈现 **8.897 / 8.817 / 8.894 FPS**。未证明提升，未达到30FPS；短测有温度顺序差异，不作因果或持续性能承诺，且不含USB采集或视频解码。
+- 正常首页/角色页、普通Geralt首帧、Back退出和四份原设置保持通过。相机仍Camera2流配置错误，没有实时采集验收。**78 assets、9 native entries与V36逐字节一致**，三个可选角色、27项素材和原内部debug签名不变。
+- 产品路径已是RGA转色、RKNN detector/478、CPU平滑/姿态/FP32归一化、混合CPU/NPU52后段；没有剩余MediaPipe GPU面捕可迁移NPU。GPU busy不是PBR独占时间，提高NPU占用也不等于提高渲染FPS。
+- 未选模型制作WIP、私人人脸片段/数组、设备设置、截图/报告/output、APK及build产物不发布。固定15项生产依赖、LICENSE/NOTICE和V35/V36历史文档保留。
 
-详见 [V36 实现与实际验收](docs/production-app-v36-20261006.md)、[V35 最终绘制计时记录](docs/production-app-v35-20261006.md)、[V34 角色记录](docs/production-app-v34-20261006.md)、[正式 App 规格](docs/production-app-spec-20261005.md)和[同步历史](docs/repository-sync-20261005.md)。V35 的 timer 查询保留为历史结果，当前版本的像素/性能结论以 V36 文档与 `product-release-manifest.json` 为准。实时面捕、个人艺术验收、更多三维背景及正式角色 16+ 视点 30 FPS 仍未完成。
+详见 [V37 实现与实际验收](docs/production-app-v37-20261006.md)、[V36 ORM 对照历史](docs/production-app-v36-20261006.md)、[V35 计时历史](docs/production-app-v35-20261006.md)、[正式 App 规格](docs/production-app-spec-20261005.md)和[同步历史](docs/repository-sync-20261005.md)。实时面捕、其余角色艺术/设备验收、更多三维背景与16+视点30FPS仍未完成。
 
 ## 目录
 
