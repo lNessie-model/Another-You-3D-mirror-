@@ -27,6 +27,19 @@
       "triangles": 29482,
       "drawCalls": 7,
       "decodedBytes": 5890656
+    },
+    {
+      "id": "ada-wong",
+      "displayName": "艾达王",
+      "directory": "avatars/catalog/ada-wong",
+      "modelSha256": "9c5246e343ee52c474470c763ea83801921fed235dbaed1a83a107a709431128",
+      "manifestSha256": "efad7da01f421b0915c7b6b8635fbd5d46eeb1dba0e7a9e87723a519bc3a6dd0",
+      "thumbnail": "avatars/catalog/ada-wong/thumbnail.png",
+      "status": "corrected_trial",
+      "vertices": 19105,
+      "triangles": 19639,
+      "drawCalls": 8,
+      "decodedBytes": 41708894
     }
   ]
 }

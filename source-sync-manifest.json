@@ -1,8 +1,8 @@
 {
-  "source_commit": "51325693a12c85eb4db16a8766576c75d3d3c4ea",
+  "source_commit": "9e401539428fd40333e427f488c1bebea6dbd0c6",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 676,
+  "file_count": 680,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,19 +35,19 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 41954,
-      "source_sha256": "8f607d0b33cbcec8c196e5fd33e0984ed50f0a84590f695676230d8ce47a70c5",
-      "repository_bytes": 41954,
-      "repository_sha256": "8f607d0b33cbcec8c196e5fd33e0984ed50f0a84590f695676230d8ce47a70c5",
+      "source_bytes": 42073,
+      "source_sha256": "fd9663c6b64d7c34befbdbcb8b3b99f799d18c9f88637afec048ac00b037e0a4",
+      "repository_bytes": 42073,
+      "repository_sha256": "fd9663c6b64d7c34befbdbcb8b3b99f799d18c9f88637afec048ac00b037e0a4",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 910,
-      "source_sha256": "18328b88bc2ee02ecb55bf4876141115fb9dd9477d7f1859ae0db76d91798211",
+      "source_sha256": "8d6a8511322fb77e9fa382b30bb30c3ba9fad6dd626646162d7304a30a182736",
       "repository_bytes": 910,
-      "repository_sha256": "18328b88bc2ee02ecb55bf4876141115fb9dd9477d7f1859ae0db76d91798211",
+      "repository_sha256": "8d6a8511322fb77e9fa382b30bb30c3ba9fad6dd626646162d7304a30a182736",
       "publication_transformation": null
     },
     {
@@ -105,12 +105,40 @@
       "publication_transformation": null
     },
     {
+      "source_path": "app/src/main/assets/avatars/catalog/ada-wong/avatar.json",
+      "repository_path": "app/src/main/assets/avatars/catalog/ada-wong/avatar.json",
+      "source_bytes": 7414,
+      "source_sha256": "efad7da01f421b0915c7b6b8635fbd5d46eeb1dba0e7a9e87723a519bc3a6dd0",
+      "repository_bytes": 7414,
+      "repository_sha256": "efad7da01f421b0915c7b6b8635fbd5d46eeb1dba0e7a9e87723a519bc3a6dd0",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/avatars/catalog/ada-wong/character.glb",
+      "repository_path": "app/src/main/assets/avatars/catalog/ada-wong/character.glb",
+      "source_bytes": 16220864,
+      "source_sha256": "9c5246e343ee52c474470c763ea83801921fed235dbaed1a83a107a709431128",
+      "repository_bytes": 16220864,
+      "repository_sha256": "9c5246e343ee52c474470c763ea83801921fed235dbaed1a83a107a709431128",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/avatars/catalog/ada-wong/thumbnail.png",
+      "repository_path": "app/src/main/assets/avatars/catalog/ada-wong/thumbnail.png",
+      "source_bytes": 276002,
+      "source_sha256": "d58750879a946e0ebfe4d02da7010b44b5eac745f3fbff565b917ce6f9365196",
+      "repository_bytes": 276002,
+      "repository_sha256": "d58750879a946e0ebfe4d02da7010b44b5eac745f3fbff565b917ce6f9365196",
+      "publication_transformation": null
+    },
+    {
       "source_path": "app/src/main/assets/avatars/catalog/catalog.json",
       "repository_path": "app/src/main/assets/avatars/catalog/catalog.json",
-      "source_bytes": 1095,
-      "source_sha256": "5de1cfa352381b6f8e0da8ae40e7eb276943521fc8ca4c3494a0618ae73f97f6",
-      "repository_bytes": 1095,
-      "repository_sha256": "5de1cfa352381b6f8e0da8ae40e7eb276943521fc8ca4c3494a0618ae73f97f6"
+      "source_bytes": 1607,
+      "source_sha256": "c291083037e71266f741d539f2a97db9c41d8160e5b6bea0660c67d6e1588ec9",
+      "repository_bytes": 1607,
+      "repository_sha256": "c291083037e71266f741d539f2a97db9c41d8160e5b6bea0660c67d6e1588ec9",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/assets/avatars/catalog/geralt/avatar.json",
@@ -140,10 +168,10 @@
     {
       "source_path": "app/src/main/assets/library/catalog.json",
       "repository_path": "app/src/main/assets/library/catalog.json",
-      "source_bytes": 16828,
-      "source_sha256": "b6f91944de9ce081bfd6934744bae1ff18768459f3fd9509aa7e8f0ef504c9f9",
-      "repository_bytes": 16828,
-      "repository_sha256": "b6f91944de9ce081bfd6934744bae1ff18768459f3fd9509aa7e8f0ef504c9f9",
+      "source_bytes": 16913,
+      "source_sha256": "abc301d43d5f5539212a6dd441a9b404181035f97893b4b8d329130737dbf08d",
+      "repository_bytes": 16913,
+      "repository_sha256": "abc301d43d5f5539212a6dd441a9b404181035f97893b4b8d329130737dbf08d",
       "publication_transformation": null
     },
     {
@@ -221,10 +249,10 @@
     {
       "source_path": "app/src/main/assets/library/head-ada-wong/preview.png",
       "repository_path": "app/src/main/assets/library/head-ada-wong/preview.png",
-      "source_bytes": 264633,
-      "source_sha256": "d44880ee9ff2057f9765bf300fe050ea3992f466639acc75e1264ffcf98cd76d",
-      "repository_bytes": 264633,
-      "repository_sha256": "d44880ee9ff2057f9765bf300fe050ea3992f466639acc75e1264ffcf98cd76d",
+      "source_bytes": 276002,
+      "source_sha256": "d58750879a946e0ebfe4d02da7010b44b5eac745f3fbff565b917ce6f9365196",
+      "repository_bytes": 276002,
+      "repository_sha256": "d58750879a946e0ebfe4d02da7010b44b5eac745f3fbff565b917ce6f9365196",
       "publication_transformation": null
     },
     {
@@ -680,10 +708,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/AssetLibraryCatalog.java",
       "repository_path": "app/src/main/java/com/mirror/bench/AssetLibraryCatalog.java",
-      "source_bytes": 12200,
-      "source_sha256": "6a541d544e8998d517af4c9243e625999d30cb5244de1186e911946bab485f88",
-      "repository_bytes": 12200,
-      "repository_sha256": "6a541d544e8998d517af4c9243e625999d30cb5244de1186e911946bab485f88",
+      "source_bytes": 12419,
+      "source_sha256": "ffd62e24f348812c0cb262e26d5d40bfb9b827c8a8199b6ffe59d758ef44db9a",
+      "repository_bytes": 12419,
+      "repository_sha256": "ffd62e24f348812c0cb262e26d5d40bfb9b827c8a8199b6ffe59d758ef44db9a",
       "publication_transformation": null
     },
     {
@@ -1193,18 +1221,19 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorHomeActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorHomeActivity.java",
-      "source_bytes": 3853,
-      "source_sha256": "3c8c623202f11f942ab0b7eb6cdcbc07e6791a13db6461ff265d69eea451f31b",
-      "repository_bytes": 3853,
-      "repository_sha256": "3c8c623202f11f942ab0b7eb6cdcbc07e6791a13db6461ff265d69eea451f31b"
+      "source_bytes": 3918,
+      "source_sha256": "87242fe4c7d551b20b394e94cd10dcbce731228310f88aa271bc5610ed035931",
+      "repository_bytes": 3918,
+      "repository_sha256": "87242fe4c7d551b20b394e94cd10dcbce731228310f88aa271bc5610ed035931",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorRolesActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorRolesActivity.java",
-      "source_bytes": 8589,
-      "source_sha256": "370ab92e9fe43a01e156fcb8ed251b8e5b533caad45ca1f81637f9a0dccc06a4",
-      "repository_bytes": 8589,
-      "repository_sha256": "370ab92e9fe43a01e156fcb8ed251b8e5b533caad45ca1f81637f9a0dccc06a4",
+      "source_bytes": 8778,
+      "source_sha256": "f7aa948ad6b4bacbbcc72f7de31e692e5a5ebcc60296a0aa6922da0cf005917e",
+      "repository_bytes": 8778,
+      "repository_sha256": "f7aa948ad6b4bacbbcc72f7de31e692e5a5ebcc60296a0aa6922da0cf005917e",
       "publication_transformation": null
     },
     {
@@ -2212,6 +2241,15 @@
       "source_sha256": "a96e96838c7ef47dd595f90b1f2fa4147577286a5ded94c6e3b65d08550d2082",
       "repository_bytes": 5553,
       "repository_sha256": "a96e96838c7ef47dd595f90b1f2fa4147577286a5ded94c6e3b65d08550d2082",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v34-20261006.md",
+      "repository_path": "docs/production-app-v34-20261006.md",
+      "source_bytes": 8066,
+      "source_sha256": "10f6ce158d313d9971b1dff4f9d2ed03c129c8821c2c83fe1fc2e76f25256233",
+      "repository_bytes": 8066,
+      "repository_sha256": "10f6ce158d313d9971b1dff4f9d2ed03c129c8821c2c83fe1fc2e76f25256233",
       "publication_transformation": null
     },
     {
@@ -3958,10 +3996,10 @@
     {
       "source_path": "tests/AssetLibraryCatalogTest.java",
       "repository_path": "tests/AssetLibraryCatalogTest.java",
-      "source_bytes": 16808,
-      "source_sha256": "a4c7ec2641738ba1c53163abc5e046413d34c0361849982de39a319536ff1713",
-      "repository_bytes": 16808,
-      "repository_sha256": "a4c7ec2641738ba1c53163abc5e046413d34c0361849982de39a319536ff1713",
+      "source_bytes": 17720,
+      "source_sha256": "91d8133a2f53fa4626038a709ad1ed841130a38d3ad430250ba241bda59933ea",
+      "repository_bytes": 17720,
+      "repository_sha256": "91d8133a2f53fa4626038a709ad1ed841130a38d3ad430250ba241bda59933ea",
       "publication_transformation": null
     },
     {
@@ -6055,16 +6093,16 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "db08d4a372a24cc3d9cbe257ed1af8958880437c",
-  "public_parent_commit": "8a67b5d0aef58d98592b4c97644453423d583e53",
-  "versionCode": 33,
-  "versionName": "0.2.2",
-  "release_apk_sha256": "b797f3a708eee30373fe7519b73f55f700aa8fa9dfa238682007385ba649209d",
+  "previous_source_commit": "51325693a12c85eb4db16a8766576c75d3d3c4ea",
+  "public_parent_commit": "e205dc27cbcc32478369c9d250fee6544575aba9",
+  "versionCode": 34,
+  "versionName": "0.2.3",
+  "release_apk_sha256": "df642530804d7976f0c8f85da454f2c2944768d24da3092dc28e411382d211ae",
   "last_iteration": {
-    "versionCode": 33,
-    "versionName": "0.2.2",
-    "approved_source_delta_files": 6,
-    "public_parent": "8a67b5d0aef58d98592b4c97644453423d583e53",
+    "versionCode": 34,
+    "versionName": "0.2.3",
+    "approved_source_delta_files": 13,
+    "public_parent": "e205dc27cbcc32478369c9d250fee6544575aba9",
     "frozen_copy_hashes_verified": true,
     "unreviewed_model_pipeline_work_included": false
   },

@@ -92,7 +92,7 @@ public final class MirrorRolesActivity extends Activity {
         if(preview.bitmap!=null){ImageView image=new ImageView(this);image.setImageBitmap(preview.bitmap);image.setScaleType(ImageView.ScaleType.FIT_CENTER);
             image.setContentDescription(entry.displayName+"角色预览");card.addView(image,new LinearLayout.LayoutParams(-1,MirrorTheme.dp(this,170)));}
         card.addView(MirrorTheme.text(this,entry.displayName,20,true));
-        String kind="device_verified".equals(entry.status)?"已完成本机验证":("legacy_reference".equals(entry.status)?"旧版参考 · 原有绑定":"待校正角色");
+        String kind="device_verified".equals(entry.status)?"已完成本机验证":("corrected_trial".equals(entry.status)?"已校正 · 可试用":("legacy_reference".equals(entry.status)?"旧版参考 · 原有绑定":"待校正角色"));
         TextView detail=MirrorTheme.text(this,kind+(preview.warning.isEmpty()?"":"\n"+preview.warning),12,false);detail.setTextColor(MirrorTheme.MUTED);card.addView(detail);
         Button choose=MirrorTheme.button(this,"选择"+entry.displayName,false,()->choose(entry));choices.add(choose);MirrorTheme.addButton(card,choose);
     }

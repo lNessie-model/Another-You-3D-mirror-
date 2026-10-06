@@ -113,15 +113,17 @@
     },
     {
       "id": "head-ada-wong",
-      "displayName": "艾达·王",
+      "displayName": "艾达王",
       "type": "head",
-      "status": "static_preview",
+      "status": "runtime_ready",
       "sourceLabel": "角色原件 · 2026.10.03",
-      "notes": "原模型和静态预览已保存。面部动作仍在校正，暂不用于实时魔镜。",
+      "notes": "初步校正，可试用；本人面捕等待确认",
       "sourcePath": "library/head-ada-wong/source.glb",
       "sourceSha256": "6a00740664acb97edb54b540304d5013042f5c24734d9ec6aeef23fbed299263",
       "previewPath": "library/head-ada-wong/preview.png",
-      "previewSha256": "d44880ee9ff2057f9765bf300fe050ea3992f466639acc75e1264ffcf98cd76d"
+      "previewSha256": "d58750879a946e0ebfe4d02da7010b44b5eac745f3fbff565b917ce6f9365196",
+      "liveRoleId": "ada-wong",
+      "liveModelSha256": "9c5246e343ee52c474470c763ea83801921fed235dbaed1a83a107a709431128"
     },
     {
       "id": "head-joker",

@@ -4,6 +4,24 @@
   "signing_scope": "Existing device debug certificate; no store release signing",
   "launcher": "com.mirror.bench.MirrorHomeActivity",
   "package": "com.mirror.bench",
+  "experimental_offline_tools": {
+    "files": [
+      "scripts/asset_pipeline/__init__.py",
+      "scripts/asset_pipeline/prepare_head.py",
+      "scripts/asset_pipeline/profile.py",
+      "scripts/asset_pipeline/segment_face.py",
+      "tests/test_asset_pipeline_profile.py"
+    ],
+    "artistAccepted": false,
+    "not_general_landmark_provenance_gate": true
+  },
+  "backgrounds": {
+    "images": 4,
+    "procedural": 8,
+    "library_glb_scenes": 4,
+    "library_image_versions": 8,
+    "new_3d_backgrounds_accepted": false
+  },
   "roles": [
     {
       "id": "geralt",
@@ -30,116 +48,94 @@
       "triangles": 29482,
       "drawCalls": 7,
       "decodedBytes": 5890656
+    },
+    {
+      "id": "ada-wong",
+      "displayName": "艾达王",
+      "directory": "avatars/catalog/ada-wong",
+      "modelSha256": "9c5246e343ee52c474470c763ea83801921fed235dbaed1a83a107a709431128",
+      "manifestSha256": "efad7da01f421b0915c7b6b8635fbd5d46eeb1dba0e7a9e87723a519bc3a6dd0",
+      "thumbnail": "avatars/catalog/ada-wong/thumbnail.png",
+      "status": "corrected_trial",
+      "vertices": 19105,
+      "triangles": 19639,
+      "drawCalls": 8,
+      "decodedBytes": 41708894
     }
   ],
-  "experimental_offline_tools": {
-    "files": [
-      "scripts/asset_pipeline/__init__.py",
-      "scripts/asset_pipeline/prepare_head.py",
-      "scripts/asset_pipeline/profile.py",
-      "scripts/asset_pipeline/segment_face.py",
-      "tests/test_asset_pipeline_profile.py"
-    ],
-    "artistAccepted": false,
-    "not_general_landmark_provenance_gate": true
-  },
-  "backgrounds": {
-    "images": 4,
-    "procedural": 8,
-    "library_glb_scenes": 4,
-    "library_image_versions": 8,
-    "new_3d_backgrounds_accepted": false
-  },
-  "versionCode": 33,
-  "versionName": "0.2.2",
-  "source_commit": "51325693a12c85eb4db16a8766576c75d3d3c4ea",
-  "public_parent": "8a67b5d0aef58d98592b4c97644453423d583e53",
-  "created_at_utc": "2026-10-05T15:29:41.960626+00:00",
-  "local_apk_filename": "AvatarRuntime-v33-role-thumbnails.apk",
-  "apk_sha256": "b797f3a708eee30373fe7519b73f55f700aa8fa9dfa238682007385ba649209d",
-  "apk_bytes": 125102232,
+  "default_role_id": "geralt",
+  "versionCode": 34,
+  "versionName": "0.2.3",
+  "source_commit": "9e401539428fd40333e427f488c1bebea6dbd0c6",
+  "public_parent": "e205dc27cbcc32478369c9d250fee6544575aba9",
+  "created_at_utc": "2026-10-06T04:00:29.440010+00:00",
+  "local_apk_filename": "AvatarRuntime-v34-ada-trial.apk",
+  "apk_sha256": "df642530804d7976f0c8f85da454f2c2944768d24da3092dc28e411382d211ae",
+  "apk_bytes": 130572199,
   "apk_in_repository": false,
   "qa_passed": true,
-  "qa_scope": "V33 Geralt static thumbnail readability, final APK byte checks, real Home/Role/Library screens and Back exit; no new live face or GPU/performance acceptance",
+  "qa_scope": "qaPassed covers V34 UI, selection, bundled model render readiness and exit/restoration; does not cover live face or FPS",
   "live_face_qa_passed": false,
   "full_user_goal_complete": false,
-  "camera_blocker": "Latest V32 runtime attempt had CAMERA_ERROR (3) and no images; V33 did not retest camera",
-  "camera_retested_this_release": false,
-  "runtime_opened_this_release": false,
-  "gpu_retested_this_release": false,
+  "camera_blocker": "IllegalStateException: android.hardware.camera2.CameraAccessException: CAMERA_ERROR (3): endConfigure:510: Camera 0: Error configuring streams: Function not imp",
+  "camera_retested_this_release": true,
+  "camera_capture_passed": false,
+  "runtime_opened_this_release": true,
+  "gpu_retested_this_release": true,
+  "gpu_acceptance_scope_this_release": "Actual bundled Ada model first GL frame on product V34; ten-pose/multiview gate separately verified on V33",
+  "gpu_pose_suite_rerun_this_release": false,
   "joint_performance_measured": false,
   "joint_30fps_goal_met": false,
   "private_fixtures_in_apk": false,
   "personal_video_in_apk": false,
-  "source_delta_file_count": 6,
+  "source_delta_file_count": 13,
   "frozen_delta_file_hashes_verified": true,
   "apk_library_file_hashes_verified": 55,
   "production_dependencies_match_v30": true,
-  "native_dependencies_match_v32": true,
+  "native_dependencies_match_v33": true,
   "native_library_count": 9,
   "asset_library": {
     "catalog": "app/src/main/assets/library/catalog.json",
-    "catalog_sha256": "b6f91944de9ce081bfd6934744bae1ff18768459f3fd9509aa7e8f0ef504c9f9",
+    "catalog_sha256": "abc301d43d5f5539212a6dd441a9b404181035f97893b4b8d329130737dbf08d",
     "entries": 27,
     "files": 55,
-    "bytes": 79536006,
+    "bytes": 79547460,
     "types": {
       "head": 15,
       "scene": 4,
       "image": 8
     },
     "statuses": {
-      "runtime_ready": 2,
+      "runtime_ready": 3,
       "archive": 10,
-      "static_preview": 15
+      "static_preview": 14
     },
     "total_ip_identities": 10,
-    "other_ip_identities_pending": 9,
+    "other_ip_identities_pending": 8,
     "ready_role_ids": [
       "geralt",
+      "ada-wong",
       "builtin-guide"
     ],
     "source_and_authored_runtime_hashes_separate": true,
     "all_library_bytes_match_final_apk": true,
     "listing_decodes_models": false,
-    "previews_load_only_selected": true
+    "previews_load_only_selected": true,
+    "ready_state_means_selectable_not_personal_face_accepted": true
   },
   "host_evidence": {
+    "actual_source_assets_checks": 190,
+    "actual_apk_library_checks": 190,
+    "known_project_asset_integrity_entries": 27,
+    "new_corrected_trial_and_candidate_rejection_regression": true,
+    "prior_full_behavior_suites_rerun_this_release": false
+  },
+  "previous_v33_host_evidence": {
     "actual_apk_library_checks": 187,
     "known_project_asset_integrity_entries": 27,
     "prior_v31_or_v32_behavior_suites_rerun_this_release": false
   },
-  "previous_v32_host_evidence": {
-    "actual_apk_library_checks": 187,
-    "real_activity_lifetime_checks": 22,
-    "known_project_asset_integrity_entries": 27,
-    "prior_v31_suites_rerun_this_release": false
-  },
-  "previous_v32_device_evidence": {
-    "actual_two_model_first_gl_frames": true,
-    "preview_archive_and_static_states": true,
-    "popup_cancel_and_back_preserve_selection": true,
-    "settings_equal_previous_bytes": true,
-    "single_runtime_after_switch": true,
-    "no_runtime_gl_pose_or_library_threads_after_exit": true,
-    "home_pss_kib": 119234,
-    "home_pss_is_full_joint_load_measurement": false,
-    "personal_face_art_accepted": false
-  },
-  "previous_v31_host_evidence": {
-    "catalog_selection_checks": 97,
-    "ui_startup_checks": 51,
-    "bundled_actual_asset_checks": 16,
-    "actual_asset_models": 2,
-    "renderer_suites": 12,
-    "sdk_camera_pose_parity_checks": 3000,
-    "management_checks": [
-      24,
-      42,
-      6
-    ]
-  },
-  "device_evidence": {
+  "previous_v33_device_evidence": {
     "geralt_role_thumbnail_readable_and_full_head": true,
     "geralt_library_thumbnail_readable_and_full_head": true,
     "ui_bounds_equal_v32": true,
@@ -150,19 +146,40 @@
     "new_live_face_gpu_or_performance_acceptance": false,
     "personal_face_art_accepted": false
   },
-  "geralt_static_thumbnail": {
-    "source_model_sha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
-    "existing_neutral_source_image_sha256": "6b419cdce6e7f7e1ec4d433e1bc8706ad6a9d330b67a77c8ca52a6ab02d30d57",
-    "thumbnail_sha256": "afa5fd271997149f559fefad198cec248e2424197fd24ed4c6ac58bc09fef6a1",
-    "width": 512,
-    "height": 512,
-    "bytes": 305556,
-    "source": "Exact-model existing offline Blender PBR render driven by production AvatarRig neutral snapshot",
-    "operation": "Full-frame Lanczos resize; no crop/recolor/AI generation",
-    "lighting_is_device_equivalent": false,
-    "guide_thumbnail_unchanged": true
+  "device_evidence": {
+    "three_role_cards_and_trial_label_passed": true,
+    "role_selection_persisted": true,
+    "library_ada_preview_preserves_all_four_configs": true,
+    "explicit_library_use_changed_geralt_to_ada": true,
+    "actual_bundled_ada_first_gl_frame": true,
+    "runtime_session_id": "823caf59-2908-4131-a349-5f3fc7a2c97a",
+    "runtime_model_sha256": "9c5246e343ee52c474470c763ea83801921fed235dbaed1a83a107a709431128",
+    "normal_back_exit": true,
+    "actual_per_tid_comm_used_for_worker_gate": true,
+    "no_runtime_gl_pose_or_library_threads_after_exit": true,
+    "all_four_configuration_sha_restored": true,
+    "default_role_restored": "geralt",
+    "personal_face_art_accepted": false
+  },
+  "ada_trial": {
+    "id": "ada-wong",
+    "status": "corrected_trial",
+    "model_sha256": "9c5246e343ee52c474470c763ea83801921fed235dbaed1a83a107a709431128",
+    "manifest_sha256": "efad7da01f421b0915c7b6b8635fbd5d46eeb1dba0e7a9e87723a519bc3a6dd0",
+    "thumbnail_sha256": "d58750879a946e0ebfe4d02da7010b44b5eac745f3fbff565b917ce6f9365196",
+    "actual_mali_gate_app_version": 33,
+    "actual_mali_gate_run_id": "9d4dc6a4-d0d1-44c2-ae8a-a1b239395856",
+    "ten_pose_and_serial_vs_ovr_individual_vs_batch_passed": true,
+    "personal_face_verified": false,
+    "artist_fully_accepted": false,
+    "known_art_limits": [
+      "Small mouth-corner specular reflection",
+      "Fine closed-eyelid crease"
+    ],
+    "raw_source_identity_preserved": true
   },
   "unreviewed_model_pipeline_delta_included": false,
-  "release_document": "docs/production-app-v33-20261005.md",
+  "new_portal_source_included": false,
+  "release_document": "docs/production-app-v34-20261006.md",
   "library_contract": "docs/asset-library-catalog-v32-20261005.md"
 }
