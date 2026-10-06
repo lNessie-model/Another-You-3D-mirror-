@@ -17,6 +17,17 @@ final class SceneBackground {
             }
             """);
     }
+    /** Diagnostic candidate: compute the background before divergent control flow. */
+    static String emptyRegionFragment(String original){
+        String reference=fragment(original);
+        String start="void main(){\n    vec4 r=textureLod";
+        if(!reference.contains(start))throw new IllegalArgumentException("Unexpected background main");
+        return reference.replace("out vec4 color;", "out vec4 color;\nuniform vec4 uAvatarBounds;")
+                .replace(start,"void main(){\n    vec3 bg=backgroundAt(vUv);\n"
+                    +"    if(vUv.x<uAvatarBounds.x||vUv.y<uAvatarBounds.y||vUv.x>uAvatarBounds.z||vUv.y>uAvatarBounds.w){color=vec4(bg,1.0);return;}\n"
+                    +"    vec4 r=textureLod")
+                .replace("    vec3 bg=backgroundAt(vUv);\n    //", "    //");
+    }
     private static final String FUNCTIONS="""
         vec3 backgroundAt(vec2 uv){
             // Android bitmap row zero is the top; screen UV zero is the bottom.

@@ -15,6 +15,7 @@
         <activity android:name=".MirrorRolesActivity" android:label="另一个你 · 角色" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".AssetLibraryActivity" android:label="另一个你 · 素材库" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".AvatarManagementActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".EmptyInterlaceCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".AvatarPreviewActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CalibrationActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PanelPreviewActivity" android:exported="true" android:screenOrientation="portrait" />

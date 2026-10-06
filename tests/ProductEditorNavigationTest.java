@@ -68,8 +68,27 @@ public final class ProductEditorNavigationTest {
             SceneViewPanel.last.host.closed();
             check(((Activity)a).finishes==0,state+" scene close must not finish/restart");
         }
-        cameraCloseRoutes();pendingCameraRequest();pausedDismiss();saveFailureGuards();retryGuards();
+        cameraCloseRoutes();pendingCameraRequest();pausedDismiss();saveFailureGuards();retryGuards();emptyInterlaceOptions();
         System.out.println("ProductEditorNavigationTest: "+checks+" checks passed; real activity callbacks, UI boundary only");
+    }
+    private static void emptyInterlaceOptions()throws Exception{
+        Class<?> c=Class.forName("com.mirror.bench.MirrorActivity$InputOptions");
+        Method read=c.getDeclaredMethod("read",android.os.Bundle.class,boolean.class);read.setAccessible(true);
+        Object defaults=read.invoke(null,null,true);check(Boolean.FALSE.equals(get(defaults,"emptyInterlace")),"empty candidate defaults off");
+        for(boolean flag:new boolean[]{false,true}){
+            android.os.Bundle b=new android.os.Bundle();b.putBoolean("test_empty_interlace",flag);
+            Object o=read.invoke(null,b,true);check(Boolean.valueOf(flag).equals(get(o,"emptyInterlace")),"explicit debug candidate Boolean");
+            try{read.invoke(null,b,false);throw new AssertionError("release override accepted");}
+            catch(InvocationTargetException expected){check(expected.getCause() instanceof IllegalArgumentException,"release candidate rejected");}
+        }
+        for(Object bad:new Object[]{null,"true",1}){
+            android.os.Bundle b=new android.os.Bundle();
+            if(bad==null)b.putString("test_empty_interlace",null);
+            else if(bad instanceof String text)b.putString("test_empty_interlace",text);
+            else b.putInt("test_empty_interlace",1);
+            try{read.invoke(null,b,true);throw new AssertionError("invalid candidate accepted");}
+            catch(InvocationTargetException expected){check(expected.getCause() instanceof IllegalArgumentException,"invalid candidate rejected");}
+        }
     }
     private static void cameraCloseRoutes()throws Exception{
         for(boolean origin:new boolean[]{true,false})for(boolean saved:new boolean[]{true,false}){

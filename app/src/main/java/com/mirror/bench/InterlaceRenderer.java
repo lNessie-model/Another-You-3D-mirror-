@@ -30,7 +30,13 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private boolean runtimeMode,surfaceInitialized;
     private volatile SceneViewSettings sceneView=SceneViewSettings.DEFAULT;
     private volatile SceneViewSettings frameSceneView=SceneViewSettings.DEFAULT;
-    private int runtimeBackgroundProgram;
+    private int runtimeBackgroundProgram,emptyInterlaceProgram;
+    private boolean emptyInterlaceRequested,emptyInterlaceSelected;
+    private float[] displayedViewProjections;
+    private final float[] emptyBoundsScratch={0,0,1,1},emptyUvBounds={0,0,1,1};
+    private boolean emptyBoundsValid;
+    private long emptyBoundsFrames;
+    private double emptyBoundsMeanMs;
     private volatile SceneBackgroundTexture screenBackground;
     void setSceneView(SceneViewSettings value){if(value==null)throw new IllegalArgumentException("Scene view required");sceneView=value;}
     private android.content.res.AssetManager avatarAssets;
@@ -270,6 +276,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(surfaceInitialized)throw new IllegalStateException("PBR shader mode must be configured before GL initialization");
         pbrFastMathRequested=enabled;
     }
+    synchronized void setEmptyInterlace(boolean enabled){
+        if(surfaceInitialized)throw new IllegalStateException("Empty interlace must be configured before GL initialization");
+        emptyInterlaceRequested=emptyInterlaceSelected=enabled;
+        displayedViewProjections=enabled?new float[views*16]:null;
+    }
     synchronized void setStaticBackgroundCache(boolean enabled) {
         if(surfaceInitialized)throw new IllegalStateException("Background cache must be configured before GL initialization");
         staticBackgroundCacheRequested=enabled;
@@ -336,6 +347,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
 
     @Override public void onSurfaceCreated(GL10 ignored,EGLConfig config) {
         glContextGeneration=runtimeGlLifecycle.contextCreated();
+        synchronized(this){emptyBoundsValid=false;emptyUvBounds[0]=emptyUvBounds[1]=0;emptyUvBounds[2]=emptyUvBounds[3]=1;}
         RuntimeGpuProfile previousGpuProfile=gpuProfile;
         gpuProfile=null;
         // EGL owns destruction of the lost context: never delete/reuse its numeric framebuffer names.
@@ -384,6 +396,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             sceneProgram=program(SCENE_VERTEX,SCENE_FRAGMENT);
             interlaceProgram=program(calibrationShader(SCREEN_VERTEX),calibrationShader(INTERLACE_FRAGMENT));
             if(runtimeMode)runtimeBackgroundProgram=program(calibrationShader(SCREEN_VERTEX),calibrationShader(SceneBackground.fragment(INTERLACE_FRAGMENT)));
+            emptyInterlaceProgram=0;
+            if(emptyInterlaceRequested){
+                if(!runtimeMode||avatarAssets==null||atlas||lookup||sharedPhase||staticBackgroundCacheRequested)
+                    throw new IllegalArgumentException("Empty interlace requires a full runtime avatar arithmetic array pass");
+                emptyInterlaceProgram=program(calibrationShader(SCREEN_VERTEX),calibrationShader(SceneBackground.emptyRegionFragment(INTERLACE_FRAGMENT)));
+            }
             if(sharedPhase||verifySharedPhase) {
                 if(!supportsSharedPhase())
                     throw new IllegalArgumentException("Shared RGB phase requires 20 views, pitch=10 subpixels, phase=0, RGB, forward views and bottom origin");
@@ -412,6 +430,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             }
             if(avatarAssets!=null) {
                 avatarScene=loadRuntimeAvatar();
+                if(emptyInterlaceRequested)avatarScene.enableScreenBounds();
                 if(avatarShutdown)avatarScene.stopCpu();
             }
             else makeMesh();
@@ -426,6 +445,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         cameraVpCache.invalidate();cameraVpActual="uninitialized";
         synchronized(this) {pacingEpoch++;}
         this.width=width; this.height=height;
+        synchronized(this){emptyBoundsValid=false;emptyBoundsFrames=0;emptyBoundsMeanMs=0;emptyUvBounds[0]=emptyUvBounds[1]=0;emptyUvBounds[2]=emptyUvBounds[3]=1;}
         viewWidth=requestedViewWidth>0?requestedViewWidth:Math.max(1,Math.round(width*widthScale));
         viewHeight=requestedViewHeight>0?requestedViewHeight:Math.max(1,Math.round(height*scale));
         try {
@@ -593,6 +613,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         RuntimeGlLifecycle.Snapshot glState=runtimeGlLifecycle.snapshot();
         RuntimeGpuProfile currentGpuProfile=gpuProfile;
         return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",avatarAssets==null)
+                .put("empty_interlace_requested",emptyInterlaceRequested).put("empty_interlace_selected",emptyInterlaceSelected)
+                .put("empty_interlace_bounds_valid",emptyBoundsValid).put("empty_interlace_uv_bounds",new JSONArray(emptyUvBounds))
+                .put("empty_interlace_skipped_fraction",emptyBoundsValid?1-(emptyUvBounds[2]-emptyUvBounds[0])*(emptyUvBounds[3]-emptyUvBounds[1]):0)
+                .put("empty_interlace_bounds_mean_ms",emptyBoundsMeanMs).put("empty_interlace_bounds_frames",emptyBoundsFrames)
+                .put("empty_interlace_scope","conservative all-view union of uploaded positions; geometric screen fraction, not measured texel traffic or GPU time; bounds mean is projection only; uploaded-position scan is included in avatar prepare/upload wall; default off")
                 .put("orm_rg8_requested",ormRg8Requested).put("pbr_fast_math_requested",pbrFastMathRequested)
                 .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
                 .put("multiview_fbo_actual",multiviewFboActual).put("persistent_fbo_count",persistentFboCount)
@@ -754,7 +779,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(atlas&&cached) throw new IllegalArgumentException("Atlas and lookup are independent experiments");
         if(sharedPhase&&(atlas||cached)) throw new IllegalArgumentException("Shared phase uses arithmetic array interlacing");
         int program=atlas?atlasProgram:(cached?lookupProgram:(sharedPhase?sharedPhaseProgram:(explicitLod?explicitLodProgram:interlaceProgram)));
-        if(runtimeMode&&avatarScene!=null&&!atlas&&!cached&&!sharedPhase)program=runtimeBackgroundProgram;
+        if(runtimeMode&&avatarScene!=null&&!atlas&&!cached&&!sharedPhase)program=emptyInterlaceSelected?emptyInterlaceProgram:runtimeBackgroundProgram;
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
         GLES30.glViewport(0,0,width,height); GLES30.glDisable(GLES30.GL_DEPTH_TEST);
         GLES30.glDisable(GLES30.GL_CULL_FACE);
@@ -763,7 +788,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
         GLES30.glBindTexture(atlas?GLES30.GL_TEXTURE_2D:GLES30.GL_TEXTURE_2D_ARRAY,atlas?atlasTexture:texture);
         GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uViews"),0);
-        if(program==runtimeBackgroundProgram&&runtimeMode){
+        if((program==runtimeBackgroundProgram||program==emptyInterlaceProgram)&&runtimeMode){
+            if(program==emptyInterlaceProgram)GLES30.glUniform4fv(GLES30.glGetUniformLocation(program,"uAvatarBounds"),1,emptyUvBounds,0);
             screenBackground.bind(frameSceneView.background);
             GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uBackground"),frameSceneView.background);
             GLES30.glUniform1i(GLES30.glGetUniformLocation(program,"uBackgroundImage"),1);
@@ -1013,6 +1039,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
     }
     private void drawAvatarViews() {
+        if(emptyInterlaceRequested){synchronized(this){emptyBoundsValid=false;emptyUvBounds[0]=emptyUvBounds[1]=0;emptyUvBounds[2]=emptyUvBounds[3]=1;}}
         frameSceneView=sceneView;
         avatarScene.setSceneView(frameSceneView);
         if(cachedCameraVpRequested)cameraVpCache.prepare(views,width,height,frameSceneView);
@@ -1087,6 +1114,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 Matrix.multiplyMM(mvp,0,projection,0,view,0);
                 System.arraycopy(mvp,0,multiviewMatrices,relative*16,16);
             }
+            if(displayedViewProjections!=null)System.arraycopy(multiviewMatrices,0,displayedViewProjections,v*16,group*16);
             if(runtimeMode)runtimeViewTiming.cameraComplete(SystemClock.elapsedRealtimeNanos());
             if(useBackgroundCache){
                 avatarScene.drawDynamic(multiviewMatrices,group,aspect);
@@ -1096,6 +1124,15 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             if(runtimeMode)runtimeViewTiming.sceneComplete(SystemClock.elapsedRealtimeNanos());
             if(discardDepth&&!drawAtlas)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
             if(runtimeMode)runtimeViewTiming.groupComplete(SystemClock.elapsedRealtimeNanos());
+        }
+        if(emptyInterlaceRequested){
+            long start=System.nanoTime();
+            boolean valid=avatarScene.copyScreenUvBounds(displayedViewProjections,views,aspect,viewWidth,viewHeight,width,height,emptyBoundsScratch);
+            double elapsed=(System.nanoTime()-start)/1e6;
+            synchronized(this){
+                emptyBoundsValid=valid;System.arraycopy(emptyBoundsScratch,0,emptyUvBounds,0,4);
+                emptyBoundsFrames++;emptyBoundsMeanMs+=(elapsed-emptyBoundsMeanMs)/emptyBoundsFrames;
+            }
         }
         if(discardDepth&&drawAtlas)GLES30.glInvalidateFramebuffer(GLES30.GL_FRAMEBUFFER,1,DEPTH_ATTACHMENT,0);
         if(atlas&&atlasCopy) {
@@ -1271,6 +1308,113 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("rmse",Math.sqrt(squared/(double)(width*height*3L*angles.length)))
                 .put("scope",scope+"; full interlaced output, neutral/maximum morph weights");
     }
+    /** Blocking diagnostic on the GL owner; never invoked by the product/runtime frame loop. */
+    JSONObject verifyEmptyInterlace(java.util.function.BooleanSupplier cancelled,java.util.function.Consumer<JSONObject> progress)throws Exception {
+        if(!emptyInterlaceRequested||avatarAsynchronous||views!=16||!multiview||!avatarBatched||!persistentFbosRequested
+                ||width!=1200||height!=1920||viewWidth!=400||viewHeight!=640||!error.isEmpty())
+            throw new IllegalStateException("Empty interlace verification requires synchronous 16-view batched 400x640 at 1200x1920");
+        SceneViewSettings savedView=sceneView;PanelCalibration savedPanel=panelCalibration;float savedPitch=pitch,savedTilt=tilt;String savedCalibration=calibration;
+        float[] savedWeights=runtimeBlendshapes.clone(),savedAngles=runtimeAngles.clone();
+        boolean savedSelected=emptyInterlaceSelected;
+        JSONObject report=new JSONObject().put("passed",false).put("running",true).put("performance_evidence",false)
+                .put("views",views).put("output_width",width).put("output_height",height)
+                .put("view_width",viewWidth).put("view_height",viewHeight).put("avatar",avatarScene.status())
+                .put("scope","Reference/candidate final RGBA bytes from the SAME once-rendered 16-layer array per fixture; no face capture or frame-rate measurement");
+        JSONArray rows=new JSONArray();report.put("rows",rows);
+        int effectiveBounds=0;double maxSkipped=0;int[] boundProgram=new int[1];float[] readUniform=new float[4];
+        ByteBuffer expected=ByteBuffer.allocateDirect(width*height*4),actual=ByteBuffer.allocateDirect(width*height*4);
+        ByteBuffer layer=ByteBuffer.allocateDirect(viewWidth*viewHeight*4);
+        try {
+            var poses=AvatarPoseFixtures.regression();
+            int total=poses.size()+SceneViewSettings.BACKGROUNDS.length+8+6;
+            for(int fixture=0;fixture<total;fixture++){
+                if(cancelled.getAsBoolean())throw new java.util.concurrent.CancellationException("Empty interlace check cancelled");
+                java.util.Arrays.fill(runtimeBlendshapes,0);java.util.Arrays.fill(runtimeAngles,0);
+                SceneViewSettings settings=SceneViewSettings.DEFAULT.withBackground(9);String name;
+                if(fixture<poses.size()){
+                    var pose=poses.get(fixture);pose.copyWeights(runtimeBlendshapes);pose.copyAngles(runtimeAngles);name=pose.name();
+                } else if(fixture<poses.size()+SceneViewSettings.BACKGROUNDS.length){
+                    int bg=fixture-poses.size();settings=settings.withBackground(bg);name="background-"+bg;
+                } else if(fixture<poses.size()+SceneViewSettings.BACKGROUNDS.length+8){
+                    int t=fixture-poses.size()-SceneViewSettings.BACKGROUNDS.length;name="transform-"+t;
+                    settings=switch(t){
+                        case 0->new SceneViewSettings(2.34f,0,0,0,0,0,0,.4f,0,9);
+                        case 1->new SceneViewSettings(.25f,-1,-1,0,0,0,0,1.2f,-1.5f,9);
+                        case 2->new SceneViewSettings(.25f,1,1,0,0,0,0,1.2f,1.5f,9);
+                        case 3->new SceneViewSettings(3,0,0,1.25f,0,0,0,1.2f,1.5f,9);
+                        case 4->new SceneViewSettings(1,0,0,-1.25f,180,180,180,0,-1.5f,9);
+                        case 5->new SceneViewSettings(1,-.6f,.3f,0,45,-90,40,1.2f,1.5f,9);
+                        case 6->new SceneViewSettings(1,.6f,-.3f,0,-45,90,-40,1.2f,-1.5f,9);
+                        default->new SceneViewSettings(3,1,1,1.25f,90,90,90,1.2f,1.5f,9);
+                    };
+                } else {
+                    int t=fixture-poses.size()-SceneViewSettings.BACKGROUNDS.length-8;name="optics-"+t;
+                    applyPanel(new PanelCalibration(10,.2777777f,PanelCalibration.PitchUnits.SUBPIXELS,t==5?.137f:0,
+                        t==1||t==5?PanelCalibration.SubpixelOrder.BGR:PanelCalibration.SubpixelOrder.RGB,
+                        t==2||t==5,t==3||t==5?PanelCalibration.YOrigin.TOP:PanelCalibration.YOrigin.BOTTOM));
+                    if(t==4)applyPanel(new PanelCalibration(3.5f,-.125f,PanelCalibration.PitchUnits.PIXELS,.375f,
+                        PanelCalibration.SubpixelOrder.BGR,true,PanelCalibration.YOrigin.TOP));
+                }
+                long beforePrepare=avatarScene.status().getLong("morph_updates");
+                sceneView=settings;drawAvatarViews(); // exactly one prepare/upload/16-view render
+                runtimeViewTiming.finish(SystemClock.elapsedRealtimeNanos()); // diagnostic owns the normal callback completion boundary
+                if(avatarScene.status().getLong("morph_updates")!=beforePrepare+1)throw new IllegalStateException("Fixture did not prepare exactly once");
+                double skipped=emptyBoundsValid?1-(emptyUvBounds[2]-emptyUvBounds[0])*(emptyUvBounds[3]-emptyUvBounds[1]):0;
+                if(emptyBoundsValid&&skipped>0){effectiveBounds++;maxSkipped=Math.max(maxSkipped,skipped);}
+                if(!error.isEmpty())throw new IllegalStateException(error);
+                long outside=0;
+                if(fixture==0||fixture==poses.size()-1){
+                    for(int v=0;v<views;v++){
+                        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo);
+                        GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
+                        if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)
+                            throw new IllegalStateException("Outside-bound read FBO incomplete");
+                        layer.clear();GLES30.glReadPixels(0,0,viewWidth,viewHeight,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,layer);
+                        for(int y=0;y<viewHeight;y++)for(int x=0;x<viewWidth;x++){
+                            float u=(x+.5f)/viewWidth,vv=(y+.5f)/viewHeight;
+                            if(u<emptyUvBounds[0]||vv<emptyUvBounds[1]||u>emptyUvBounds[2]||vv>emptyUvBounds[3]){
+                                int at=(y*viewWidth+x)*4;
+                                if(layer.get(at)!=0||layer.get(at+1)!=0||layer.get(at+2)!=0||layer.get(at+3)!=0)outside++;
+                            }
+                        }
+                    }
+                }
+                emptyInterlaceSelected=false;drawInterlace(false);
+                GLES30.glGetIntegerv(GLES30.GL_CURRENT_PROGRAM,boundProgram,0);
+                if(boundProgram[0]==0||boundProgram[0]!=runtimeBackgroundProgram)throw new IllegalStateException("Reference interlace program not bound");
+                expected.clear();
+                GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,expected);
+                emptyInterlaceSelected=true;drawInterlace(false);
+                GLES30.glGetIntegerv(GLES30.GL_CURRENT_PROGRAM,boundProgram,0);
+                if(boundProgram[0]==0||boundProgram[0]!=emptyInterlaceProgram||emptyInterlaceProgram==runtimeBackgroundProgram)
+                    throw new IllegalStateException("Candidate interlace program not bound");
+                GLES30.glGetUniformfv(emptyInterlaceProgram,GLES30.glGetUniformLocation(emptyInterlaceProgram,"uAvatarBounds"),readUniform,0);
+                for(int c=0;c<4;c++)if(Float.floatToIntBits(readUniform[c])!=Float.floatToIntBits(emptyUvBounds[c]))
+                    throw new IllegalStateException("Candidate uploaded bounds mismatch");
+                actual.clear();
+                GLES30.glReadPixels(0,0,width,height,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE,actual);checkGl();
+                var pixels=AvatarPixelComparison.compare(expected,actual,width,height);
+                if(cancelled.getAsBoolean())throw new java.util.concurrent.CancellationException("Cancelled during pixel readback");
+                boolean passed=pixels.rgbMismatches==0&&pixels.alphaMismatches==0&&outside==0;
+                JSONObject row=new JSONObject().put("name",name).put("passed",passed).put("bounds_valid",emptyBoundsValid)
+                    .put("bounds",new JSONArray(emptyUvBounds)).put("skipped_fraction",skipped).put("actual_program_bindings_checked",true)
+                    .put("actual_uniform_checked",true).put("settings",new JSONObject(settings.toMap()))
+                    .put("rgb_byte_mismatches",pixels.rgbMismatches).put("alpha_mismatches",pixels.alphaMismatches)
+                    .put("max_rgb_error",pixels.maxRgbError).put("reference_sha256",pixels.serialSha256)
+                    .put("candidate_sha256",pixels.candidateSha256).put("outside_nonzero_texels",outside)
+                    .put("outside_all_16_layers_checked",fixture==0||fixture==poses.size()-1);
+                rows.put(row);report.put("completed",fixture+1).put("expected",total);progress.accept(report);
+                if(!passed)throw new IllegalStateException("Empty interlace changed pixels: "+row);
+            }
+            if(cancelled.getAsBoolean())throw new java.util.concurrent.CancellationException("Cancelled before final pixel publication");
+            if(effectiveBounds==0||maxSkipped<=0)throw new IllegalStateException("Empty-region optimization never exercised");
+            report.put("effective_bounds_fixtures",effectiveBounds).put("max_skipped_fraction",maxSkipped);
+            report.put("passed",true).put("running",false).put("completed",total).put("bounds_stats",runtimeStatus());return report;
+        } finally {
+            sceneView=savedView;panelCalibration=savedPanel;pitch=savedPitch;tilt=savedTilt;calibration=savedCalibration;emptyInterlaceSelected=savedSelected;
+            System.arraycopy(savedWeights,0,runtimeBlendshapes,0,52);System.arraycopy(savedAngles,0,runtimeAngles,0,3);
+        }
+    }
     private static void validateScenePixels(JSONObject report) throws Exception {
         if(report.getInt("max_rgb_error")>1||report.getInt("alpha_mismatches")!=0||report.getDouble("rmse")>.1)
             throw new IllegalStateException("Scene output changed: "+report);
@@ -1382,6 +1526,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                         :"glFinish completion wall time; includes CPU submission and GPU execution; excludes EGL swap");
     }
     private void fail(Throwable problem) {
+        synchronized(this){emptyBoundsValid=false;emptyUvBounds[0]=emptyUvBounds[1]=0;emptyUvBounds[2]=emptyUvBounds[3]=1;}
         if(gpuProfile!=null)try{gpuProfile.close();}catch(Throwable cleanup){if(cleanup!=problem)problem.addSuppressed(cleanup);}
         if(cachedCameraVpRequested)cameraVpActual="failed";
         if(persistentFbosRequested){multiviewFboActual="failed";try{releasePersistentFbos();}catch(Throwable cleanup){problem.addSuppressed(cleanup);}}
