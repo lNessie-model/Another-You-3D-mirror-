@@ -7,7 +7,7 @@ $built=Join-Path $root 'app\build\intermediates\javac\debug\classes'
 $json=Join-Path $root 'app\build\avatar-tests\json-20240303.jar'
 if((Get-FileHash -LiteralPath $json -Algorithm SHA256).Hash -ne '3CF6CD6892E32E2B4C1C39E0F52F5248A2F5B37646FDFBB79A66B46B618414ED'){throw 'Unexpected JSON dependency'}
 New-Item -ItemType Directory -Force -Path $ClassesDirectory | Out-Null
-$names=@('MirrorActivity','InterlaceRenderer','MirrorSettings','MirrorStartupGate','InteractionController')
+$names=@('MirrorActivity','InterlaceRenderer','MirrorSettings','MirrorStartupGate','InteractionController','CameraCalibrationPanel','CameraCalibrationInputStatus')
 $sources=$names|ForEach-Object{Join-Path $root "app\src\main\java\com\mirror\bench\$_.java"}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp "$json;$AndroidJar;$built" -d $ClassesDirectory @sources
 if($LASTEXITCODE -ne 0){throw 'Editor actual SDK compilation failed'}

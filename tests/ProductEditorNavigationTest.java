@@ -68,7 +68,7 @@ public final class ProductEditorNavigationTest {
             SceneViewPanel.last.host.closed();
             check(((Activity)a).finishes==0,state+" scene close must not finish/restart");
         }
-        cameraCloseRoutes();pendingCameraRequest();pausedDismiss();saveFailureGuards();
+        cameraCloseRoutes();pendingCameraRequest();pausedDismiss();saveFailureGuards();retryGuards();
         System.out.println("ProductEditorNavigationTest: "+checks+" checks passed; real activity callbacks, UI boundary only");
     }
     private static void cameraCloseRoutes()throws Exception{
@@ -118,6 +118,25 @@ public final class ProductEditorNavigationTest {
         MirrorActivity camera=activity(true);openCamera(camera);long before=rendererResumes(camera);call(camera,"onPause");
         check(!(Boolean)get(camera,"resumed")&&((Activity)camera).finishes==0&&get(camera,"cameraPanel")==null,"real onPause camera dismissal never finishes");
         check(resumes(camera)==0&&rendererResumes(camera)==before,"real onPause camera dismissal never resumes GL/worker");
+    }
+    private static void retryGuards()throws Exception{
+        for(String state:new String[]{"paused","finishing","destroyed","stale"}){
+            MirrorActivity a=activity(true);CameraCalibrationPanel p=openCamera(a);
+            set(a,"runtimeError","fixture fault");((InteractionController)get(a,"interaction")).setError();
+            if(state.equals("paused"))set(a,"resumed",false);
+            if(state.equals("finishing"))((Activity)a).hostFinishing=true;
+            if(state.equals("destroyed"))((Activity)a).hostDestroyed=true;
+            if(state.equals("stale"))set(a,"cameraPanel",null);
+            p.host.retryInput(p);
+            check(get(a,"runtimeError").equals("fixture fault"),state+" retry cannot clear or restart current input");
+            check(get(a,"worker")==null&&((Activity)a).finishes==0,state+" retry cannot create hardware owner or navigate");
+        }
+        MirrorActivity a=activity(true);CameraCalibrationPanel p=openCamera(a);
+        set(a,"runtimeError","fixture fault");((InteractionController)get(a,"interaction")).setError();
+        p.host.retryInput(p);
+        check(get(a,"runtimeError").equals(""),"current retry invokes actual recovery and clears prior error");
+        check(get(a,"cameraPanel")==p&&((Activity)a).finishes==0,"current retry preserves the draft and editor");
+        check(get(a,"worker")==null,"maintenance fixture still forbids a real hardware worker");
     }
     private static void saveFailureGuards()throws Exception{
         MirrorActivity a=activity(true);CameraCalibrationPanel p=openCamera(a);

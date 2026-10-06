@@ -375,7 +375,7 @@ public final class MirrorActivity extends Activity {
             showRequestedProductPage();
             CameraCalibrationPanel panel=cameraPanel;
             if(panel!=null){CameraObservation observation=cameraObservation;
-                panel.tick(cameraInput,observation==null?null:observation.frame(),observation==null||observation.input()==null?null:observation.input().token,snapshot);}
+                panel.tick(cameraInput,observation==null?null:observation.frame(),observation==null||observation.input()==null?null:observation.input().token,snapshot,runtimeError);}
             else if(snapshot.state()==InteractionController.State.WAITING&&lastEventState!=InteractionController.State.WAITING){
                 FaceControlCalibration previous=interaction.calibration();
                 if(previous.hasNeutralPose()||previous.personalBaseline()!=null)
@@ -595,6 +595,10 @@ public final class MirrorActivity extends Activity {
         surface.onPause();
         try{
         cameraPanel=new CameraCalibrationPanel(this,original,originalCalibration,settings.writable,new CameraCalibrationPanel.Host(){
+            @Override public void retryInput(CameraCalibrationPanel owner){
+                if(owner!=cameraPanel||!resumed||isFinishing()||isDestroyed())return;
+                retryRuntime();
+            }
             @Override public void changeInput(CameraControlSettings controls){
                 synchronized(interaction){
                     requestedCamera=controls;cameraInput=null;cameraObservation=null;

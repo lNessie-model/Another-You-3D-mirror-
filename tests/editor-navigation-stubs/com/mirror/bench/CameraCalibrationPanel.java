@@ -6,6 +6,7 @@ import android.app.Activity;
 final class CameraCalibrationPanel {
     interface Host {
         void changeInput(CameraControlSettings controls);
+        void retryInput(CameraCalibrationPanel owner);
         boolean changeCalibration(Input expected,FaceControlCalibration calibration);
         boolean confirmCalibration(CameraCalibrationPanel owner,Input expected,NeutralCalibrationCollector.Session session,
                 NeutralCalibrationCollector.Result result,FaceControlCalibration calibration);
