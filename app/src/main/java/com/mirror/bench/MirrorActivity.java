@@ -224,13 +224,18 @@ public final class MirrorActivity extends Activity {
         else prepareBundledSelection();
         main.removeCallbacks(tick); main.post(tick);
         startIfReady(true);
-        main.post(()->{
-            if(!resumed||productActionConsumed)return;
-            productActionConsumed=true;
-            String action=getIntent().getStringExtra(MirrorHomeActivity.PRODUCT_ACTION);
-            if("scene".equals(action))showSceneView();
-            else if("settings".equals(action))showProductSettings();
-        });
+        main.post(this::showRequestedProductPage);
+    }
+    private void showRequestedProductPage(){
+        if(!resumed||productActionConsumed)return;
+        String action=getIntent().getStringExtra(MirrorHomeActivity.PRODUCT_ACTION);
+        // Camera calibration needs the actual role and its first frame; retain the request until both exist.
+        if("camera".equals(action)&&(!avatarStartup.ready()||!renderer.hasRuntimeFrame()))return;
+        productActionConsumed=true;
+        if("scene".equals(action))showSceneView();
+        else if("settings".equals(action))showProductSettings();
+        else if("camera".equals(action))showCameraCalibration();
+        else if("maintenance".equals(action))showMaintenance();
     }
     @Override protected void onPause() {
         resumed = false;
@@ -356,6 +361,7 @@ public final class MirrorActivity extends Activity {
             if (renderFault || progressFault != null) interaction.setError();
             else startIfReady(false);
             snapshot = interaction.sample(SystemClock::elapsedRealtimeNanos);
+            showRequestedProductPage();
             CameraCalibrationPanel panel=cameraPanel;
             if(panel!=null){CameraObservation observation=cameraObservation;
                 panel.tick(cameraInput,observation==null?null:observation.frame(),observation==null||observation.input()==null?null:observation.input().token,snapshot);}
@@ -522,8 +528,10 @@ public final class MirrorActivity extends Activity {
         finish();
     }
     @Override public void onBackPressed(){
+        productActionConsumed=true; // A pending editor request must not open after the user presses Back.
         if(runtimeControls.hideMenu())return;
-        returnHome();
+        if(getIntent().getBooleanExtra(MirrorSettingsActivity.RETURN_TO_SETTINGS,false))finish();
+        else returnHome();
     }
     private void retryRuntime(){
         if(!inputStartAllowed()){runtimeError=inputStopFailureMessage();interaction.setError();return;}
