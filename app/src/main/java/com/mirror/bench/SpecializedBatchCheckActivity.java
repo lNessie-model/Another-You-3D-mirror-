@@ -19,12 +19,18 @@ public final class SpecializedBatchCheckActivity extends Activity implements GLS
     private volatile boolean cancelled;
     private String runId;
     private JSONObject latest;
-    private boolean finished;
+    private boolean finished,constantWhitePrimary;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);runId=UUID.randomUUID().toString();
         try {
             if((getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)==0)
                 throw new IllegalStateException("Specialized batch requires a debug APK");
+            Bundle extras=getIntent().getExtras();
+            if(extras!=null&&extras.containsKey("test_constant_white_primary")){
+                Object option=extras.get("test_constant_white_primary");
+                if(!(option instanceof Boolean))throw new IllegalArgumentException("Constant-white primary requires a non-null debug Boolean");
+                constantWhitePrimary=(Boolean)option;
+            }
             var loaded=SceneViewPreferences.load(this);
             if(!loaded.warning.isEmpty())throw new IllegalStateException("Cannot diagnose an invalid saved scene: "+loaded.warning);
             saved=loaded.value;
@@ -41,7 +47,7 @@ public final class SpecializedBatchCheckActivity extends Activity implements GLS
     }
     @Override public void onSurfaceChanged(GL10 gl,int width,int height) {
         if(finished||cancelled)return;finished=true;
-        try{publish(AvatarSpecializedCheck.run(getAssets(),saved,()->cancelled,this::publish));}
+        try{publish(AvatarSpecializedCheck.run(getAssets(),saved,()->cancelled,this::publish,constantWhitePrimary));}
         catch(Exception failure){publishFailure(failure);}
     }
     @Override public void onDrawFrame(GL10 gl){}
@@ -54,7 +60,7 @@ public final class SpecializedBatchCheckActivity extends Activity implements GLS
     private void publish(JSONObject value) {
         FileOutputStream output=null;AtomicFile file=new AtomicFile(new File(getFilesDir(),"specialized-batch-check.json"));
         try {
-            latest=value;value.put("run_id",runId).put("performance_evidence",false);
+            latest=value;value.put("run_id",runId).put("performance_evidence",false).put("constant_white_primary_requested",constantWhitePrimary);
             if(!value.has("running"))value.put("running",true).put("passed",false);
             if(cancelled)value.put("cancelled",true).put("passed",false);
             output=file.startWrite();output.write(value.toString(2).getBytes(StandardCharsets.UTF_8));file.finishWrite(output);

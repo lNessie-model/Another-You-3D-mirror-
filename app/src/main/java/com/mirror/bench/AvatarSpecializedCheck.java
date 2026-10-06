@@ -16,11 +16,15 @@ final class AvatarSpecializedCheck {
     private static final int W=400,H=640,VIEWS=16;
     private static final float ASPECT=1200f/1920f;
     static JSONObject run(AssetManager assets,SceneViewSettings saved,BooleanSupplier cancelled,Consumer<JSONObject> progress)throws Exception {
+        return run(assets,saved,cancelled,progress,false);
+    }
+    static JSONObject run(AssetManager assets,SceneViewSettings saved,BooleanSupplier cancelled,Consumer<JSONObject> progress,boolean constantWhitePrimary)throws Exception {
         Throwable primary=null;AvatarGpuScene scene=null;int[] textures=new int[3],fbos=new int[2];
         JSONArray fixtures=new JSONArray();var poses=AvatarPoseFixtures.regression();
         JSONObject out=new JSONObject().put("running",true).put("passed",false).put("performance_evidence",false)
                 .put("scope","Ordinary INDIVIDUAL OVR4 versus per-entry specialized OVR4; one CPU pose updates separate primitive and packed buffers, shared original textures; all 16 off-axis layers before interlacing")
-                .put("reference_backend","individual_ovr4").put("candidate_backend","per_entry_specialized_ovr4")
+                .put("reference_backend","individual_ovr4").put("candidate_backend",constantWhitePrimary?"per_entry_specialized_constant_white_ovr4":"per_entry_specialized_ovr4")
+                .put("constant_white_primary_requested",constantWhitePrimary)
                 .put("buffer_scope","separate individual and packed VBO/IBO; identical CPU deformation input, not shared VBO")
                 .put("views",VIEWS).put("view_width",W).put("view_height",H).put("expected_fixtures",poses.size())
                 .put("expected_layer_comparisons",poses.size()*VIEWS).put("max_rgb_error_allowed",1).put("rmse_allowed",.1)
@@ -32,7 +36,7 @@ final class AvatarSpecializedCheck {
             out.put("gl_renderer",GLES30.glGetString(GLES30.GL_RENDERER)).put("gl_version",GLES30.glGetString(GLES30.GL_VERSION));
             var entry=BundledAvatarCatalog.find(BundledAvatarCatalog.read(assets),"geralt");
             scene=AvatarGpuScene.bundled(assets,entry.directory,entry.modelSha256,entry.manifestSha256,true,false,AvatarGpuScene.DrawMode.VERIFY);
-            scene.setSceneView(saved);scene.beginSpecializedBatch();out.put("model_sha256",entry.modelSha256).put("manifest_sha256",entry.manifestSha256);
+            scene.setSceneView(saved);scene.beginSpecializedBatch(constantWhitePrimary);out.put("model_sha256",entry.modelSha256).put("manifest_sha256",entry.manifestSha256);
             GLES30.glGenTextures(3,textures,0);GLES30.glGenFramebuffers(2,fbos,0);
             for(int i=0;i<2;i++){GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[i]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_RGBA8,W,H,VIEWS);}
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,textures[2]);GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_DEPTH_COMPONENT16,W,H,VIEWS);

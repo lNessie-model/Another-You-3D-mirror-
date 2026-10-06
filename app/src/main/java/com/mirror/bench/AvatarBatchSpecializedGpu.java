@@ -15,24 +15,33 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
     private final Pair[] entries;
     private final List<Pair> materials=new ArrayList<>();
     private final boolean multiview;
+    private final AvatarPrimaryColorPolicy primaryColor;
     private long drawCalls,groups,serialGroups,multiviewGroups;
     private int lastProgram,lastViewCount;
     private boolean closed;
 
     AvatarBatchSpecializedGpu(AvatarBatchLayout layout,int[] borrowedBuffers,boolean multiview,
             float[] colors,float[] params,float[] pbrParams) {
+        this(layout,borrowedBuffers,multiview,colors,params,pbrParams,false);
+    }
+    AvatarBatchSpecializedGpu(AvatarBatchLayout layout,int[] borrowedBuffers,boolean multiview,
+            float[] colors,float[] params,float[] pbrParams,boolean constantWhitePrimary) {
         if(layout==null||borrowedBuffers==null||borrowedBuffers.length!=5)
             throw new IllegalArgumentException("Existing textured PBR batch buffers required");
         for(int buffer:borrowedBuffers)if(buffer==0)throw new IllegalArgumentException("Live batch buffers required");
         this.layout=layout;this.buffers=borrowedBuffers;this.multiview=multiview;
+        // Only the actual immutable packed colors qualify; every primary instance is checked.
+        // Model identity is separately enforced by the Scene's exact-Geralt experiment gate.
+        primaryColor=constantWhitePrimary?AvatarPrimaryColorPolicy.verify(layout):null;
         entries=new Pair[layout.entries().size()];
         LinkedHashMap<String,Pair> unique=new LinkedHashMap<>();
         try {
             for(int i=0;i<entries.length;i++) {
-                Material material=new Material(colors,params,pbrParams,i);String key=fragmentSource(material);
+                boolean white=primaryColor!=null&&primaryColor.constantWhite(i);
+                Material material=new Material(colors,params,pbrParams,i);String key=fragmentSource(material,white);
                 Pair pair=unique.get(key);
                 if(pair==null) {
-                    pair=new Pair(material,multiview);materials.add(pair);unique.put(key,pair);
+                    pair=new Pair(material,multiview,white,constantWhitePrimary);materials.add(pair);unique.put(key,pair);
                 }
                 entries[i]=pair;
             }
@@ -79,14 +88,24 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
         for(int i=0;i<materials.size();i++) {
             Pair p=materials.get(i);programs.put(new JSONObject().put("material_variant",i)
                     .put("single_program",p.single.id).put("multiview_program",p.multi==null?0:p.multi.id)
+                    .put("color_mode",colorMode(p.constantWhite))
+                    .put("single_color_attribute",p.single.colorAttribute==null?JSONObject.NULL:p.single.colorAttribute)
+                    .put("multiview_color_attribute",p.multi==null||p.multi.colorAttribute==null?JSONObject.NULL:p.multi.colorAttribute)
                     .put("fragment_sha256",p.single.fragmentSha));
         }
         for(int i=0;i<entries.length;i++) {
             var e=layout.entries().get(i);ranges.put(new JSONObject().put("entry",i).put("node",e.node)
                     .put("mesh",e.mesh).put("primitive",e.primitive).put("index_count",e.indexCount)
+                    .put("first_vertex",e.firstVertex).put("vertex_count",e.vertexCount)
+                    .put("color_mode",colorMode(entries[i].constantWhite))
                     .put("index_byte_offset",e.firstIndex*4).put("material_variant",materials.indexOf(entries[i])));
         }
         return new JSONObject().put("backend","per_entry_material_specialized").put("closed",closed)
+                .put("constant_white_requested",primaryColor!=null).put("constant_white_actual",primaryColor!=null&&!closed)
+                .put("constant_white_verified_entries",primaryColor==null?0:primaryColor.primaryEntries())
+                .put("constant_white_verified_vertices",primaryColor==null?0:primaryColor.verifiedVertices())
+                .put("color_attribute_validation",primaryColor==null?"not_requested":"once_per_linked_program")
+                .put("color_vbo_storage","unchanged_shared_packed_buffer")
                 .put("draw_calls",drawCalls).put("completed_view_groups",groups)
                 .put("serial_groups",serialGroups).put("multiview_groups",multiviewGroups)
                 .put("last_draw_program_id",lastProgram).put("last_view_count",lastViewCount)
@@ -105,11 +124,13 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
     void requireOwner(){if(Thread.currentThread()!=owner||closed)throw new IllegalStateException("Live GL-owner specialized batch required");}
     private static void rethrow(Throwable failure){if(failure instanceof Error e)throw e;if(failure instanceof RuntimeException r)throw r;if(failure!=null)throw new IllegalStateException(failure);}
     private static void checkGl(String label){int error=GLES30.glGetError();if(error!=GLES30.GL_NO_ERROR)throw new IllegalStateException(label+" GL error "+error);}
+    private static String colorMode(boolean white){return white?"constant_white_primary":"interpolated";}
     private static final class Pair implements AutoCloseable {
-        final Program single,multi;private boolean closed;
-        Pair(Material material,boolean multiview) {
-            Program a=new Program(false,material),b=null;
-            try{if(multiview)b=new Program(true,material);}
+        final Program single,multi;final boolean constantWhite;private boolean closed;
+        Pair(Material material,boolean multiview,boolean white,boolean validateColor) {
+            constantWhite=white;
+            Program a=new Program(false,material,white,validateColor),b=null;
+            try{if(multiview)b=new Program(true,material,white,validateColor);}
             catch(RuntimeException|Error failure){try{a.close();}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
             single=a;multi=b;
         }
@@ -118,16 +139,20 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
     private static final class Program implements AutoCloseable {
         final int id,vp,world,normal,atlas,normalMap,orm;
         final String fragmentSha;
+        final Integer colorAttribute;
         private boolean closed;
-        Program(boolean multiview,Material material) {
-            String fragment=fragmentSource(material);fragmentSha=AvatarPbrShaderVariant.sha256(fragment);
+        Program(boolean multiview,Material material,boolean white,boolean validateColor) {
+            String fragment=fragmentSource(material,white);fragmentSha=AvatarPbrShaderVariant.sha256(fragment);
             int vs=0,fs=0,created=0;
             try {
-                vs=AvatarGpuScene.shader(GLES30.GL_VERTEX_SHADER,vertexSource(multiview,material));
+                vs=AvatarGpuScene.shader(GLES30.GL_VERTEX_SHADER,vertexSource(multiview,material,white));
                 fs=AvatarGpuScene.shader(GLES30.GL_FRAGMENT_SHADER,fragment);
                 created=GLES30.glCreateProgram();GLES30.glAttachShader(created,vs);GLES30.glAttachShader(created,fs);GLES30.glLinkProgram(created);
                 int[] ok=new int[1];GLES30.glGetProgramiv(created,GLES30.GL_LINK_STATUS,ok,0);
                 if(ok[0]==0)throw new IllegalStateException("Specialized PBR program: "+GLES30.glGetProgramInfoLog(created));
+                colorAttribute=validateColor?GLES30.glGetAttribLocation(created,"aColor"):null;
+                if(validateColor&&colorAttribute!=(white?-1:2))
+                    throw new IllegalStateException("Unexpected linked aColor for "+colorMode(white)+": "+colorAttribute);
                 id=created;vp=location(id,"uViewProjection");world=location(id,"uWorld");
                 normal=material.lit?GLES30.glGetUniformLocation(id,"uNormal"):-1;
                 // Constant material arithmetic may legitimately optimize a sampler/normal away.
@@ -176,6 +201,12 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
                 .replace("uViewProjection*","uViewProjection[gl_ViewID_OVR]*");
         return source;
     }
+    static String vertexSource(boolean multiview,Material material,boolean constantWhite) {
+        String source=vertexSource(multiview,material);
+        if(constantWhite)source=replace(replace(replace(source,"layout(location=2) in vec4 aColor;",""),
+                "out vec4 vColor;",""),"vColor=aColor;","");
+        return source;
+    }
     static String fragmentSource(Material material) {
         String source=replace(AvatarGpuScene.PBR_FRAGMENT,"uniform vec4 uColor;uniform float uUnlit;uniform float uRoughness;",
                 "const vec4 uColor="+vector(material.color)+";const float uRoughness="+literal(material.roughness)+";");
@@ -205,6 +236,10 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
         }
         if(!material.uv)source=replace(source,"in vec2 vUV;","");
         return source;
+    }
+    static String fragmentSource(Material material,boolean constantWhite) {
+        String source=fragmentSource(material);
+        return constantWhite?replace(source,"in vec4 vColor;","const vec4 vColor=vec4(1.0);"):source;
     }
     private static String replace(String source,String from,String to) {
         int at=source.indexOf(from);
