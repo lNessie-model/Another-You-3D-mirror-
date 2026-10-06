@@ -6,16 +6,15 @@
 
 ## 当前版本
 
-当前版本为 **V44 / 0.2.13，最终候选 v2**（versionCode 44），源工程冻结点 `05f9f2ffb2af8b7ebf3dc48eed3aefdc983e34fa`。角色页一次浏览一位，明确区分正在浏览和实际使用；仅点击“使用”才保存选择。默认关闭的分材质着色器得到有限画面验证及对原调试合批路径的短测提升，**尚未与普通默认 individual 路径比较，不自动启用**。
+当前安装版为 **V45 / 0.2.14**（versionCode45），源工程冻结点 `2815f966313213c366e424edc16fca272e079b44`。补齐普通 INDIVIDUAL 与分材质候选的真实 Mali 像素对照；候选仍默认关闭。此前约26%的结果只对原调试合批路径，本轮对普通参考的有限短测提升约 **7.10%**，同时 CPU 和面捕延迟增加，尚未取得整体生产体验资格。
 
-- 角色浏览不启动相机、GLB或NPU，只保留一张有界缩略图；真实设备验证浏览不写配置、边界按钮、HOME返回、明确选择艾达王后进程重启保留、Ada渲染READY及恢复杰洛特。两个[实际界面截图](docs/production-app-v44-20261007.md#角色页)是合成角色UI，不含真人摄像头帧。Java线程采样未见GLThread/avatar-pose/MirrorRuntime owner；不声称GPU驻留内存归零。
-- 原Geralt SHA、完整PBR纹理/网格/UV不变。候选按7个entry使用5种材质专用program，同4-view组由1次变7次draw，借用原VBO/IBO。仅debug显式启用，拒绝与ORM、fastmath、背景缓存或空白交织实验混用。
-- 实际Mali的**69姿态×16独立400×640层，1104比较**通过预设maxRGB1/RMSE0.1/alpha0门：最大RGB差1级、最大层RMSE0.0019764级、351个RGB字节不同、alpha零差。参考276/candidate1932次提交；不是所有连续姿态、光学校准或美术验收。
-- 同APK完整Geralt/PBR、录像NV21/RGA/RKNN478/混合52、16×400×640与1200×1920交织，debug原合批/候选/原合批呈现 **8.9258 / 11.2783 / 8.9305 FPS**。全部确认INTERACTIVE采集/呈现证据完整，候选对两次参考均值约**26.32%**提升；CPU约增加4–5个百分点、GPU仍近满载。预注册前35秒辅助完整门**三组均false**保留，无长测或普通individual收益结论。
-- 普通入口候选仍关闭，原Geralt READY，四配置、**78 APK assets与9 native entries和V43字节一致**。USB流配置仍为Camera ERROR，未恢复实时采集；**16+视点30FPS及完整目标未完成**。
-- 私有NPU位移原型虽位置误差小，但经原法线重算有明显离群；私有眼睑候选也尚未完成闭眼校正。两者未接入APK、未公开。本轮只发布21项源码/文档/两张已授权UI图，不发布录像、面部数组、APK、QA/raw或未选WIP。V43的7项[下颌候选审阅文件](review-assets/sephiroth-jaw-v1/README.md)保持原样，仍非正式角色或美术验收。
+- V45 APK 实际普通/候选 **69姿态×16独立400×640层，1104对**：各1932次draw、276组/绑定检查，旧packed参考0次；最大RGB差1、最大层RMSE0.0019764、351个RGB字节不同、alpha零差，沿用原门。普通与候选使用独立VBO/IBO、相同CPU形变与原纹理。有限同姿态1104普通reference哈希还与V44旧packed相同，不泛化任意表情、光学或性能。
+- **性能采自固定V44 APK**：完整原Geralt/PBR、853帧NV21录像、RGA/RKNN478/混合52、16×400×640及1200×1920交织。普通/候选/普通呈现 **10.5459 / 11.2921 / 10.5407 FPS**，对普通均值提升7.1018453%。每组全部确认INTERACTIVE证据完整，约44.7秒；4.75–4.98秒未知尾排除。旧V44固定35秒辅助门false保留。本轮V45 APK负责新像素门与普通启动QA，未重测该版本联合FPS。
+- 确认范围整机CPU **57.13 / 61.56 / 57.94%**，GPU约98%，NPU46.14/48.09/46.66%。相邻活跃快照子范围完整面捕约16.10/15.25/15.97FPS，received→completed约122.40/142.05/126.00ms；不能与SF范围或GPU执行时间混为一谈。顺序ABA存在温态差异，无长期收益结论；候选保持OFF，**三组均未达30FPS**。
+- 普通V45入口仍 INDIVIDUAL、原Geralt GL_READY、实际280次普通绘制；正常Back与角色页smoke、实际Java runtime owners退出为0、原四配置保留。**78资产和9原生库与V44字节一致**，签名一致；UI沿用V44，未重跑完整浏览资格。USB仍Camera ERROR3，录像不是实时USB采集，也不含视频解码。
+- 新代码只增加真实普通reference的诊断/计数、逐项异常安全清理、测试和两条CLI帮助修正。未公开APK、QA、私人录像/面部数组、NPU位移或眼睑私有候选；V43审阅模型与V44合成角色UI图保持历史原样。完整作品、其它角色自然表情、现场采集与16+视点30FPS仍未完成。
 
-详见 [V44结果与边界](docs/production-app-v44-20261007.md)、[V43诊断历史](docs/production-app-v43-20261007.md)和[完整目标规格](docs/production-app-spec-20261005.md)。所有历史源README内容保留在[设备工程历史](docs/device-lab-history.md)。
+详见 [V45普通参考与测量边界](docs/production-app-v45-20261007.md)、[V44角色页与旧debug-batch对照](docs/production-app-v44-20261007.md)和[完整目标规格](docs/production-app-spec-20261005.md)。源README与历史说明保留在[设备工程历史](docs/device-lab-history.md)。既有previous_v43/v42完整历史保持；V44完整发布记录由Git commit、路径及SHA精确引用，不再重复嵌套。
 
 ## 目录
 

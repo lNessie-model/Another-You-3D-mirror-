@@ -58,6 +58,10 @@ final class AvatarGpuScene {
     private boolean pbrFastMathSelected;
     private PbrComparison pbrComparison;
     private boolean specializedBatch;
+    private boolean disposed;
+    // GL-owner submission counters; pixel verification snapshots them on that same owner.
+    private long individualDrawCalls,individualViewGroups;
+    private int individualLastProgram,individualLastViewCount;
     private AvatarScreenBounds screenBounds;
 
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview) throws Exception {
@@ -184,16 +188,24 @@ final class AvatarGpuScene {
     }
     /** Call only while the owning EGL context is current. On context loss discard this object instead. */
     void dispose() {
-        stopCpu();
-        if(ormComparison!=null)ormComparison.close();
-        if(pbrComparison!=null)pbrComparison.close();
-        if(batch!=null){batch.dispose();batch=null;}
-        for(int buffer:allocatedBuffers)GLES30.glDeleteBuffers(1,new int[]{buffer},0);
+        if(disposed)return;disposed=true;
+        ResourceCleanup cleanup=new ResourceCleanup(null);
+        cleanup.close("avatar CPU owner",this::stopCpu);
+        cleanup.close("avatar ORM comparison",ormComparison);
+        cleanup.close("avatar PBR comparison",pbrComparison);
+        AvatarBatchGpu oldBatch=batch;batch=null;specializedBatch=false;
+        if(oldBatch!=null)cleanup.close("avatar batch",oldBatch::dispose);
+        for(int buffer:allocatedBuffers)cleanup.close("avatar primitive buffer",()->GLES30.glDeleteBuffers(1,new int[]{buffer},0));
         allocatedBuffers.clear();
-        if(atlasTexture!=0){GLES30.glDeleteTextures(1,new int[]{atlasTexture},0);atlasTexture=0;}
-        GLES30.glDeleteTextures(2,detailTextures,0);detailTextures[0]=detailTextures[1]=0;
-        if(program!=null){GLES30.glDeleteProgram(program.id);program=null;}
-        if(multiviewProgram!=null){GLES30.glDeleteProgram(multiviewProgram.id);multiviewProgram=null;}
+        int atlas=atlasTexture;atlasTexture=0;
+        if(atlas!=0)cleanup.close("avatar albedo",()->GLES30.glDeleteTextures(1,new int[]{atlas},0));
+        int[] details=detailTextures.clone();detailTextures[0]=detailTextures[1]=0;
+        cleanup.close("avatar detail textures",()->GLES30.glDeleteTextures(2,details,0));
+        Program a=program,b=multiviewProgram;program=null;multiviewProgram=null;
+        if(a!=null)cleanup.close("avatar individual program",()->GLES30.glDeleteProgram(a.id));
+        if(b!=null)cleanup.close("avatar OVR program",()->GLES30.glDeleteProgram(b.id));
+        Throwable failure=cleanup.failure();if(failure instanceof Error e)throw e;
+        if(failure instanceof RuntimeException r)throw r;if(failure!=null)throw new IllegalStateException(failure);
     }
     /** Safe from Activity teardown; CPU ownership is independent of EGL and never joined on UI. */
     void stopCpu(){if(poseWorker!=null)poseWorker.close();}
@@ -304,7 +316,7 @@ final class AvatarGpuScene {
     }
     /** Debug candidate: shared original textures/VBOs, only per-material programs and draw ranges change. */
     void beginSpecializedBatch(){
-        if(specializedBatch||drawMode!=DrawMode.BATCHED||batch==null||ormComparison!=null||pbrComparison!=null
+        if(disposed||specializedBatch||(drawMode!=DrawMode.BATCHED&&drawMode!=DrawMode.VERIFY)||batch==null||ormComparison!=null||pbrComparison!=null
                 ||ormRg8Uploaded||pbrFastMathRequested||!sha256.equals("9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531"))
             throw new IllegalStateException("Specialized candidate requires original Geralt PBR batched scene without other material experiments");
         batch.beginSpecializedComparison();specializedBatch=true;
@@ -315,6 +327,14 @@ final class AvatarGpuScene {
     }
     void endSpecializedBatch(){
         if(!specializedBatch)return;batch.endSpecializedComparison();specializedBatch=false;
+    }
+    /** Expected original program for the independent-buffer VERIFY diagnostic only; no GL call. */
+    int individualProgramIdForVerification(int viewCount){
+        if(disposed||drawMode!=DrawMode.VERIFY||!specializedBatch||poseWorker!=null||pbrFastMathSelected)
+            throw new IllegalStateException("Live synchronous ordinary-reference verification required");
+        Program selected=selectedPbrProgram(viewCount);
+        if(selected==null)throw new IllegalStateException("Individual verification program unavailable");
+        return selected.id;
     }
 
     /** Same shaders, matrices and geometry as the ordinary selected-node drawing path. */
@@ -365,11 +385,13 @@ final class AvatarGpuScene {
                 } else {GLES30.glDisableVertexAttribArray(2);GLES30.glVertexAttrib4f(2,1,1,1,1);}
                 GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,primitive.indexBuffer);
                 GLES30.glDrawElements(GLES30.GL_TRIANGLES,primitive.indexCount,GLES30.GL_UNSIGNED_INT,0);
+                individualDrawCalls++;individualLastProgram=active.id;individualLastViewCount=viewCount;
             }
         }
         for(int i=0;i<3;i++)GLES30.glDisableVertexAttribArray(i);
         if(atlasTexture!=0){GLES30.glDisableVertexAttribArray(4);unbindMaps();}
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
+        individualViewGroups++;
     }
     /** VERIFY keeps independent legacy buffers; both draws share one prepared CPU pose. */
     void drawBatched(float[] viewProjections,int viewCount,float aspect) {
@@ -414,8 +436,12 @@ final class AvatarGpuScene {
                 .put("upload_mean_ms",meanUploadMs).put("applied_pose_age_mean_ms",meanPoseAgeMs).put("applied_pose_age_max_ms",maxPoseAgeMs)
                 .put("timing_scope","online means of applied poses since GL scene creation, including initial neutral pose; no per-frame samples retained")
                 .put("complete_source_mapping",rig.completeSourceCoverage()).put("artwork_validated",false)
-                .put("normal_policy",rig.normalPolicy()).put("deformation_scope","once per animation snapshot; all independent views share the same VBO")
+                .put("normal_policy",rig.normalPolicy()).put("deformation_scope",drawMode==DrawMode.VERIFY?
+                        "one CPU pose; separate individual and packed batch buffers receive the same deformation output":"once per animation snapshot; all independent views share the same VBO")
                 .put("draw_backend",drawMode.name().toLowerCase(java.util.Locale.ROOT))
+                .put("individual_draw_calls",individualDrawCalls).put("individual_view_groups",individualViewGroups)
+                .put("individual_last_program_id",individualLastProgram).put("individual_last_view_count",individualLastViewCount)
+                .put("draw_counter_scope","GL calls returned on the owning thread since scene creation; not GPU completion; groups count completed submission/cleanup only")
                 .put("pbr_fast_math_requested",pbrFastMathRequested)
                 .put("pbr_shader_variant",AvatarPbrShaderVariant.name(asset.normalMap()!=null,pbrFastMathSelected));
         if(asset.normalMap()!=null)value.put("pbr_fragment_source_sha256",AvatarPbrShaderVariant.sha256(AvatarPbrShaderVariant.fragment(pbrFastMathSelected)));

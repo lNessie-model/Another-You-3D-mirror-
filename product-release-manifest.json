@@ -149,17 +149,17 @@
     "default_role_restored": "geralt",
     "personal_face_art_accepted": false
   },
-  "versionCode": 44,
-  "versionName": "0.2.13",
-  "source_commit": "05f9f2ffb2af8b7ebf3dc48eed3aefdc983e34fa",
-  "public_parent": "8feff24f7e28b8318a691deed75d3eed74f9f18e",
-  "created_at_utc": "2026-10-06T18:28:30.455813+00:00",
-  "local_apk_filename": "AvatarRuntime-v44-role-browser-v2.apk",
-  "apk_sha256": "8e6a6f33ab693ebed2b274d0dc40da76230fb3afa4182a45086a4fa881f652a6",
-  "apk_bytes": 131231180,
+  "versionCode": 45,
+  "versionName": "0.2.14",
+  "source_commit": "2815f966313213c366e424edc16fca272e079b44",
+  "public_parent": "17e80cc75292085da52f1a1c89c666931708c928",
+  "created_at_utc": "2026-10-06T19:27:20.810885+00:00",
+  "local_apk_filename": "AvatarRuntime-v45-individual-reference-v1.apk",
+  "apk_sha256": "309e4a977b65d35da5284e293fb8a7eee5bccbcab70671ddf7183b11b8c8edd3",
+  "apk_bytes": 130674747,
   "apk_in_repository": false,
   "qa_passed": true,
-  "qa_scope": "Role browser explicit selection/persistence/restoration; ordinary original Geralt GL readiness; finite69x16Mali original-batch/specialized pixels and sameAPK debug-batch replay A/B/A. No live USB, all-pose/artwork or ordinary-individual performance qualification.",
+  "qa_scope": "V45 finite69x16 actual ordinary INDIVIDUAL versus specialized Mali pixels and ordinary GL/Back/Java-owner/config smoke; joint replay performance is fixed V44 APK. No USB live/all-pose/artwork/long-term or production-default qualification.",
   "live_face_qa_passed": false,
   "full_user_goal_complete": false,
   "camera_blocker": "IllegalStateException: android.hardware.camera2.CameraAccessException: CAMERA_ERROR (3): endConfigure:510: Camera 0: Error configuring streams: Function not imp",
@@ -167,15 +167,15 @@
   "camera_capture_passed": false,
   "runtime_opened_this_release": true,
   "gpu_retested_this_release": true,
-  "gpu_acceptance_scope_this_release": "Finite69pose*16off-axis original-batch versus specializedPBR comparison, shared original assets; maxRGB1/RMSE0.1/alpha0 thresholds.",
+  "gpu_acceptance_scope_this_release": "V45 ordinary INDIVIDUAL_OVR4 vs specialized;69x16 original assets, independent buffers/same CPU pose, maxRGB1/RMSE0.1/alpha0.",
   "gpu_pose_suite_rerun_this_release": true,
   "joint_performance_measured": true,
-  "joint_performance_input_scope": "Same APK A/B/A, full original Geralt/PBR, prerecorded NV21/RGA/RKNN478/mixed52, actual16 independent400x640 views and1200x1920 output. No USB or live-camera claim. No screenshots/JDWP/GPU queries during measurement. Fixed first35sec presentation window preregistered for every run; retain complete-evidence flags even if false.",
+  "joint_performance_input_scope": "Fixed853-frame NV21 replay at24.369907fps; noUSB/decode; originalGeralt fullPBR,16x400640/output12001920,persistent4FBO,asyncCPUdeformation,RGA/RKNN478/CPUFP32front+mixed52.",
   "joint_30fps_goal_met": false,
   "frame_rate_improvement_demonstrated": true,
   "private_fixtures_in_apk": false,
   "personal_video_in_apk": false,
-  "source_delta_file_count": 21,
+  "source_delta_file_count": 11,
   "frozen_delta_file_hashes_verified": true,
   "production_dependencies_match_v30": true,
   "native_dependencies_match_v35": true,
@@ -286,126 +286,369 @@
   "recorded_face_performance": {
     "evidence_versionCode": 44,
     "apk_sha256": "8e6a6f33ab693ebed2b274d0dc40da76230fb3afa4182a45086a4fa881f652a6",
-    "input_scope": "Same APK A/B/A, full original Geralt/PBR, prerecorded NV21/RGA/RKNN478/mixed52, actual16 independent400x640 views and1200x1920 output. No USB or live-camera claim. No screenshots/JDWP/GPU queries during measurement. Fixed first35sec presentation window preregistered for every run; retain complete-evidence flags even if false.",
-    "reference_backend": "debug original batched",
+    "reference_backend": "ordinary individual",
     "candidate_backend": "debug per-entry material specialized",
-    "ordinary_default_individual_compared": false,
+    "ordinary_default_individual_compared": true,
     "runs": [
       {
-        "name": "reference-first",
-        "confirmedActiveFps": 8.92582553336566,
-        "confirmedActiveSeconds": 44.684569823,
-        "activeEvidenceComplete": true,
-        "collectionComplete": true,
-        "auxiliary35SecGate": false,
-        "rawSha256": "7de0204278852d9bd5817f2951cb63222d6a9b5afd6afbd4ead0adb027ce3638"
+        "name": "ordinary-first",
+        "confirmed_active_presentation": {
+          "interactive_presented_fps": 10.545901670790244,
+          "interactive_duration_s": 44.689336824,
+          "sampled_duration_s": 44.37742875,
+          "intervals": [
+            {
+              "start_ns": 150740846615156,
+              "end_ns": 150775453158550,
+              "duration_s": 34.606543394,
+              "presented_frames": 363,
+              "presented_fps": 10.505950745693443,
+              "sampled_duration_s": 34.456662587,
+              "complete_history": true
+            },
+            {
+              "start_ns": 150775687892198,
+              "end_ns": 150785770685628,
+              "duration_s": 10.08279343,
+              "presented_frames": 107,
+              "presented_fps": 10.684658650188972,
+              "sampled_duration_s": 9.920766163,
+              "complete_history": true
+            }
+          ],
+          "complete_active_evidence": true,
+          "meets_30_fps": false,
+          "fps_target": 30,
+          "rate_is_lower_bound": false,
+          "surface_history_gaps": [],
+          "surface_history_gap_seconds": 0.0,
+          "state_history_gaps": [],
+          "status_errors": [],
+          "ambiguous_surface_intervals": [],
+          "confirmed_until_monotonic_ns": 150785770685628,
+          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
+          "unconfirmed_tail_seconds": 4.74933858,
+          "observed_until_monotonic_ns": 150790520024208,
+          "pause_clock_complete": true
+        },
+        "min_complete_interval_fps": 10.505950745693443,
+        "resources": {
+          "samples": 44,
+          "cpu_percent_whole_machine": 57.13080287957798,
+          "mem_available_mib_mean": 968.0198863636364,
+          "mem_available_mib_min": 960.6953125,
+          "temperature_c_min": 58.888,
+          "temperature_c_max": 63.333,
+          "app_pss_mib_samples": 8,
+          "app_pss_mib_mean": 301.5037841796875,
+          "app_pss_mib_peak": 410.1708984375,
+          "npu_busy_percent_samples": 44,
+          "npu_busy_percent_mean": 46.13636363636363,
+          "npu_busy_percent_peak": 50.0,
+          "gpu_busy_samples": 44,
+          "gpu_busy_percent_mean": 97.97727272727273,
+          "gpu_busy_percent_peak": 99,
+          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
+        },
+        "snapshot_progress": {
+          "pairs": 7,
+          "snapshot_span_seconds": 35.156956949000005,
+          "counter_deltas": {
+            "metrics.completed_frames": 566,
+            "metrics.face_frames": 566,
+            "source.consumed_frames": 566,
+            "source.skipped_frames": 294
+          },
+          "analysis_fps": 16.09923181978067,
+          "face_fps": 16.09923181978067,
+          "stage_wall": {
+            "metrics.conversion_mean_ms": {
+              "count": 566,
+              "mean_ms": 2.6916687809187247
+            },
+            "metrics.inference_completion_mean_ms": {
+              "count": 566,
+              "mean_ms": 98.16586769964653
+            },
+            "metrics.received_to_completed_mean_ms": {
+              "count": 566,
+              "mean_ms": 122.40097260247352
+            },
+            "npu.mesh_mean_ms": {
+              "count": 566,
+              "mean_ms": 38.94111313250883
+            },
+            "npu.post_mean_ms": {
+              "count": 566,
+              "mean_ms": 46.36005338869258
+            }
+          },
+          "scope": "Differences between consecutive INTERACTIVE snapshots inside the same confirmed interval/session. Excluded state gaps are never bridged. This subset is shorter than SF/resources and the means overlap in execution, not additive GPU time."
+        },
+        "result_age_ms": {
+          "count": 9,
+          "mean": 170.33333333333334,
+          "min": 125,
+          "max": 277
+        },
+        "applied_pose_age_ms": {
+          "count": 9,
+          "mean": 97.39463944444445,
+          "min": 93.412092,
+          "max": 102.915469
+        }
       },
       {
         "name": "specialized-candidate",
-        "confirmedActiveFps": 11.278330561714638,
-        "confirmedActiveSeconds": 44.420548755,
-        "activeEvidenceComplete": true,
-        "collectionComplete": true,
-        "auxiliary35SecGate": false,
-        "rawSha256": "340e71b8fc8e6fa1a2084cb420fe18f325eebc59d1c17dfd6b53ac76e277d8e5"
+        "confirmed_active_presentation": {
+          "interactive_presented_fps": 11.292053469551766,
+          "interactive_duration_s": 44.749418121,
+          "sampled_duration_s": 44.544599559,
+          "intervals": [
+            {
+              "start_ns": 150802401721299,
+              "end_ns": 150837052217989,
+              "duration_s": 34.65049669,
+              "presented_frames": 389,
+              "presented_fps": 11.24424845429202,
+              "sampled_duration_s": 34.506530301,
+              "complete_history": true
+            },
+            {
+              "start_ns": 150837320223516,
+              "end_ns": 150847419144947,
+              "duration_s": 10.098921431,
+              "presented_frames": 116,
+              "presented_fps": 11.456386387088225,
+              "sampled_duration_s": 10.038069258,
+              "complete_history": true
+            }
+          ],
+          "complete_active_evidence": true,
+          "meets_30_fps": false,
+          "fps_target": 30,
+          "rate_is_lower_bound": false,
+          "surface_history_gaps": [],
+          "surface_history_gap_seconds": 0.0,
+          "state_history_gaps": [],
+          "status_errors": [],
+          "ambiguous_surface_intervals": [],
+          "confirmed_until_monotonic_ns": 150847419144947,
+          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
+          "unconfirmed_tail_seconds": 4.980901428,
+          "observed_until_monotonic_ns": 150852400046375,
+          "pause_clock_complete": true
+        },
+        "min_complete_interval_fps": 11.24424845429202,
+        "resources": {
+          "samples": 44,
+          "cpu_percent_whole_machine": 61.55997549153873,
+          "mem_available_mib_mean": 966.0564630681819,
+          "mem_available_mib_min": 959.23828125,
+          "temperature_c_min": 63.888,
+          "temperature_c_max": 68.125,
+          "app_pss_mib_samples": 8,
+          "app_pss_mib_mean": 295.8553466796875,
+          "app_pss_mib_peak": 402.822265625,
+          "npu_busy_percent_samples": 44,
+          "npu_busy_percent_mean": 48.09090909090909,
+          "npu_busy_percent_peak": 53.0,
+          "gpu_busy_samples": 44,
+          "gpu_busy_percent_mean": 97.93181818181819,
+          "gpu_busy_percent_peak": 99,
+          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
+        },
+        "snapshot_progress": {
+          "pairs": 7,
+          "snapshot_span_seconds": 35.213730163,
+          "counter_deltas": {
+            "metrics.completed_frames": 537,
+            "metrics.face_frames": 537,
+            "source.consumed_frames": 537,
+            "source.skipped_frames": 324
+          },
+          "analysis_fps": 15.249733485043857,
+          "face_fps": 15.249733485043857,
+          "stage_wall": {
+            "metrics.conversion_mean_ms": {
+              "count": 537,
+              "mean_ms": 2.9998039013035376
+            },
+            "metrics.inference_completion_mean_ms": {
+              "count": 537,
+              "mean_ms": 117.24220195903182
+            },
+            "metrics.received_to_completed_mean_ms": {
+              "count": 537,
+              "mean_ms": 142.04685707821213
+            },
+            "npu.mesh_mean_ms": {
+              "count": 537,
+              "mean_ms": 41.80306183054004
+            },
+            "npu.post_mean_ms": {
+              "count": 537,
+              "mean_ms": 59.17579695903166
+            }
+          },
+          "scope": "Differences between consecutive INTERACTIVE snapshots inside the same confirmed interval/session. Excluded state gaps are never bridged. This subset is shorter than SF/resources and the means overlap in execution, not additive GPU time."
+        },
+        "result_age_ms": {
+          "count": 9,
+          "mean": 175.0,
+          "min": 131,
+          "max": 290
+        },
+        "applied_pose_age_ms": {
+          "count": 9,
+          "mean": 91.39346744444444,
+          "min": 86.956342,
+          "max": 97.224468
+        }
       },
       {
-        "name": "reference-repeat",
-        "confirmedActiveFps": 8.930498198545846,
-        "confirmedActiveSeconds": 44.767326457,
-        "activeEvidenceComplete": true,
-        "collectionComplete": true,
-        "auxiliary35SecGate": false,
-        "rawSha256": "17daf1ac09cca21a02d87b30e9c7df03488b7aa0dc078eae1c8e2cf20aa14fbf"
+        "name": "ordinary-repeat",
+        "confirmed_active_presentation": {
+          "interactive_presented_fps": 10.540669597576157,
+          "interactive_duration_s": 44.730672703,
+          "sampled_duration_s": 44.494327012,
+          "intervals": [
+            {
+              "start_ns": 150864232366803,
+              "end_ns": 150898868379033,
+              "duration_s": 34.63601223,
+              "presented_frames": 363,
+              "presented_fps": 10.490718763404331,
+              "sampled_duration_s": 34.506691883,
+              "complete_history": true
+            },
+            {
+              "start_ns": 150899110657224,
+              "end_ns": 150909205317697,
+              "duration_s": 10.094660473,
+              "presented_frames": 108,
+              "presented_fps": 10.713246791456752,
+              "sampled_duration_s": 9.987635129,
+              "complete_history": true
+            }
+          ],
+          "complete_active_evidence": true,
+          "meets_30_fps": false,
+          "fps_target": 30,
+          "rate_is_lower_bound": false,
+          "surface_history_gaps": [],
+          "surface_history_gap_seconds": 0.0,
+          "state_history_gaps": [],
+          "status_errors": [],
+          "ambiguous_surface_intervals": [],
+          "confirmed_until_monotonic_ns": 150909205317697,
+          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
+          "unconfirmed_tail_seconds": 4.744712636,
+          "observed_until_monotonic_ns": 150913950030333,
+          "pause_clock_complete": true
+        },
+        "min_complete_interval_fps": 10.490718763404331,
+        "resources": {
+          "samples": 44,
+          "cpu_percent_whole_machine": 57.93622972035354,
+          "mem_available_mib_mean": 965.4857066761364,
+          "mem_available_mib_min": 958.0078125,
+          "temperature_c_min": 68.125,
+          "temperature_c_max": 71.666,
+          "app_pss_mib_samples": 8,
+          "app_pss_mib_mean": 302.701171875,
+          "app_pss_mib_peak": 420.45703125,
+          "npu_busy_percent_samples": 44,
+          "npu_busy_percent_mean": 46.65909090909091,
+          "npu_busy_percent_peak": 51.0,
+          "gpu_busy_samples": 44,
+          "gpu_busy_percent_mean": 98.25,
+          "gpu_busy_percent_peak": 99,
+          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
+        },
+        "snapshot_progress": {
+          "pairs": 7,
+          "snapshot_span_seconds": 35.131615780000004,
+          "counter_deltas": {
+            "metrics.completed_frames": 561,
+            "metrics.face_frames": 561,
+            "source.consumed_frames": 561,
+            "source.skipped_frames": 299
+          },
+          "analysis_fps": 15.96852258413262,
+          "face_fps": 15.96852258413262,
+          "stage_wall": {
+            "metrics.conversion_mean_ms": {
+              "count": 561,
+              "mean_ms": 2.9111060588235316
+            },
+            "metrics.inference_completion_mean_ms": {
+              "count": 561,
+              "mean_ms": 101.35750579322635
+            },
+            "metrics.received_to_completed_mean_ms": {
+              "count": 561,
+              "mean_ms": 126.00301411229947
+            },
+            "npu.mesh_mean_ms": {
+              "count": 561,
+              "mean_ms": 38.94513352228165
+            },
+            "npu.post_mean_ms": {
+              "count": 561,
+              "mean_ms": 48.938101910873435
+            }
+          },
+          "scope": "Differences between consecutive INTERACTIVE snapshots inside the same confirmed interval/session. Excluded state gaps are never bridged. This subset is shorter than SF/resources and the means overlap in execution, not additive GPU time."
+        },
+        "result_age_ms": {
+          "count": 9,
+          "mean": 183.77777777777777,
+          "min": 151,
+          "max": 304
+        },
+        "applied_pose_age_ms": {
+          "count": 9,
+          "mean": 96.74594033333332,
+          "min": 93.005218,
+          "max": 99.740385
+        }
       }
     ],
-    "candidate_gain_percent": 26.32309685961658,
-    "resources": {
-      "reference-first": {
-        "samples": 43,
-        "cpu_percent_whole_machine": 57.50041499337077,
-        "mem_available_mib_mean": 942.0535973837209,
-        "mem_available_mib_min": 934.3125,
-        "temperature_c_min": 62.222,
-        "temperature_c_max": 66.875,
-        "app_pss_mib_samples": 7,
-        "app_pss_mib_mean": 277.0970982142857,
-        "app_pss_mib_peak": 395.548828125,
-        "npu_busy_percent_samples": 43,
-        "npu_busy_percent_mean": 47.116279069767444,
-        "npu_busy_percent_peak": 55.0,
-        "gpu_busy_samples": 43,
-        "gpu_busy_percent_mean": 98.4186046511628,
-        "gpu_busy_percent_peak": 99,
-        "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-      },
-      "specialized-candidate": {
-        "samples": 44,
-        "cpu_percent_whole_machine": 61.45660231048814,
-        "mem_available_mib_mean": 955.5745738636364,
-        "mem_available_mib_min": 948.38671875,
-        "temperature_c_min": 66.25,
-        "temperature_c_max": 71.111,
-        "app_pss_mib_samples": 8,
-        "app_pss_mib_mean": 291.8814697265625,
-        "app_pss_mib_peak": 398.0771484375,
-        "npu_busy_percent_samples": 44,
-        "npu_busy_percent_mean": 48.79545454545455,
-        "npu_busy_percent_peak": 54.0,
-        "gpu_busy_samples": 44,
-        "gpu_busy_percent_mean": 97.77272727272727,
-        "gpu_busy_percent_peak": 99,
-        "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-      },
-      "reference-repeat": {
-        "samples": 44,
-        "cpu_percent_whole_machine": 56.3559609811987,
-        "mem_available_mib_mean": 955.2357066761364,
-        "mem_available_mib_min": 937.51171875,
-        "temperature_c_min": 70.555,
-        "temperature_c_max": 73.333,
-        "app_pss_mib_samples": 8,
-        "app_pss_mib_mean": 297.132080078125,
-        "app_pss_mib_peak": 405.1083984375,
-        "npu_busy_percent_samples": 44,
-        "npu_busy_percent_mean": 49.45454545454545,
-        "npu_busy_percent_peak": 54.0,
-        "gpu_busy_samples": 44,
-        "gpu_busy_percent_mean": 98.68181818181819,
-        "gpu_busy_percent_peak": 99,
-        "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-      }
-    },
+    "candidate_gain_percent": 7.101845300870235,
+    "all_confirmed_active": true,
+    "unknown_tails_excluded": true,
+    "prior_fixed35s_false_preserved": true,
     "default_enabled": false,
-    "goal30fps": false
+    "goal30fps": false,
+    "thermal_causality_claimed": false,
+    "performance_sample_scope": "Full confirmed SF/resources; face progress uses shorter contained same-session snapshot pairs; CPU wall not GPU timer."
   },
   "host_evidence": {
-    "specialized_shader_checks": 57693,
-    "specialized_lifecycle_checks": 200,
-    "previous_shader_checks": 528,
-    "specialized_config_checks": 27,
-    "previous_pbr_config_checks": 22,
+    "evidence_versionCode": 45,
+    "individual_reference_scene_rig_deformer_checks": 310,
     "sdk35_compiled": true,
-    "frozen_source_peer_review_no_blockers": true
+    "frozen_source_peer_review_no_blockers": true,
+    "cli_change": "twohelptextconstantsonly;collectorASTotherwiseequal"
   },
   "device_evidence": {
-    "role_browse_read_only": true,
-    "explicit_role_persistence_after_process_restart": true,
-    "ada_gl_ready": true,
-    "original_geralt_restored": true,
-    "ordinary_default_specialized": false,
+    "evidence_versionCode": 45,
     "normal_renderer_ready": true,
+    "ordinary_individual_draw_calls": 280,
+    "ordinary_default_specialized": false,
     "camera_error_3_persists": true,
     "live_face_capture_passed": false,
     "all_four_configs_byte_exact": true,
-    "java_runtime_owner_threads_absent_at_home_and_roles": true,
+    "java_runtime_owner_threads_absent_after_normal_back": true,
+    "role_page_smoke": true,
+    "full_v44_role_browser_suite_rerun": false,
     "all_assets_newly_artist_corrected": false
   },
   "unreviewed_model_pipeline_delta_included": false,
   "new_portal_source_included": false,
   "v1_experiment_source_included": false,
-  "release_document": "docs/production-app-v44-20261007.md",
-  "gpu_pose_suite_scope_this_release": "69*16=1104 specialized comparison layers only; previous variants not rerun.",
+  "release_document": "docs/production-app-v45-20261007.md",
+  "gpu_pose_suite_scope_this_release": "69x16=1104 ordinary/specialized pairs only; other variants not rerun.",
   "earlier_ada_pose_suite_rerun": false,
   "native_dependencies_match_v36": true,
   "apk_assets_byte_exact_v36": 78,
@@ -1551,7 +1794,8 @@
     "successful_device_camera_save_tested": false,
     "scene_editor_prior_evidence_versionCode": 40,
     "scene_editor_rerun_this_release": false,
-    "rerun_this_release": false
+    "rerun_this_release": false,
+    "evidence_retained_from_prior_release": true
   },
   "production_performance_improved": false,
   "debug_lower_resolution_benefit_observed": false,
@@ -3093,9 +3337,10 @@
     "deterministic_same_pose_16_layer_check_done": false,
     "default_enabled": false,
     "evidence_versionCode": 39,
-    "rerun_this_release": false
+    "rerun_this_release": false,
+    "evidence_retained_from_prior_release": true
   },
-  "final_candidate_variant": "v2",
+  "final_candidate_variant": "v1-ordinary-reference",
   "debug_lower_resolution_benefit_scope": "Historical V39 only, not measured in V43.",
   "native_dependencies_match_v39": true,
   "apk_assets_byte_exact_v39": 78,
@@ -6632,15 +6877,15 @@
     "three_second_full_preview_hides_native_overlay": true,
     "scroll_end_device_verified": true,
     "evidence_versionCode": 40,
-    "rerun_this_release": false
+    "rerun_this_release": false,
+    "evidence_retained_from_prior_release": true
   },
   "candidate_history": {
-    "versionCode": 44,
-    "final_variant": "v2",
-    "earlier_private_builds_not_claimed_qualified": true,
-    "previous_v43_history_preserved_in_previous_release": true
+    "versionCode": 45,
+    "scope": "ordinary reference checker; no new material shader variant",
+    "prior_v44_release_available_by_exact_git_ref": true
   },
-  "review_scope": "Exact21source including2synthetic-role UI PNGs; finite driver comparison and debug-batch gain only. No private NPU/eye prototype or personal capture publication.",
+  "review_scope": "Exact11source/docs/tests; actual ordinary finite pixels and fixedV44 recorded-input metrics. No newasset,privateNPU/eye,personalvideo,APK or raw QA publication.",
   "native_dependencies_match_v40": true,
   "apk_assets_byte_exact_v40": 78,
   "apk_native_byte_exact_v40": 9,
@@ -13734,7 +13979,8 @@
     "fault_disables_collect_confirm_save": true,
     "retry_current_owner_and_lifecycle_guarded": true,
     "private_input_frame_published": false,
-    "rerun_this_release": false
+    "rerun_this_release": false,
+    "evidence_retained_from_prior_release": true
   },
   "native_dependencies_match_v41": true,
   "apk_assets_byte_exact_v41": 78,
@@ -56033,7 +56279,7 @@
     "observed_rgb_mismatches": 0,
     "observed_alpha_mismatches": 0
   },
-  "frame_rate_improvement_scope": "26.3230968596% over mean of two debug-original-batch references only; ordinary default individual not compared.",
+  "frame_rate_improvement_scope": "FixedV44APK ordinary/specialized/ordinary;7.1018453% over two ordinary references only; CPU and face latency increased, different temperatures, no long-term/default qualification.",
   "native_dependencies_match_v43": true,
   "apk_assets_byte_exact_v43": 78,
   "apk_native_byte_exact_v43": 9,
@@ -112099,40 +112345,53 @@
     }
   },
   "specialized_batch": {
-    "evidence_versionCode": 44,
+    "pixel_evidence_versionCode": 45,
+    "performance_evidence_versionCode": 44,
+    "performance_apk_sha256": "8e6a6f33ab693ebed2b274d0dc40da76230fb3afa4182a45086a4fa881f652a6",
     "debug_only": true,
     "default_enabled": false,
     "model_sha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
     "original_mesh_and_textures": true,
-    "shared_vertex_index_buffers": true,
+    "pixel_buffers_independent_same_cpu_pose": true,
+    "pixel_reference_backend": "individual_ovr4",
+    "candidate_backend": "per_entry_specialized_ovr4",
     "material_variants": 5,
     "compiled_programs": 10,
-    "draws_per_four_view_group_reference": 1,
+    "draws_per_four_view_group_reference": 7,
     "draws_per_four_view_group_candidate": 7,
     "fixtures": 69,
     "layer_comparisons": 1104,
-    "reference_draw_calls": 276,
+    "reference_draw_calls": 1932,
     "candidate_draw_calls": 1932,
+    "reference_packed_draw_calls": 0,
+    "reference_binding_checks": 276,
+    "candidate_binding_checks": 276,
     "max_rgb_error": 1,
     "max_layer_rmse": 0.001976423537605237,
     "rgb_mismatches": 351,
     "alpha_mismatches": 0,
     "actual_driver_pixel_gate_passed": true,
+    "ordinary_individual_compared": true,
     "all_possible_poses_validated": false,
     "optical_alignment_validated": false,
     "confirmed_active_fps": [
-      8.92582553336566,
-      11.278330561714638,
-      8.930498198545846
+      10.545901670790244,
+      11.292053469551766,
+      10.540669597576157
     ],
-    "candidate_gain_over_debug_batch_reference_mean_percent": 26.32309685961658,
-    "ordinary_individual_compared": false,
+    "candidate_gain_over_ordinary_reference_mean_percent": 7.101845300870235,
     "all_full_collection_gates": true,
     "all_full_active_evidence_gates": true,
-    "fixed_first35_seconds_gates": [
+    "preregistered_scope": "all confirmed INTERACTIVE intervals, minimum40seconds",
+    "prior_v44_fixed_first35_seconds_gates": [
       false,
       false,
       false
+    ],
+    "unknown_tail_seconds": [
+      4.74933858,
+      4.980901428,
+      4.744712636
     ],
     "long_endurance_tested": false,
     "production_default_qualified": false
@@ -112153,7 +112412,9 @@
         "path": "docs/images/v44-roles-geralt.png",
         "sha256": "31d9964e60fe2d49709d33a68ab3ed431ad11771d61e2d493430448cf371ea12"
       }
-    ]
+    ],
+    "rerun_this_release": false,
+    "evidence_retained_from_prior_release": true
   },
   "private_npu_deformation": {
     "host_only": true,
@@ -112166,5 +112427,15 @@
     "formal_apk_integrated": false,
     "full_blink_qualified": false,
     "files_published": false
+  },
+  "joint_performance_apk_versionCode": 44,
+  "joint_performance_apk_sha256": "8e6a6f33ab693ebed2b274d0dc40da76230fb3afa4182a45086a4fa881f652a6",
+  "native_dependencies_match_v44": true,
+  "apk_assets_byte_exact_v44": 78,
+  "apk_native_byte_exact_v44": 9,
+  "previous_release_ref": {
+    "commit": "17e80cc75292085da52f1a1c89c666931708c928",
+    "path": "product-release-manifest.json",
+    "sha256": "dc49e5b0bfaf25e4be69dae3fde956df65745f79224abd2bfe93a1f4a769f92f"
   }
 }
