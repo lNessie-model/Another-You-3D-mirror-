@@ -1,8 +1,8 @@
 {
-  "source_commit": "5a6b31a4fdf09b8be1dd7bcfc85d51d52d54e3f9",
+  "source_commit": "fea19bbdd980b36a89e4c593a9db9e45ae458d2a",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 724,
+  "file_count": 733,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,19 +35,19 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 44529,
-      "source_sha256": "98f57b14fc7713315c72012d624498577cf38d8e7fefe2668758f9ea71867406",
-      "repository_bytes": 44529,
-      "repository_sha256": "98f57b14fc7713315c72012d624498577cf38d8e7fefe2668758f9ea71867406",
+      "source_bytes": 45090,
+      "source_sha256": "7ad5e0a25a5d9d6bcc615a661d7022694bdb65f04d788df1e8b10cc48d72d5f9",
+      "repository_bytes": 45090,
+      "repository_sha256": "7ad5e0a25a5d9d6bcc615a661d7022694bdb65f04d788df1e8b10cc48d72d5f9",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 910,
-      "source_sha256": "885b34b55c2614d1cae6a637ac2ed9cba05a94d5ad62368dea987eac01d49fe8",
+      "source_sha256": "29d9510b4a2df15c02e2975fbf1d1abf54270b79bc5210fd52c5b727b02c2b42",
       "repository_bytes": 910,
-      "repository_sha256": "885b34b55c2614d1cae6a637ac2ed9cba05a94d5ad62368dea987eac01d49fe8",
+      "repository_sha256": "29d9510b4a2df15c02e2975fbf1d1abf54270b79bc5210fd52c5b727b02c2b42",
       "publication_transformation": null
     },
     {
@@ -1046,10 +1046,11 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/CameraCalibrationPanel.java",
       "repository_path": "app/src/main/java/com/mirror/bench/CameraCalibrationPanel.java",
-      "source_bytes": 17267,
-      "source_sha256": "6979576f69b2163a30f30b2ca5fed806f08f73218584dfe726bed21ad9ae4870",
-      "repository_bytes": 17267,
-      "repository_sha256": "6979576f69b2163a30f30b2ca5fed806f08f73218584dfe726bed21ad9ae4870"
+      "source_bytes": 18923,
+      "source_sha256": "a62447cd0a8a7ddca9e725387525afc95f8aae61334cd041e91432078780b0e5",
+      "repository_bytes": 18923,
+      "repository_sha256": "a62447cd0a8a7ddca9e725387525afc95f8aae61334cd041e91432078780b0e5",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/java/com/mirror/bench/CameraControlSettings.java",
@@ -1269,10 +1270,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
-      "source_bytes": 82234,
-      "source_sha256": "f95e1ccb4d2c3d7fddeee2f6b15567cbf01421cdcbab21eb5e98205dff45fd21",
-      "repository_bytes": 82234,
-      "repository_sha256": "f95e1ccb4d2c3d7fddeee2f6b15567cbf01421cdcbab21eb5e98205dff45fd21",
+      "source_bytes": 83103,
+      "source_sha256": "8904052035ffabb193efb849242d128a75732d35f955f4453c55d9eee97ed550",
+      "repository_bytes": 83103,
+      "repository_sha256": "8904052035ffabb193efb849242d128a75732d35f955f4453c55d9eee97ed550",
       "publication_transformation": null
     },
     {
@@ -1625,10 +1626,11 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/SceneViewPanel.java",
       "repository_path": "app/src/main/java/com/mirror/bench/SceneViewPanel.java",
-      "source_bytes": 6463,
-      "source_sha256": "1a4889a1b7753079d17e3e6bc2bc268218e22969ddfd85fe7d69f00032fd7741",
-      "repository_bytes": 6463,
-      "repository_sha256": "1a4889a1b7753079d17e3e6bc2bc268218e22969ddfd85fe7d69f00032fd7741"
+      "source_bytes": 7926,
+      "source_sha256": "f5a643bfba2712839ddffe804621ff779cdfc9ab3017cfc416f212b09d62e8af",
+      "repository_bytes": 7926,
+      "repository_sha256": "f5a643bfba2712839ddffe804621ff779cdfc9ab3017cfc416f212b09d62e8af",
+      "publication_transformation": null
     },
     {
       "source_path": "app/src/main/java/com/mirror/bench/SceneViewPreferences.java",
@@ -2370,6 +2372,15 @@
       "source_sha256": "0291e657217bc8275c9515fbe27ef07fe98830ba1eea09d7ce8e840c3756532e",
       "repository_bytes": 6464,
       "repository_sha256": "0291e657217bc8275c9515fbe27ef07fe98830ba1eea09d7ce8e840c3756532e",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v40-20261006.md",
+      "repository_path": "docs/production-app-v40-20261006.md",
+      "source_bytes": 5214,
+      "source_sha256": "96c742949aeaf9bf251f5b71ad931aee3b33fd3af43a8bd2195727eebe56ab8b",
+      "repository_bytes": 5214,
+      "repository_sha256": "96c742949aeaf9bf251f5b71ad931aee3b33fd3af43a8bd2195727eebe56ab8b",
       "publication_transformation": null
     },
     {
@@ -4900,6 +4911,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/ProductEditorNavigationTest.java",
+      "repository_path": "tests/ProductEditorNavigationTest.java",
+      "source_bytes": 11724,
+      "source_sha256": "3cdb25f45c1275a75103f3418ba52cf3e8d83e4cd6e996bf7329b1b22e15ab0d",
+      "repository_bytes": 11724,
+      "repository_sha256": "3cdb25f45c1275a75103f3418ba52cf3e8d83e4cd6e996bf7329b1b22e15ab0d",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/ProductRuntimeViewCountTest.java",
       "repository_path": "tests/ProductRuntimeViewCountTest.java",
       "source_bytes": 11476,
@@ -5378,6 +5398,60 @@
       "source_sha256": "7ec198ec63054bbfc7425f70ab8f204e662583002b9c75cbaee9054622ea7d39",
       "repository_bytes": 8380,
       "repository_sha256": "7ec198ec63054bbfc7425f70ab8f204e662583002b9c75cbaee9054622ea7d39",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/editor-navigation-stubs/android/app/Activity.java",
+      "repository_path": "tests/editor-navigation-stubs/android/app/Activity.java",
+      "source_bytes": 809,
+      "source_sha256": "065ed87438e8ffe377e0024397327f28e65ae929c4f45f863342fab95aced5fd",
+      "repository_bytes": 809,
+      "repository_sha256": "065ed87438e8ffe377e0024397327f28e65ae929c4f45f863342fab95aced5fd",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/editor-navigation-stubs/android/content/Intent.java",
+      "repository_path": "tests/editor-navigation-stubs/android/content/Intent.java",
+      "source_bytes": 651,
+      "source_sha256": "5d5edfed5cb17826440913e10db54d9df4fb46efbddf3f64c08f57d8045a1ced",
+      "repository_bytes": 651,
+      "repository_sha256": "5d5edfed5cb17826440913e10db54d9df4fb46efbddf3f64c08f57d8045a1ced",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/editor-navigation-stubs/android/opengl/GLSurfaceView.java",
+      "repository_path": "tests/editor-navigation-stubs/android/opengl/GLSurfaceView.java",
+      "source_bytes": 381,
+      "source_sha256": "0cf9b0c85644d6373b3ad9da32e0909e72dd2120516aaa86e60d7c9e6b87bcc5",
+      "repository_bytes": 381,
+      "repository_sha256": "0cf9b0c85644d6373b3ad9da32e0909e72dd2120516aaa86e60d7c9e6b87bcc5",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/editor-navigation-stubs/android/os/Handler.java",
+      "repository_path": "tests/editor-navigation-stubs/android/os/Handler.java",
+      "source_bytes": 224,
+      "source_sha256": "6ea2ce69d1c1ea417e8f130070e905b9d4f007951af5f8ddc4d1bf2114d89eb1",
+      "repository_bytes": 224,
+      "repository_sha256": "6ea2ce69d1c1ea417e8f130070e905b9d4f007951af5f8ddc4d1bf2114d89eb1",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/editor-navigation-stubs/com/mirror/bench/CameraCalibrationPanel.java",
+      "repository_path": "tests/editor-navigation-stubs/com/mirror/bench/CameraCalibrationPanel.java",
+      "source_bytes": 1500,
+      "source_sha256": "f9b51e5bc462ceb47cbb28945d797b472f354ae083a09efb14f96fc10fe733bd",
+      "repository_bytes": 1500,
+      "repository_sha256": "f9b51e5bc462ceb47cbb28945d797b472f354ae083a09efb14f96fc10fe733bd",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/editor-navigation-stubs/com/mirror/bench/SceneViewPanel.java",
+      "repository_path": "tests/editor-navigation-stubs/com/mirror/bench/SceneViewPanel.java",
+      "source_bytes": 478,
+      "source_sha256": "fe0d87384f4cc46a8239dae09d2080d78e587bc69d2923c99be4b3cb380824f0",
+      "repository_bytes": 478,
+      "repository_sha256": "fe0d87384f4cc46a8239dae09d2080d78e587bc69d2923c99be4b3cb380824f0",
       "publication_transformation": null
     },
     {
@@ -6027,6 +6101,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/run_product_editor_navigation_tests.ps1",
+      "repository_path": "tests/run_product_editor_navigation_tests.ps1",
+      "source_bytes": 2125,
+      "source_sha256": "2ad86f7cb05293533119a870cd2cdffeb73f5e63e7523001fe6c62fa75c89631",
+      "repository_bytes": 2125,
+      "repository_sha256": "2ad86f7cb05293533119a870cd2cdffeb73f5e63e7523001fe6c62fa75c89631",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/run_product_view_count_tests.ps1",
       "repository_path": "tests/run_product_view_count_tests.ps1",
       "source_bytes": 2175,
@@ -6494,16 +6577,16 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "5400f46e511b45003e0604c075157d4e13d945c4",
-  "public_parent_commit": "e5bc9971e34cfe58503192a31e6980dc9f89cf83",
-  "versionCode": 39,
-  "versionName": "0.2.8",
-  "release_apk_sha256": "2d5e4fab5c10e1e116b28ea0f4631e018855f52aad1c45a71b1aa80ed948f64f",
+  "previous_source_commit": "5a6b31a4fdf09b8be1dd7bcfc85d51d52d54e3f9",
+  "public_parent_commit": "600b01ddbff38a342c141373448e923ce2e6c302",
+  "versionCode": 40,
+  "versionName": "0.2.9",
+  "release_apk_sha256": "bcc4de7eff26a7882e4d67146dad952a8e9438795923a8f0323f67a7c4871892",
   "last_iteration": {
-    "versionCode": 39,
-    "versionName": "0.2.8",
-    "approved_source_delta_files": 7,
-    "public_parent": "e5bc9971e34cfe58503192a31e6980dc9f89cf83",
+    "versionCode": 40,
+    "versionName": "0.2.9",
+    "approved_source_delta_files": 14,
+    "public_parent": "600b01ddbff38a342c141373448e923ce2e6c302",
     "frozen_copy_hashes_verified": true,
     "unreviewed_model_pipeline_work_included": false,
     "v1_experiment_included": false
