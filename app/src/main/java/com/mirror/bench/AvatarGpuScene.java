@@ -57,6 +57,7 @@ final class AvatarGpuScene {
     private final boolean pbrFastMathRequested;
     private boolean pbrFastMathSelected;
     private PbrComparison pbrComparison;
+    private boolean specializedBatch;
     private AvatarScreenBounds screenBounds;
 
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview) throws Exception {
@@ -282,7 +283,7 @@ final class AvatarGpuScene {
     }
     /** Explicit diagnostic only; shares the reference's current uploaded VBOs, fit and world matrices. */
     void drawMaterialCoverage(float[] viewProjections,int viewCount,float aspect,int estimateTexture) {
-        if(drawMode!=DrawMode.BATCHED||batch==null||ormComparison!=null||pbrComparison!=null)
+        if(drawMode!=DrawMode.BATCHED||batch==null||ormComparison!=null||pbrComparison!=null||specializedBatch)
             throw new IllegalStateException("Ordinary batched diagnostic scene required");
         copyFitMatrix(aspect,fit);
         batch.drawMaterialCoverage(viewProjections,viewCount,fit,displayedWorlds,estimateTexture);
@@ -301,6 +302,21 @@ final class AvatarGpuScene {
         copyFitMatrix(aspect,fit);System.arraycopy(fit,0,destination,0,16);
         for(int i=0;i<staticBackgroundNodes.length;i++)System.arraycopy(displayedWorlds,staticBackgroundNodes[i]*16,destination,(i+1)*16,16);
     }
+    /** Debug candidate: shared original textures/VBOs, only per-material programs and draw ranges change. */
+    void beginSpecializedBatch(){
+        if(specializedBatch||drawMode!=DrawMode.BATCHED||batch==null||ormComparison!=null||pbrComparison!=null
+                ||ormRg8Uploaded||pbrFastMathRequested||!sha256.equals("9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531"))
+            throw new IllegalStateException("Specialized candidate requires original Geralt PBR batched scene without other material experiments");
+        batch.beginSpecializedComparison();specializedBatch=true;
+    }
+    void selectSpecializedBatch(boolean enabled){
+        if(!specializedBatch)throw new IllegalStateException("Specialized comparison not initialized");
+        batch.selectSpecialized(enabled);
+    }
+    void endSpecializedBatch(){
+        if(!specializedBatch)return;batch.endSpecializedComparison();specializedBatch=false;
+    }
+
     /** Same shaders, matrices and geometry as the ordinary selected-node drawing path. */
     void drawStaticBackground(float[] viewProjections,int viewCount,float aspect) {
         drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.STATIC);
@@ -508,7 +524,7 @@ final class AvatarGpuScene {
     }
     /** Two shader variants and both draw backends share one synchronous pose, texture set and VBO set. */
     PbrComparison createPbrComparison(){
-        if(pbrComparison!=null||ormComparison!=null||asset.normalMap()==null||poseWorker!=null
+        if(specializedBatch||pbrComparison!=null||ormComparison!=null||asset.normalMap()==null||poseWorker!=null
                 ||drawMode!=DrawMode.VERIFY||program==null||batch==null)
             throw new IllegalStateException("PBR comparison requires a synchronous PBR VERIFY scene without another comparison");
         PbrComparison created=new PbrComparison();
@@ -572,7 +588,7 @@ final class AvatarGpuScene {
      * Retains exactly one extra RGBA ORM map; both draws share all other textures, CPU state and VBOs.
      */
     OrmComparison createOrmComparison(){
-        if(ormComparison!=null||pbrComparison!=null||!ormUploadPolicy.requested||!ormUploadPolicy.eligible||!ormRg8Uploaded||detailTextures[1]==0)
+        if(specializedBatch||ormComparison!=null||pbrComparison!=null||!ormUploadPolicy.requested||!ormUploadPolicy.eligible||!ormRg8Uploaded||detailTextures[1]==0)
             throw new IllegalStateException("ORM comparison requires an actual eligible RG8 scene and no existing comparison");
         int candidate=detailTextures[1],reference=0;
         try{

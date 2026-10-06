@@ -84,7 +84,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private PersistentMultiviewFbos persistentFbos;
     private long glContextGeneration;
     private boolean gpuProfileRequested;
-    private boolean ormRg8Requested,pbrFastMathRequested;
+    private boolean ormRg8Requested,pbrFastMathRequested,specializedBatchRequested;
     private volatile RuntimeGpuProfile gpuProfile;
     private long gpuCallbackId,gpuFramePacingEpoch;
     private int gpuFrameTarget;
@@ -276,6 +276,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(surfaceInitialized)throw new IllegalStateException("PBR shader mode must be configured before GL initialization");
         pbrFastMathRequested=enabled;
     }
+    synchronized void setSpecializedBatch(boolean enabled){
+        if(surfaceInitialized)throw new IllegalStateException("Specialized batch must be configured before GL initialization");
+        specializedBatchRequested=enabled;
+    }
     synchronized void setEmptyInterlace(boolean enabled){
         if(surfaceInitialized)throw new IllegalStateException("Empty interlace must be configured before GL initialization");
         emptyInterlaceRequested=emptyInterlaceSelected=enabled;
@@ -430,6 +434,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             }
             if(avatarAssets!=null) {
                 avatarScene=loadRuntimeAvatar();
+                if(specializedBatchRequested){avatarScene.beginSpecializedBatch();avatarScene.selectSpecializedBatch(true);}
                 if(emptyInterlaceRequested)avatarScene.enableScreenBounds();
                 if(avatarShutdown)avatarScene.stopCpu();
             }
@@ -619,6 +624,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("empty_interlace_bounds_mean_ms",emptyBoundsMeanMs).put("empty_interlace_bounds_frames",emptyBoundsFrames)
                 .put("empty_interlace_scope","conservative all-view union of uploaded positions; geometric screen fraction, not measured texel traffic or GPU time; bounds mean is projection only; uploaded-position scan is included in avatar prepare/upload wall; default off")
                 .put("orm_rg8_requested",ormRg8Requested).put("pbr_fast_math_requested",pbrFastMathRequested)
+                .put("specialized_batch_requested",specializedBatchRequested)
                 .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
                 .put("multiview_fbo_actual",multiviewFboActual).put("persistent_fbo_count",persistentFboCount)
                 .put("camera_vp_requested",cachedCameraVpRequested?"cached":"per_frame").put("camera_vp_actual",cameraVpActual)
