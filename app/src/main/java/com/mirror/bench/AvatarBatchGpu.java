@@ -17,6 +17,7 @@ final class AvatarBatchGpu {
     private final float[] pbrParams;
     private Program single,multiview;
     private Program comparisonSingle,comparisonMultiview;
+    private AvatarMaterialCoverageGpu coverageDiagnostic;
     private final boolean pbrFastMath;
     private boolean selectedFastMath;
     private final float[] worlds,normals,colors,params,fit=new float[16],inverse=new float[16];
@@ -111,6 +112,16 @@ final class AvatarBatchGpu {
         for(int i=0;i<(atlas?5:4);i++)GLES30.glDisableVertexAttribArray(i);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
     }
+    void drawMaterialCoverage(float[] vp,int count,float[] fit,float[] displayedWorlds,int estimateTexture) {
+        if(disposed)throw new IllegalStateException("Disposed avatar batch");
+        if(coverageDiagnostic==null)coverageDiagnostic=new AvatarMaterialCoverageGpu(layout,buffers,multiview!=null);
+        coverageDiagnostic.draw(vp,count,fit,displayedWorlds,estimateTexture);
+    }
+    org.json.JSONArray materialCoverageEntries()throws Exception {
+        if(disposed)throw new IllegalStateException("Disposed avatar batch");
+        if(coverageDiagnostic==null)coverageDiagnostic=new AvatarMaterialCoverageGpu(layout,buffers,multiview!=null);
+        return coverageDiagnostic.entries();
+    }
     JSONObject status()throws Exception {
         return new JSONObject().put("draw_items",layout.entries().size()).put("draw_calls_per_view_group",1)
                 .put("vertices",layout.vertexCount()).put("indices",layout.indexCount()).put("extra_id_bytes",layout.vertexCount()*4)
@@ -124,6 +135,7 @@ final class AvatarBatchGpu {
     /** Only the owning current EGL context may delete these names. */
     void dispose() {
         if(disposed)return;disposed=true;GLES30.glDeleteBuffers(buffers.length,buffers,0);
+        if(coverageDiagnostic!=null){coverageDiagnostic.close();coverageDiagnostic=null;}
         endPbrComparison();
         if(single!=null){GLES30.glDeleteProgram(single.id);single=null;}
         if(multiview!=null){GLES30.glDeleteProgram(multiview.id);multiview=null;}
