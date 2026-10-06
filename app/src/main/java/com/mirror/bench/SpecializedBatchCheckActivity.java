@@ -19,7 +19,7 @@ public final class SpecializedBatchCheckActivity extends Activity implements GLS
     private volatile boolean cancelled;
     private String runId;
     private JSONObject latest;
-    private boolean finished,constantWhitePrimary;
+    private boolean finished,constantWhitePrimary,reuseGroupUniforms;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);runId=UUID.randomUUID().toString();
         try {
@@ -31,6 +31,12 @@ public final class SpecializedBatchCheckActivity extends Activity implements GLS
                 if(!(option instanceof Boolean))throw new IllegalArgumentException("Constant-white primary requires a non-null debug Boolean");
                 constantWhitePrimary=(Boolean)option;
             }
+            if(extras!=null&&extras.containsKey("test_reuse_group_uniforms")){
+                Object option=extras.get("test_reuse_group_uniforms");
+                if(!(option instanceof Boolean))throw new IllegalArgumentException("Group uniform reuse requires a non-null debug Boolean");
+                reuseGroupUniforms=(Boolean)option;
+            }
+            if(reuseGroupUniforms&&!constantWhitePrimary)throw new IllegalArgumentException("Group uniform reuse requires constant-white primary");
             var loaded=SceneViewPreferences.load(this);
             if(!loaded.warning.isEmpty())throw new IllegalStateException("Cannot diagnose an invalid saved scene: "+loaded.warning);
             saved=loaded.value;
@@ -47,7 +53,7 @@ public final class SpecializedBatchCheckActivity extends Activity implements GLS
     }
     @Override public void onSurfaceChanged(GL10 gl,int width,int height) {
         if(finished||cancelled)return;finished=true;
-        try{publish(AvatarSpecializedCheck.run(getAssets(),saved,()->cancelled,this::publish,constantWhitePrimary));}
+        try{publish(AvatarSpecializedCheck.run(getAssets(),saved,()->cancelled,this::publish,constantWhitePrimary,reuseGroupUniforms));}
         catch(Exception failure){publishFailure(failure);}
     }
     @Override public void onDrawFrame(GL10 gl){}
@@ -60,7 +66,7 @@ public final class SpecializedBatchCheckActivity extends Activity implements GLS
     private void publish(JSONObject value) {
         FileOutputStream output=null;AtomicFile file=new AtomicFile(new File(getFilesDir(),"specialized-batch-check.json"));
         try {
-            latest=value;value.put("run_id",runId).put("performance_evidence",false).put("constant_white_primary_requested",constantWhitePrimary);
+            latest=value;value.put("run_id",runId).put("performance_evidence",false).put("constant_white_primary_requested",constantWhitePrimary).put("reuse_group_uniforms_requested",reuseGroupUniforms);
             if(!value.has("running"))value.put("running",true).put("passed",false);
             if(cancelled)value.put("cancelled",true).put("passed",false);
             output=file.startWrite();output.write(value.toString(2).getBytes(StandardCharsets.UTF_8));file.finishWrite(output);

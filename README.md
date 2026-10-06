@@ -6,14 +6,15 @@
 
 ## 当前版本
 
-当前安装版 **V46 / 0.2.15**（versionCode46），源工程冻结点 `a0623aba15a6ca8f1c8a63892b075f9df7bbfc4a`。新增仅调试的主表面恒白候选：验证原Geralt主primitive全部13975顶点RGBA raw bits为1后去除颜色输入/插值，保留原网格、PBR、纹理和其他有色表面。普通路径不变，分材质与恒白候选均默认OFF。
+当前安装版 **V47 / 0.2.16**（versionCode47），源工程冻结点 `11349f752573fae1d5fe816a35fd9aa3510e19a3`。仅调试的组内program/VP/sampler复用保持原Geralt网格、PBR、纹理与16个独立视点；world/normal/draw顺序不变。普通路径保持，specialized/constant-white/reuse三候选均默认OFF。
 
-- 实际Mali普通INDIVIDUAL→新候选 **69姿态×16层=1104对**，各1932次draw/276组及绑定检查；最大RGB差1、RMSE0.0019764、351个RGB字节差、alpha零差。主表面实际linked属性−1/−1、其他均2，结束scope释放。有限姿态通过不等于任意表情、光学或美术通过。
-- **像素与五组性能均使用同一最终V46 APK**。普通/旧分材质/恒白新候选/旧候选/普通呈现 **10.5471 / 11.2980 / 12.1229 / 11.2653 / 10.5285 FPS**；新候选对旧候选两均+**7.4565%**，对普通两均+**15.0416%**。采用事前冻结的全部确认INTERACTIVE且≥40秒，约44.4秒每组；未知尾4.72–4.94秒保留且排除，不修复或替代旧固定35秒门。
-- 原Geralt完整PBR、16×400×640独立视图/1200×1920交织、853帧NV21录像、RGA/RKNN478/CPU归一化+混合CPU/NPU52。录像不含USB或解码。新候选整机CPU61.13%，普通57.06/57.60%；较短同区间快照面捕15.768 vs15.949/15.988FPS，received→completed130.76 vs125.45/125.71ms。相对旧候选改善，但相对普通仍有CPU/面捕代价。不同温态、稀疏PSS及CPU提交墙钟不能证明长期因果、显存节省或GPU执行耗时；没有事前freshness门，不能称每帧新鲜度或日常默认资格通过。
-- 普通新会话Geralt原PBR首帧/280次draw、Back返回、角色页smoke与实际Java runtime owners为0通过；四配置保持。**78资产/9原生库与V45逐字节相同**，签名一致，没有新模型/截图资产发布。USB仍Camera ERROR3，**所有组未达30FPS**；完整作品与其他角色自然表情仍待完成。
+- 实际Mali直接普通INDIVIDUAL→新候选 **69×16=1104对**：各1932draw/276组及绑定检查；最大RGB差1、RMSE0.0019764、351个RGB字节差、alpha零差。同步终态program/VP各1380、sampler1656、world/normal/draw各1932，证明减少提交次数，不是GPU完成或时间。有限姿态不证明任意表情、光学或美术。
+- 同最终V47 APK全新恒白基线/复用/恒白基线ABA为 **12.1453 / 12.1451 / 12.1274 FPS**。候选相对两端均值 **+0.0718%**，与首次基线几乎相同，不能证明可重复提升；本轮没有普通FPS端点。三组全部确认INTERACTIVE且≥40秒，未知尾约4.81–4.90秒保留排除。
+- 首次私有wrapper将异步字段误当原子组边界而失败，第三组未启动；原证据保留。v2事前规则只移除错误跨字段倍数断言，保留同步像素精确门/原FPS门、全部原计数。全新三次未拼接旧数据，无生产代码/APK改动。
+- 固定853帧NV21录像，无USB或解码；原完整PBR、16×400×640/1200×1920交织、RGA/RKNN478/CPU归一化+混合CPU/NPU52。面捕较短快照范围15.886/15.674/15.884FPS，received→completed127.70/133.02/127.07ms；温度依次升高，不能从稀疏age/PSS或CPU墙钟声称长期因果、显存节省或每帧新鲜度。没有日常默认资格，**30FPS仍未达到**。
+- 新普通会话原Geralt/PBR首帧/308draw、Back、角色页smoke与实际Java runtime owners为0通过，四配置保持。**78资产/9原生库对V46逐字节相同**，无新模型或截图资产发布。USB仍Camera ERROR3，完整目标继续。
 
-详见[V46实现、五组实测与边界](docs/production-app-v46-20261007.md)、[V45普通参考](docs/production-app-v45-20261007.md)和[完整目标](docs/production-app-spec-20261005.md)。源README历史全文保留在[设备工程历史](docs/device-lab-history.md)。既有previous_v43/v42等历史深JSON保持，完整V45 manifest由Git commit/路径/SHA引用，不再次嵌套。私人录像、NPU/眼部原型、APK及原始QA不发布。
+详见[V47实现、失败保留与三组实测](docs/production-app-v47-20261007.md)、[V46恒白参考](docs/production-app-v46-20261007.md)和[完整目标](docs/production-app-spec-20261005.md)。源README历史全文保留在[设备工程历史](docs/device-lab-history.md)。所有既有previous历史深JSON不变，完整V46 manifest使用Git commit/路径/SHA引用，不新增previous_v46树；私人录像/NPU/眼部原型/APK/原始QA不发布。
 
 ## 目录
 

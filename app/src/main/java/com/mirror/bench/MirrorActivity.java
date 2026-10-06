@@ -123,6 +123,7 @@ public final class MirrorActivity extends Activity {
         renderer.setAvatarBatched(options.batchedAvatar);
         renderer.setSpecializedBatch(options.specializedBatch);
         renderer.setConstantWhitePrimary(options.constantWhitePrimary);
+        renderer.setReuseGroupUniforms(options.reuseGroupUniforms);
         renderer.setPersistentMultiviewFbos(options.persistentFbos);
         renderer.setCachedCameraVp(options.cachedCameraVp);
         renderer.setGpuProfile(options.gpuProfile);
@@ -1002,7 +1003,7 @@ public final class MirrorActivity extends Activity {
                         .put("cached_camera_vp",options.cachedCameraVp)
                         .put("static_background_cache",options.staticBackgroundCache)
                         .put("gpu_profile",options.gpuProfile)
-                        .put("orm_rg8",options.ormRg8).put("pbr_fast_math",options.pbrFastMath).put("empty_interlace",options.emptyInterlace).put("specialized_batch",options.specializedBatch).put("constant_white_primary",options.constantWhitePrimary)
+                        .put("orm_rg8",options.ormRg8).put("pbr_fast_math",options.pbrFastMath).put("empty_interlace",options.emptyInterlace).put("specialized_batch",options.specializedBatch).put("constant_white_primary",options.constantWhitePrimary).put("reuse_group_uniforms",options.reuseGroupUniforms)
                         .put("release_gl_on_pause",options.releaseGlOnPause)
                         .put("batched",options.batchedAvatar).put("view_preset",options.viewPreset==null?JSONObject.NULL:options.viewPreset)
                         .put("active_target_fps",options.activeTargetFps).put("view_count",options.viewCount))
@@ -1116,11 +1117,11 @@ public final class MirrorActivity extends Activity {
         final String input, recordId;
         final double replayFps;
         final long blackoutAfterNs, blackoutDurationNs;
-        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause,npuBlendshapes,privateHead,staticBackgroundCache,gpuProfile,ormRg8,pbrFastMath,emptyInterlace,specializedBatch,constantWhitePrimary;
+        final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause,npuBlendshapes,privateHead,staticBackgroundCache,gpuProfile,ormRg8,pbrFastMath,emptyInterlace,specializedBatch,constantWhitePrimary,reuseGroupUniforms;
         final String viewPreset;
         final int activeTargetFps,viewCount;
         private InputOptions(String input, String recordId, double replayFps, int after, int duration,
-                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause,boolean npuBlendshapes,boolean privateHead,boolean staticBackgroundCache,boolean gpuProfile,boolean ormRg8,boolean pbrFastMath,boolean emptyInterlace,boolean specializedBatch,boolean constantWhitePrimary) {
+                             boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause,boolean npuBlendshapes,boolean privateHead,boolean staticBackgroundCache,boolean gpuProfile,boolean ormRg8,boolean pbrFastMath,boolean emptyInterlace,boolean specializedBatch,boolean constantWhitePrimary,boolean reuseGroupUniforms) {
             this.input = input; this.recordId = recordId; this.replayFps = replayFps;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
@@ -1135,17 +1136,17 @@ public final class MirrorActivity extends Activity {
             this.staticBackgroundCache=staticBackgroundCache;
             this.gpuProfile=gpuProfile;
             this.ormRg8=ormRg8;
-            this.pbrFastMath=pbrFastMath;this.emptyInterlace=emptyInterlace;this.specializedBatch=specializedBatch;this.constantWhitePrimary=constantWhitePrimary;
+            this.pbrFastMath=pbrFastMath;this.emptyInterlace=emptyInterlace;this.specializedBatch=specializedBatch;this.constantWhitePrimary=constantWhitePrimary;this.reuseGroupUniforms=reuseGroupUniforms;
         }
         static InputOptions defaults() { return defaults(20); }
-        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,true,false,RuntimeViewCount.read(null,false,savedViews),false,true,false,false,false,false,false,false,false,false); }
+        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,true,false,RuntimeViewCount.read(null,false,savedViews),false,true,false,false,false,false,false,false,false,false,false); }
         static InputOptions read(Bundle extras, boolean debug) { return read(extras,debug,20); }
         static InputOptions read(Bundle extras, boolean debug,int savedViews) {
             if (extras == null) return defaults(savedViews);
             // Only these existing Mirror test options are overrides. Presence (including null)
             // is different from absence; ordinary extras keep the same product defaults.
             for(String key:new String[]{"test_avatar_synchronous","test_avatar_batched","test_persistent_fbos",
-                    "test_cached_camera_vp","test_static_background_cache","test_gpu_profile","test_orm_rg8","test_pbr_fast_math","test_empty_interlace","test_specialized_batch","test_constant_white_primary","test_release_gl_on_pause","test_npu_blendshapes","test_private_head","test_view_preset",
+                    "test_cached_camera_vp","test_static_background_cache","test_gpu_profile","test_orm_rg8","test_pbr_fast_math","test_empty_interlace","test_specialized_batch","test_constant_white_primary","test_reuse_group_uniforms","test_release_gl_on_pause","test_npu_blendshapes","test_private_head","test_view_preset",
                     "test_view_count","test_active_target_fps","test_blackout_after_s","test_blackout_duration_s"})
                 if(extras.containsKey(key)&&(!debug||value(extras,key)==null))
                     throw new IllegalArgumentException("Explicit test option requires a non-null debug value: "+key);
@@ -1183,6 +1184,10 @@ public final class MirrorActivity extends Activity {
             if(specialized!=null&&(!(specialized instanceof Boolean)||!debug))throw new IllegalArgumentException("Specialized batch requires debug Boolean");
             Object constantWhite=value(extras,"test_constant_white_primary");
             if(constantWhite!=null&&(!(constantWhite instanceof Boolean)||!debug))throw new IllegalArgumentException("Constant-white primary requires debug Boolean");
+            Object reuseGroup=value(extras,"test_reuse_group_uniforms");
+            if(reuseGroup!=null&&(!(reuseGroup instanceof Boolean)||!debug))throw new IllegalArgumentException("Group uniform reuse requires debug Boolean");
+            if(Boolean.TRUE.equals(reuseGroup)&&!Boolean.TRUE.equals(constantWhite))
+                throw new IllegalArgumentException("Group uniform reuse requires explicit constant-white primary");
             if(Boolean.TRUE.equals(constantWhite)&&!Boolean.TRUE.equals(specialized))
                 throw new IllegalArgumentException("Constant-white primary requires explicit specialized batch");
             if(Boolean.TRUE.equals(specialized)&&(!Boolean.TRUE.equals(batched)||Boolean.TRUE.equals(ormRg8)
@@ -1204,7 +1209,7 @@ public final class MirrorActivity extends Activity {
             int views=RuntimeViewCount.read(extras,debug,savedViews);
             return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,
                     persistent==null||Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug),
-                    !extras.containsKey("test_npu_blendshapes")||RuntimeExpressionBackend.read(extras,debug),privateHead,Boolean.TRUE.equals(background),Boolean.TRUE.equals(gpuProfile),Boolean.TRUE.equals(ormRg8),Boolean.TRUE.equals(pbrFastMath),Boolean.TRUE.equals(emptyInterlace),Boolean.TRUE.equals(specialized),Boolean.TRUE.equals(constantWhite));
+                    !extras.containsKey("test_npu_blendshapes")||RuntimeExpressionBackend.read(extras,debug),privateHead,Boolean.TRUE.equals(background),Boolean.TRUE.equals(gpuProfile),Boolean.TRUE.equals(ormRg8),Boolean.TRUE.equals(pbrFastMath),Boolean.TRUE.equals(emptyInterlace),Boolean.TRUE.equals(specialized),Boolean.TRUE.equals(constantWhite),Boolean.TRUE.equals(reuseGroup));
         }
         boolean needsCamera() { return !input.equals("replay"); }
         boolean blackout(long elapsedNs) {

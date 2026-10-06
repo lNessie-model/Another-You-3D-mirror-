@@ -149,17 +149,17 @@
     "default_role_restored": "geralt",
     "personal_face_art_accepted": false
   },
-  "versionCode": 46,
-  "versionName": "0.2.15",
-  "source_commit": "a0623aba15a6ca8f1c8a63892b075f9df7bbfc4a",
-  "public_parent": "75f47a006f875717cb1c9b9b3cc5f1c8e8b669df",
-  "created_at_utc": "2026-10-06T20:25:45.253863+00:00",
-  "local_apk_filename": "AvatarRuntime-v46-primary-color-v1.apk",
-  "apk_sha256": "ac201955cf475f002b5152ab93a6877039c750c4cb8bf495ad9db8c3b0cd11fb",
-  "apk_bytes": 131240717,
+  "versionCode": 47,
+  "versionName": "0.2.16",
+  "source_commit": "11349f752573fae1d5fe816a35fd9aa3510e19a3",
+  "public_parent": "049fae6cc83f698a08e6504630642f14394318ef",
+  "created_at_utc": "2026-10-06T21:32:57.089710+00:00",
+  "local_apk_filename": "AvatarRuntime-v47-group-submission-v1.apk",
+  "apk_sha256": "6a17d1a28d99389fb4555ded72af06b5109157c7590c6d0a8b667b480c52b0d2",
+  "apk_bytes": 130678843,
   "apk_in_repository": false,
   "qa_passed": true,
-  "qa_scope": "V46 same-APK direct ordinary/new finite69x16 Mali pixels, five-run recorded-input comparison, ordinary GL/Back/Java-owner/config smoke. No USB/live/all-pose/artwork/long-term/default qualification.",
+  "qa_scope": "Same APK47 direct ordinary/new finite69x16 Mali pixels, new constant-white/group-reuse/constant-white recorded ABA, ordinary GL/Back/Java-owner/config smoke. No live USB/all-pose/artwork/long-term/default qualification.",
   "live_face_qa_passed": false,
   "full_user_goal_complete": false,
   "camera_blocker": "IllegalStateException: android.hardware.camera2.CameraAccessException: CAMERA_ERROR (3): endConfigure:510: Camera 0: Error configuring streams: Function not imp",
@@ -167,15 +167,15 @@
   "camera_capture_passed": false,
   "runtime_opened_this_release": true,
   "gpu_retested_this_release": true,
-  "gpu_acceptance_scope_this_release": "Direct ordinary INDIVIDUAL_OVR4 vs constant-white specialized,69x16 same original assets, independent buffers/same CPU pose, unchanged maxRGB1/RMSE0.1/alpha0.",
+  "gpu_acceptance_scope_this_release": "Direct ordinary INDIVIDUAL_OVR4 vs group-reuse constant-white specialized,69x16 original assets, independent buffers/same CPU pose; unchanged maxRGB1/RMSE0.1/alpha0.",
   "gpu_pose_suite_rerun_this_release": true,
   "joint_performance_measured": true,
-  "joint_performance_input_scope": "Fixed853-frame NV21 replay at24.369907fps; noUSB/decode; originalGeralt fullPBR,16x400640/output12001920,persistent4FBO,asyncCPUdeformation,RGA/RKNN478/CPUFP32front+mixed52.",
+  "joint_performance_input_scope": "Fixed853-frame NV21 replay at24.369907fps,noUSB/decode; originalGeralt fullPBR,16x400640/output12001920,persistent4FBO,asyncCPUdeformation,RGA/RKNN478/CPUFP32front+mixed52. Constant-white controls only; no ordinary FPS endpoint.",
   "joint_30fps_goal_met": false,
-  "frame_rate_improvement_demonstrated": true,
+  "frame_rate_improvement_demonstrated": false,
   "private_fixtures_in_apk": false,
   "personal_video_in_apk": false,
-  "source_delta_file_count": 17,
+  "source_delta_file_count": 15,
   "frozen_delta_file_hashes_verified": true,
   "production_dependencies_match_v30": true,
   "native_dependencies_match_v35": true,
@@ -284,37 +284,38 @@
     "pixel_suite_rerun_this_release": false
   },
   "recorded_face_performance": {
-    "evidence_versionCode": 46,
-    "apk_sha256": "ac201955cf475f002b5152ab93a6877039c750c4cb8bf495ad9db8c3b0cd11fb",
-    "reference_backend": "ordinary individual and old per-entry specialized controls",
-    "candidate_backend": "debug per-entry constant-white primary specialized",
-    "ordinary_default_individual_compared": true,
+    "evidence_versionCode": 47,
+    "apk_sha256": "6a17d1a28d99389fb4555ded72af06b5109157c7590c6d0a8b667b480c52b0d2",
+    "reference_backend": "per-entry constant-white specialized",
+    "candidate_backend": "per-entry constant-white group-uniform-reuse specialized",
+    "ordinary_default_individual_compared": false,
     "runs": [
       {
-        "name": "ordinary-first",
-        "actual_backend": "ordinary_individual",
-        "constant_white_primary": false,
+        "name": "constant-white-first",
+        "actual_backend": "constant_white_specialized",
+        "constant_white_primary": true,
+        "reuse_group_uniforms": false,
         "confirmed_active_presentation": {
-          "interactive_presented_fps": 10.54710900752326,
-          "interactive_duration_s": 44.450582257,
-          "sampled_duration_s": 44.277536116,
+          "interactive_presented_fps": 12.145313750729049,
+          "interactive_duration_s": 44.704989116,
+          "sampled_duration_s": 44.46159326,
           "intervals": [
             {
-              "start_ns": 155546706757450,
-              "end_ns": 155581349175264,
-              "duration_s": 34.642417814,
-              "presented_frames": 364,
-              "presented_fps": 10.494313226241614,
-              "sampled_duration_s": 34.590162517,
+              "start_ns": 160030742681742,
+              "end_ns": 160065373901013,
+              "duration_s": 34.631219271,
+              "presented_frames": 418,
+              "presented_fps": 12.090381732841625,
+              "sampled_duration_s": 34.490226133,
               "complete_history": true
             },
             {
-              "start_ns": 155581669696255,
-              "end_ns": 155591477860698,
-              "duration_s": 9.808164443,
-              "presented_frames": 105,
-              "presented_fps": 10.735623947726722,
-              "sampled_duration_s": 9.687373599,
+              "start_ns": 160065608568162,
+              "end_ns": 160075682338007,
+              "duration_s": 10.073769845,
+              "presented_frames": 124,
+              "presented_fps": 12.335319563848609,
+              "sampled_duration_s": 9.971367127,
               "complete_history": true
             }
           ],
@@ -327,28 +328,28 @@
           "state_history_gaps": [],
           "status_errors": [],
           "ambiguous_surface_intervals": [],
-          "confirmed_until_monotonic_ns": 155591477860698,
+          "confirmed_until_monotonic_ns": 160075682338007,
           "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
-          "unconfirmed_tail_seconds": 4.732143968,
-          "observed_until_monotonic_ns": 155596210004666,
+          "unconfirmed_tail_seconds": 4.837667243,
+          "observed_until_monotonic_ns": 160080520005250,
           "pause_clock_complete": true
         },
-        "min_complete_interval_fps": 10.494313226241614,
+        "min_complete_interval_fps": 12.090381732841625,
         "resources": {
           "samples": 44,
-          "cpu_percent_whole_machine": 57.056214028714564,
-          "mem_available_mib_mean": 961.7406782670455,
-          "mem_available_mib_min": 953.07421875,
+          "cpu_percent_whole_machine": 61.204747339405806,
+          "mem_available_mib_mean": 975.5215731534091,
+          "mem_available_mib_min": 968.10546875,
           "temperature_c_min": 60.555,
-          "temperature_c_max": 65.625,
+          "temperature_c_max": 65.0,
           "app_pss_mib_samples": 8,
-          "app_pss_mib_mean": 304.4210205078125,
-          "app_pss_mib_peak": 425.3740234375,
+          "app_pss_mib_mean": 300.9537353515625,
+          "app_pss_mib_peak": 407.8681640625,
           "npu_busy_percent_samples": 44,
-          "npu_busy_percent_mean": 46.81818181818182,
+          "npu_busy_percent_mean": 46.25,
           "npu_busy_percent_peak": 51.0,
           "gpu_busy_samples": 44,
-          "gpu_busy_percent_mean": 98.36363636363636,
+          "gpu_busy_percent_mean": 98.02272727272727,
           "gpu_busy_percent_peak": 99,
           "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
         },
@@ -361,6 +362,291 @@
           },
           "gpu_hz": {
             "count": 44,
+            "mean": 800000000.0,
+            "min": 800000000,
+            "max": 800000000
+          },
+          "scope": "Same confirmed INTERACTIVE resource samples; CPU0 only and GPU reported frequency, not per-core/NPU frequency or continuous DVFS trace."
+        },
+        "snapshot_progress": {
+          "pairs": 7,
+          "snapshot_span_seconds": 35.188316369000006,
+          "counter_deltas": {
+            "metrics.completed_frames": 559,
+            "metrics.face_frames": 559,
+            "source.consumed_frames": 559,
+            "source.skipped_frames": 302
+          },
+          "analysis_fps": 15.885954705479017,
+          "face_fps": 15.885954705479017,
+          "stage_wall": {
+            "metrics.conversion_mean_ms": {
+              "count": 559,
+              "mean_ms": 2.7904102754919533
+            },
+            "metrics.inference_completion_mean_ms": {
+              "count": 559,
+              "mean_ms": 103.23972327191395
+            },
+            "metrics.received_to_completed_mean_ms": {
+              "count": 559,
+              "mean_ms": 127.69838563327372
+            },
+            "npu.mesh_mean_ms": {
+              "count": 559,
+              "mean_ms": 39.441249853309465
+            },
+            "npu.post_mean_ms": {
+              "count": 559,
+              "mean_ms": 50.10031780500895
+            }
+          },
+          "scope": "Differences between consecutive INTERACTIVE snapshots inside the same confirmed interval/session. Excluded state gaps are never bridged. This subset is shorter than SF/resources and the means overlap in execution, not additive GPU time."
+        },
+        "result_age_ms": {
+          "count": 9,
+          "mean": 194.33333333333334,
+          "min": 145,
+          "max": 284
+        },
+        "applied_pose_age_ms": {
+          "count": 9,
+          "mean": 85.69280955555556,
+          "min": 79.541883,
+          "max": 92.269926
+        },
+        "asynchronous_submission_counters": {
+          "rows": [
+            {
+              "status_sequence": 3,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 288,
+                "serial_groups": 0,
+                "multiview_groups": 288,
+                "returned_use_program_calls": 2016,
+                "vp_upload_calls": 2016,
+                "world_upload_calls": 2016,
+                "normal_upload_calls": 2016,
+                "draw_calls": 2016,
+                "sampler_uniform_calls": 2016,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 4,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 540,
+                "serial_groups": 0,
+                "multiview_groups": 540,
+                "returned_use_program_calls": 3780,
+                "vp_upload_calls": 3780,
+                "world_upload_calls": 3780,
+                "normal_upload_calls": 3780,
+                "draw_calls": 3780,
+                "sampler_uniform_calls": 3780,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 5,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 784,
+                "serial_groups": 0,
+                "multiview_groups": 784,
+                "returned_use_program_calls": 5488,
+                "vp_upload_calls": 5488,
+                "world_upload_calls": 5488,
+                "normal_upload_calls": 5488,
+                "draw_calls": 5488,
+                "sampler_uniform_calls": 5488,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 6,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1024,
+                "serial_groups": 0,
+                "multiview_groups": 1024,
+                "returned_use_program_calls": 7168,
+                "vp_upload_calls": 7168,
+                "world_upload_calls": 7168,
+                "normal_upload_calls": 7168,
+                "draw_calls": 7168,
+                "sampler_uniform_calls": 7168,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 7,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1264,
+                "serial_groups": 0,
+                "multiview_groups": 1264,
+                "returned_use_program_calls": 8848,
+                "vp_upload_calls": 8848,
+                "world_upload_calls": 8848,
+                "normal_upload_calls": 8848,
+                "draw_calls": 8848,
+                "sampler_uniform_calls": 8848,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 8,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1504,
+                "serial_groups": 0,
+                "multiview_groups": 1504,
+                "returned_use_program_calls": 10528,
+                "vp_upload_calls": 10528,
+                "world_upload_calls": 10528,
+                "normal_upload_calls": 10528,
+                "draw_calls": 10528,
+                "sampler_uniform_calls": 10528,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 9,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1748,
+                "serial_groups": 0,
+                "multiview_groups": 1748,
+                "returned_use_program_calls": 12236,
+                "vp_upload_calls": 12236,
+                "world_upload_calls": 12236,
+                "normal_upload_calls": 12236,
+                "draw_calls": 12236,
+                "sampler_uniform_calls": 12236,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 10,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1994,
+                "serial_groups": 0,
+                "multiview_groups": 1994,
+                "returned_use_program_calls": 13962,
+                "vp_upload_calls": 13962,
+                "world_upload_calls": 13962,
+                "normal_upload_calls": 13961,
+                "draw_calls": 13961,
+                "sampler_uniform_calls": 13963,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 11,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 2244,
+                "serial_groups": 0,
+                "multiview_groups": 2244,
+                "returned_use_program_calls": 15708,
+                "vp_upload_calls": 15708,
+                "world_upload_calls": 15708,
+                "normal_upload_calls": 15708,
+                "draw_calls": 15708,
+                "sampler_uniform_calls": 15708,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            }
+          ],
+          "nonnegative_integer_monotonic_by_context": true,
+          "scope": "Non-atomic live field reads; no per-group/cross-field exact ratio gate. Exact completed-group API counters belong only to the separate synchronous pixel gate."
+        }
+      },
+      {
+        "name": "group-reuse-candidate",
+        "actual_backend": "constant_white_group_reuse_specialized",
+        "constant_white_primary": true,
+        "reuse_group_uniforms": true,
+        "confirmed_active_presentation": {
+          "interactive_presented_fps": 12.145089557681892,
+          "interactive_duration_s": 44.773342082,
+          "sampled_duration_s": 44.627089609,
+          "intervals": [
+            {
+              "start_ns": 160092301311510,
+              "end_ns": 160126988049245,
+              "duration_s": 34.686737735,
+              "presented_frames": 420,
+              "presented_fps": 12.11327921831576,
+              "sampled_duration_s": 34.590138017,
+              "complete_history": true
+            },
+            {
+              "start_ns": 160127263654440,
+              "end_ns": 160137350258787,
+              "duration_s": 10.086604347,
+              "presented_frames": 124,
+              "presented_fps": 12.254716870213635,
+              "sampled_duration_s": 10.036951592,
+              "complete_history": true
+            }
+          ],
+          "complete_active_evidence": true,
+          "meets_30_fps": false,
+          "fps_target": 30,
+          "rate_is_lower_bound": false,
+          "surface_history_gaps": [],
+          "surface_history_gap_seconds": 0.0,
+          "state_history_gaps": [],
+          "status_errors": [],
+          "ambiguous_surface_intervals": [],
+          "confirmed_until_monotonic_ns": 160137350258787,
+          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
+          "unconfirmed_tail_seconds": 4.809753172,
+          "observed_until_monotonic_ns": 160142160011959,
+          "pause_clock_complete": true
+        },
+        "min_complete_interval_fps": 12.11327921831576,
+        "resources": {
+          "samples": 43,
+          "cpu_percent_whole_machine": 61.059298763114825,
+          "mem_available_mib_mean": 973.7715297965116,
+          "mem_available_mib_min": 966.48828125,
+          "temperature_c_min": 65.625,
+          "temperature_c_max": 69.375,
+          "app_pss_mib_samples": 7,
+          "app_pss_mib_mean": 285.8921595982143,
+          "app_pss_mib_peak": 405.904296875,
+          "npu_busy_percent_samples": 43,
+          "npu_busy_percent_mean": 47.627906976744185,
+          "npu_busy_percent_peak": 52.0,
+          "gpu_busy_samples": 43,
+          "gpu_busy_percent_mean": 98.11627906976744,
+          "gpu_busy_percent_peak": 99,
+          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
+        },
+        "frequencies": {
+          "cpu0_khz": {
+            "count": 43,
+            "mean": 1800000.0,
+            "min": 1800000,
+            "max": 1800000
+          },
+          "gpu_hz": {
+            "count": 43,
             "mean": 800000000.0,
             "min": 800000000,
             "max": 800000000
@@ -369,202 +655,220 @@
         },
         "snapshot_progress": {
           "pairs": 6,
-          "snapshot_span_seconds": 30.096764647999997,
+          "snapshot_span_seconds": 30.241252830999997,
           "counter_deltas": {
-            "metrics.completed_frames": 480,
-            "metrics.face_frames": 480,
-            "source.consumed_frames": 480,
-            "source.skipped_frames": 253
+            "metrics.completed_frames": 474,
+            "metrics.face_frames": 474,
+            "source.consumed_frames": 474,
+            "source.skipped_frames": 263
           },
-          "analysis_fps": 15.948558112936473,
-          "face_fps": 15.948558112936473,
+          "analysis_fps": 15.673953809020356,
+          "face_fps": 15.673953809020356,
           "stage_wall": {
             "metrics.conversion_mean_ms": {
-              "count": 480,
-              "mean_ms": 2.8414418708333358
+              "count": 474,
+              "mean_ms": 2.7110339535864973
             },
             "metrics.inference_completion_mean_ms": {
-              "count": 480,
-              "mean_ms": 100.26712960000006
+              "count": 474,
+              "mean_ms": 108.35919616033767
             },
             "metrics.received_to_completed_mean_ms": {
-              "count": 480,
-              "mean_ms": 125.44733117708338
+              "count": 474,
+              "mean_ms": 133.01902451054852
             },
             "npu.mesh_mean_ms": {
-              "count": 480,
-              "mean_ms": 39.05127641458334
+              "count": 474,
+              "mean_ms": 40.68526430590717
             },
             "npu.post_mean_ms": {
-              "count": 480,
-              "mean_ms": 47.615505649999996
+              "count": 474,
+              "mean_ms": 53.09252740506328
             }
           },
           "scope": "Differences between consecutive INTERACTIVE snapshots inside the same confirmed interval/session. Excluded state gaps are never bridged. This subset is shorter than SF/resources and the means overlap in execution, not additive GPU time."
         },
         "result_age_ms": {
           "count": 8,
-          "mean": 172.0,
-          "min": 135,
-          "max": 210
+          "mean": 154.125,
+          "min": 112,
+          "max": 189
         },
         "applied_pose_age_ms": {
           "count": 8,
-          "mean": 97.23664525000001,
-          "min": 92.666593,
-          "max": 102.839052
-        }
-      },
-      {
-        "name": "specialized-old-first",
-        "actual_backend": "specialized_batched",
-        "constant_white_primary": false,
-        "confirmed_active_presentation": {
-          "interactive_presented_fps": 11.297961559866598,
-          "interactive_duration_s": 44.587803563,
-          "sampled_duration_s": 44.344282581,
-          "intervals": [
+          "mean": 85.031342,
+          "min": 81.781009,
+          "max": 87.715842
+        },
+        "asynchronous_submission_counters": {
+          "rows": [
             {
-              "start_ns": 155608324041391,
-              "end_ns": 155642895560573,
-              "duration_s": 34.571519182,
-              "presented_frames": 388,
-              "presented_fps": 11.253307909205649,
-              "sampled_duration_s": 34.389888122,
-              "complete_history": true
+              "status_sequence": 3,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 290,
+                "serial_groups": 0,
+                "multiview_groups": 290,
+                "returned_use_program_calls": 1450,
+                "vp_upload_calls": 1450,
+                "world_upload_calls": 2030,
+                "normal_upload_calls": 2030,
+                "draw_calls": 2030,
+                "sampler_uniform_calls": 1740,
+                "skipped_use_program_calls": 580,
+                "shared_uniform_reuses": 580
+              }
             },
             {
-              "start_ns": 155643209135230,
-              "end_ns": 155653225419611,
-              "duration_s": 10.016284381,
-              "presented_frames": 115,
-              "presented_fps": 11.452228507674814,
-              "sampled_duration_s": 9.954394459,
-              "complete_history": true
+              "status_sequence": 4,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 543,
+                "serial_groups": 0,
+                "multiview_groups": 543,
+                "returned_use_program_calls": 2712,
+                "vp_upload_calls": 2712,
+                "world_upload_calls": 3796,
+                "normal_upload_calls": 3796,
+                "draw_calls": 3801,
+                "sampler_uniform_calls": 3256,
+                "skipped_use_program_calls": 1084,
+                "shared_uniform_reuses": 1084
+              }
+            },
+            {
+              "status_sequence": 5,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 788,
+                "serial_groups": 0,
+                "multiview_groups": 788,
+                "returned_use_program_calls": 3940,
+                "vp_upload_calls": 3940,
+                "world_upload_calls": 5516,
+                "normal_upload_calls": 5516,
+                "draw_calls": 5516,
+                "sampler_uniform_calls": 4728,
+                "skipped_use_program_calls": 1576,
+                "shared_uniform_reuses": 1576
+              }
+            },
+            {
+              "status_sequence": 6,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1028,
+                "serial_groups": 0,
+                "multiview_groups": 1028,
+                "returned_use_program_calls": 5140,
+                "vp_upload_calls": 5140,
+                "world_upload_calls": 7196,
+                "normal_upload_calls": 7196,
+                "draw_calls": 7196,
+                "sampler_uniform_calls": 6168,
+                "skipped_use_program_calls": 2056,
+                "shared_uniform_reuses": 2056
+              }
+            },
+            {
+              "status_sequence": 7,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1268,
+                "serial_groups": 0,
+                "multiview_groups": 1268,
+                "returned_use_program_calls": 6340,
+                "vp_upload_calls": 6340,
+                "world_upload_calls": 8876,
+                "normal_upload_calls": 8876,
+                "draw_calls": 8876,
+                "sampler_uniform_calls": 7608,
+                "skipped_use_program_calls": 2536,
+                "shared_uniform_reuses": 2536
+              }
+            },
+            {
+              "status_sequence": 8,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1512,
+                "serial_groups": 0,
+                "multiview_groups": 1512,
+                "returned_use_program_calls": 7560,
+                "vp_upload_calls": 7560,
+                "world_upload_calls": 10584,
+                "normal_upload_calls": 10584,
+                "draw_calls": 10584,
+                "sampler_uniform_calls": 9072,
+                "skipped_use_program_calls": 3024,
+                "shared_uniform_reuses": 3024
+              }
+            },
+            {
+              "status_sequence": 10,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1996,
+                "serial_groups": 0,
+                "multiview_groups": 1996,
+                "returned_use_program_calls": 9984,
+                "vp_upload_calls": 9984,
+                "world_upload_calls": 13976,
+                "normal_upload_calls": 13976,
+                "draw_calls": 13975,
+                "sampler_uniform_calls": 11982,
+                "skipped_use_program_calls": 3992,
+                "shared_uniform_reuses": 3992
+              }
+            },
+            {
+              "status_sequence": 11,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 2248,
+                "serial_groups": 0,
+                "multiview_groups": 2248,
+                "returned_use_program_calls": 11240,
+                "vp_upload_calls": 11240,
+                "world_upload_calls": 15736,
+                "normal_upload_calls": 15736,
+                "draw_calls": 15736,
+                "sampler_uniform_calls": 13488,
+                "skipped_use_program_calls": 4496,
+                "shared_uniform_reuses": 4496
+              }
             }
           ],
-          "complete_active_evidence": true,
-          "meets_30_fps": false,
-          "fps_target": 30,
-          "rate_is_lower_bound": false,
-          "surface_history_gaps": [],
-          "surface_history_gap_seconds": 0.0,
-          "state_history_gaps": [],
-          "status_errors": [],
-          "ambiguous_surface_intervals": [],
-          "confirmed_until_monotonic_ns": 155653225419611,
-          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
-          "unconfirmed_tail_seconds": 4.774587972,
-          "observed_until_monotonic_ns": 155658000007583,
-          "pause_clock_complete": true
-        },
-        "min_complete_interval_fps": 11.253307909205649,
-        "resources": {
-          "samples": 43,
-          "cpu_percent_whole_machine": 61.44819262975071,
-          "mem_available_mib_mean": 959.6764171511628,
-          "mem_available_mib_min": 951.14453125,
-          "temperature_c_min": 65.625,
-          "temperature_c_max": 70.0,
-          "app_pss_mib_samples": 7,
-          "app_pss_mib_mean": 281.6029575892857,
-          "app_pss_mib_peak": 399.9404296875,
-          "npu_busy_percent_samples": 43,
-          "npu_busy_percent_mean": 48.16279069767442,
-          "npu_busy_percent_peak": 54.0,
-          "gpu_busy_samples": 43,
-          "gpu_busy_percent_mean": 98.27906976744185,
-          "gpu_busy_percent_peak": 99,
-          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-        },
-        "frequencies": {
-          "cpu0_khz": {
-            "count": 43,
-            "mean": 1800000.0,
-            "min": 1800000,
-            "max": 1800000
-          },
-          "gpu_hz": {
-            "count": 43,
-            "mean": 800000000.0,
-            "min": 800000000,
-            "max": 800000000
-          },
-          "scope": "Same confirmed INTERACTIVE resource samples; CPU0 only and GPU reported frequency, not per-core/NPU frequency or continuous DVFS trace."
-        },
-        "snapshot_progress": {
-          "pairs": 7,
-          "snapshot_span_seconds": 35.220048539,
-          "counter_deltas": {
-            "metrics.completed_frames": 533,
-            "metrics.face_frames": 533,
-            "source.consumed_frames": 533,
-            "source.skipped_frames": 329
-          },
-          "analysis_fps": 15.133426048797077,
-          "face_fps": 15.133426048797077,
-          "stage_wall": {
-            "metrics.conversion_mean_ms": {
-              "count": 533,
-              "mean_ms": 2.8319315028142613
-            },
-            "metrics.inference_completion_mean_ms": {
-              "count": 533,
-              "mean_ms": 118.3404046998124
-            },
-            "metrics.received_to_completed_mean_ms": {
-              "count": 533,
-              "mean_ms": 143.2033799136959
-            },
-            "npu.mesh_mean_ms": {
-              "count": 533,
-              "mean_ms": 42.571575155722314
-            },
-            "npu.post_mean_ms": {
-              "count": 533,
-              "mean_ms": 59.15295762101313
-            }
-          },
-          "scope": "Differences between consecutive INTERACTIVE snapshots inside the same confirmed interval/session. Excluded state gaps are never bridged. This subset is shorter than SF/resources and the means overlap in execution, not additive GPU time."
-        },
-        "result_age_ms": {
-          "count": 9,
-          "mean": 181.33333333333334,
-          "min": 144,
-          "max": 325
-        },
-        "applied_pose_age_ms": {
-          "count": 9,
-          "mean": 90.26601388888889,
-          "min": 86.788051,
-          "max": 96.607593
+          "nonnegative_integer_monotonic_by_context": true,
+          "scope": "Non-atomic live field reads; no per-group/cross-field exact ratio gate. Exact completed-group API counters belong only to the separate synchronous pixel gate."
         }
       },
       {
-        "name": "constant-white-candidate",
+        "name": "constant-white-repeat",
         "actual_backend": "constant_white_specialized",
         "constant_white_primary": true,
+        "reuse_group_uniforms": false,
         "confirmed_active_presentation": {
-          "interactive_presented_fps": 12.12285972655735,
-          "interactive_duration_s": 44.680014573,
-          "sampled_duration_s": 44.461456468,
+          "interactive_presented_fps": 12.127441828057234,
+          "interactive_duration_s": 44.604082941,
+          "sampled_duration_s": 44.444657632,
           "intervals": [
             {
-              "start_ns": 155669968953752,
-              "end_ns": 155704513924848,
-              "duration_s": 34.544971096,
+              "start_ns": 160154025882420,
+              "end_ns": 160188588887852,
+              "duration_s": 34.563005432,
               "presented_frames": 417,
-              "presented_fps": 12.096510922898172,
-              "sampled_duration_s": 34.390081789,
+              "presented_fps": 12.078969558375258,
+              "sampled_duration_s": 34.440023877,
               "complete_history": true
             },
             {
-              "start_ns": 155704753189830,
-              "end_ns": 155714888233307,
-              "duration_s": 10.135043477,
+              "start_ns": 160188827950709,
+              "end_ns": 160198869028218,
+              "duration_s": 10.041077509,
               "presented_frames": 124,
-              "presented_fps": 12.212831308566988,
-              "sampled_duration_s": 10.071374679,
+              "presented_fps": 12.294303121144088,
+              "sampled_duration_s": 10.004633755,
               "complete_history": true
             }
           ],
@@ -577,28 +881,28 @@
           "state_history_gaps": [],
           "status_errors": [],
           "ambiguous_surface_intervals": [],
-          "confirmed_until_monotonic_ns": 155714888233307,
+          "confirmed_until_monotonic_ns": 160198869028218,
           "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
-          "unconfirmed_tail_seconds": 4.86177486,
-          "observed_until_monotonic_ns": 155719750008167,
+          "unconfirmed_tail_seconds": 4.900976157,
+          "observed_until_monotonic_ns": 160203770004375,
           "pause_clock_complete": true
         },
-        "min_complete_interval_fps": 12.096510922898172,
+        "min_complete_interval_fps": 12.078969558375258,
         "resources": {
           "samples": 44,
-          "cpu_percent_whole_machine": 61.130389779040236,
-          "mem_available_mib_mean": 962.7014382102273,
-          "mem_available_mib_min": 954.390625,
-          "temperature_c_min": 70.0,
-          "temperature_c_max": 72.777,
+          "cpu_percent_whole_machine": 60.891463793773134,
+          "mem_available_mib_mean": 972.6495916193181,
+          "mem_available_mib_min": 965.515625,
+          "temperature_c_min": 69.375,
+          "temperature_c_max": 72.222,
           "app_pss_mib_samples": 8,
-          "app_pss_mib_mean": 300.165771484375,
-          "app_pss_mib_peak": 408.5400390625,
+          "app_pss_mib_mean": 301.3009033203125,
+          "app_pss_mib_peak": 409.759765625,
           "npu_busy_percent_samples": 44,
-          "npu_busy_percent_mean": 46.29545454545455,
+          "npu_busy_percent_mean": 46.47727272727273,
           "npu_busy_percent_peak": 51.0,
           "gpu_busy_samples": 44,
-          "gpu_busy_percent_mean": 97.8409090909091,
+          "gpu_busy_percent_mean": 97.63636363636364,
           "gpu_busy_percent_peak": 99,
           "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
         },
@@ -619,340 +923,254 @@
         },
         "snapshot_progress": {
           "pairs": 7,
-          "snapshot_span_seconds": 35.26156671,
+          "snapshot_span_seconds": 35.193273244,
           "counter_deltas": {
-            "metrics.completed_frames": 556,
-            "metrics.face_frames": 556,
-            "source.consumed_frames": 556,
-            "source.skipped_frames": 307
+            "metrics.completed_frames": 559,
+            "metrics.face_frames": 559,
+            "source.consumed_frames": 559,
+            "source.skipped_frames": 301
           },
-          "analysis_fps": 15.767875675311991,
-          "face_fps": 15.767875675311991,
+          "analysis_fps": 15.883717212785895,
+          "face_fps": 15.883717212785895,
           "stage_wall": {
             "metrics.conversion_mean_ms": {
-              "count": 556,
-              "mean_ms": 2.7932578273381288
+              "count": 559,
+              "mean_ms": 2.8457455098389994
             },
             "metrics.inference_completion_mean_ms": {
-              "count": 556,
-              "mean_ms": 105.6673093201439
+              "count": 559,
+              "mean_ms": 102.74864938819313
             },
             "metrics.received_to_completed_mean_ms": {
-              "count": 556,
-              "mean_ms": 130.7565902571944
+              "count": 559,
+              "mean_ms": 127.06692849194997
             },
             "npu.mesh_mean_ms": {
-              "count": 556,
-              "mean_ms": 39.558750807553956
+              "count": 559,
+              "mean_ms": 39.22795019856887
             },
             "npu.post_mean_ms": {
-              "count": 556,
-              "mean_ms": 51.38255147482013
+              "count": 559,
+              "mean_ms": 49.823127468694096
             }
           },
           "scope": "Differences between consecutive INTERACTIVE snapshots inside the same confirmed interval/session. Excluded state gaps are never bridged. This subset is shorter than SF/resources and the means overlap in execution, not additive GPU time."
         },
         "result_age_ms": {
           "count": 9,
-          "mean": 167.66666666666666,
-          "min": 134,
-          "max": 292
+          "mean": 180.33333333333334,
+          "min": 112,
+          "max": 286
         },
         "applied_pose_age_ms": {
           "count": 9,
-          "mean": 86.57604111111111,
-          "min": 83.23205,
-          "max": 93.300385
-        }
-      },
-      {
-        "name": "specialized-old-repeat",
-        "actual_backend": "specialized_batched",
-        "constant_white_primary": false,
-        "confirmed_active_presentation": {
-          "interactive_presented_fps": 11.265332028473605,
-          "interactive_duration_s": 44.680424656,
-          "sampled_duration_s": 44.561491728,
-          "intervals": [
+          "mean": 83.89568888888888,
+          "min": 80.335216,
+          "max": 87.151175
+        },
+        "asynchronous_submission_counters": {
+          "rows": [
             {
-              "start_ns": 155731701587579,
-              "end_ns": 155766327451850,
-              "duration_s": 34.625864271,
-              "presented_frames": 389,
-              "presented_fps": 11.22780715305973,
-              "sampled_duration_s": 34.557059514,
-              "complete_history": true
+              "status_sequence": 3,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 288,
+                "serial_groups": 0,
+                "multiview_groups": 288,
+                "returned_use_program_calls": 2016,
+                "vp_upload_calls": 2016,
+                "world_upload_calls": 2016,
+                "normal_upload_calls": 2016,
+                "draw_calls": 2016,
+                "sampler_uniform_calls": 2016,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
             },
             {
-              "start_ns": 155766631551131,
-              "end_ns": 155776686111516,
-              "duration_s": 10.054560385,
-              "presented_frames": 115,
-              "presented_fps": 11.394949514523244,
-              "sampled_duration_s": 10.004432214,
-              "complete_history": true
+              "status_sequence": 4,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 540,
+                "serial_groups": 0,
+                "multiview_groups": 540,
+                "returned_use_program_calls": 3780,
+                "vp_upload_calls": 3780,
+                "world_upload_calls": 3780,
+                "normal_upload_calls": 3780,
+                "draw_calls": 3780,
+                "sampler_uniform_calls": 3780,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 5,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 784,
+                "serial_groups": 0,
+                "multiview_groups": 784,
+                "returned_use_program_calls": 5488,
+                "vp_upload_calls": 5488,
+                "world_upload_calls": 5488,
+                "normal_upload_calls": 5488,
+                "draw_calls": 5488,
+                "sampler_uniform_calls": 5488,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 6,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1024,
+                "serial_groups": 0,
+                "multiview_groups": 1024,
+                "returned_use_program_calls": 7168,
+                "vp_upload_calls": 7168,
+                "world_upload_calls": 7168,
+                "normal_upload_calls": 7168,
+                "draw_calls": 7168,
+                "sampler_uniform_calls": 7168,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 7,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1260,
+                "serial_groups": 0,
+                "multiview_groups": 1260,
+                "returned_use_program_calls": 8820,
+                "vp_upload_calls": 8820,
+                "world_upload_calls": 8820,
+                "normal_upload_calls": 8820,
+                "draw_calls": 8820,
+                "sampler_uniform_calls": 8820,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 8,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1504,
+                "serial_groups": 0,
+                "multiview_groups": 1504,
+                "returned_use_program_calls": 10528,
+                "vp_upload_calls": 10528,
+                "world_upload_calls": 10528,
+                "normal_upload_calls": 10528,
+                "draw_calls": 10528,
+                "sampler_uniform_calls": 10528,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 9,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1744,
+                "serial_groups": 0,
+                "multiview_groups": 1744,
+                "returned_use_program_calls": 12208,
+                "vp_upload_calls": 12208,
+                "world_upload_calls": 12208,
+                "normal_upload_calls": 12208,
+                "draw_calls": 12208,
+                "sampler_uniform_calls": 12208,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 10,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 1988,
+                "serial_groups": 0,
+                "multiview_groups": 1988,
+                "returned_use_program_calls": 13916,
+                "vp_upload_calls": 13916,
+                "world_upload_calls": 13916,
+                "normal_upload_calls": 13916,
+                "draw_calls": 13916,
+                "sampler_uniform_calls": 13916,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
+            },
+            {
+              "status_sequence": 11,
+              "context_generation": 1,
+              "counts": {
+                "completed_view_groups": 2238,
+                "serial_groups": 0,
+                "multiview_groups": 2238,
+                "returned_use_program_calls": 15667,
+                "vp_upload_calls": 15667,
+                "world_upload_calls": 15667,
+                "normal_upload_calls": 15667,
+                "draw_calls": 15666,
+                "sampler_uniform_calls": 15669,
+                "skipped_use_program_calls": 0,
+                "shared_uniform_reuses": 0
+              }
             }
           ],
-          "complete_active_evidence": true,
-          "meets_30_fps": false,
-          "fps_target": 30,
-          "rate_is_lower_bound": false,
-          "surface_history_gaps": [],
-          "surface_history_gap_seconds": 0.0,
-          "state_history_gaps": [],
-          "status_errors": [],
-          "ambiguous_surface_intervals": [],
-          "confirmed_until_monotonic_ns": 155776686111516,
-          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
-          "unconfirmed_tail_seconds": 4.933896651,
-          "observed_until_monotonic_ns": 155781620008167,
-          "pause_clock_complete": true
-        },
-        "min_complete_interval_fps": 11.22780715305973,
-        "resources": {
-          "samples": 43,
-          "cpu_percent_whole_machine": 61.20307236500779,
-          "mem_available_mib_mean": 958.6690588662791,
-          "mem_available_mib_min": 950.99609375,
-          "temperature_c_min": 72.222,
-          "temperature_c_max": 75.0,
-          "app_pss_mib_samples": 7,
-          "app_pss_mib_mean": 279.5244140625,
-          "app_pss_mib_peak": 398.9365234375,
-          "npu_busy_percent_samples": 43,
-          "npu_busy_percent_mean": 48.74418604651163,
-          "npu_busy_percent_peak": 54.0,
-          "gpu_busy_samples": 43,
-          "gpu_busy_percent_mean": 98.09302325581395,
-          "gpu_busy_percent_peak": 99,
-          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-        },
-        "frequencies": {
-          "cpu0_khz": {
-            "count": 43,
-            "mean": 1800000.0,
-            "min": 1800000,
-            "max": 1800000
-          },
-          "gpu_hz": {
-            "count": 43,
-            "mean": 800000000.0,
-            "min": 800000000,
-            "max": 800000000
-          },
-          "scope": "Same confirmed INTERACTIVE resource samples; CPU0 only and GPU reported frequency, not per-core/NPU frequency or continuous DVFS trace."
-        },
-        "snapshot_progress": {
-          "pairs": 7,
-          "snapshot_span_seconds": 35.205972120000006,
-          "counter_deltas": {
-            "metrics.completed_frames": 530,
-            "metrics.face_frames": 530,
-            "source.consumed_frames": 530,
-            "source.skipped_frames": 331
-          },
-          "analysis_fps": 15.054264037745876,
-          "face_fps": 15.054264037745876,
-          "stage_wall": {
-            "metrics.conversion_mean_ms": {
-              "count": 530,
-              "mean_ms": 3.01777895471698
-            },
-            "metrics.inference_completion_mean_ms": {
-              "count": 530,
-              "mean_ms": 119.23689594716986
-            },
-            "metrics.received_to_completed_mean_ms": {
-              "count": 530,
-              "mean_ms": 143.74730596415083
-            },
-            "npu.mesh_mean_ms": {
-              "count": 530,
-              "mean_ms": 42.9104296981132
-            },
-            "npu.post_mean_ms": {
-              "count": 530,
-              "mean_ms": 59.891190994339624
-            }
-          },
-          "scope": "Differences between consecutive INTERACTIVE snapshots inside the same confirmed interval/session. Excluded state gaps are never bridged. This subset is shorter than SF/resources and the means overlap in execution, not additive GPU time."
-        },
-        "result_age_ms": {
-          "count": 9,
-          "mean": 202.33333333333334,
-          "min": 157,
-          "max": 321
-        },
-        "applied_pose_age_ms": {
-          "count": 9,
-          "mean": 91.22342599999999,
-          "min": 85.705675,
-          "max": 93.955176
-        }
-      },
-      {
-        "name": "ordinary-repeat",
-        "actual_backend": "ordinary_individual",
-        "constant_white_primary": false,
-        "confirmed_active_presentation": {
-          "interactive_presented_fps": 10.528507804345608,
-          "interactive_duration_s": 44.416031713,
-          "sampled_duration_s": 44.260783072,
-          "intervals": [
-            {
-              "start_ns": 155793986660129,
-              "end_ns": 155828337635539,
-              "duration_s": 34.35097541,
-              "presented_frames": 360,
-              "presented_fps": 10.484955621939342,
-              "sampled_duration_s": 34.239534524,
-              "complete_history": true
-            },
-            {
-              "start_ns": 155828577676063,
-              "end_ns": 155838642732366,
-              "duration_s": 10.065056303,
-              "presented_frames": 108,
-              "presented_fps": 10.677312261789439,
-              "sampled_duration_s": 10.021248548,
-              "complete_history": true
-            }
-          ],
-          "complete_active_evidence": true,
-          "meets_30_fps": false,
-          "fps_target": 30,
-          "rate_is_lower_bound": false,
-          "surface_history_gaps": [],
-          "surface_history_gap_seconds": 0.0,
-          "state_history_gaps": [],
-          "status_errors": [],
-          "ambiguous_surface_intervals": [],
-          "confirmed_until_monotonic_ns": 155838642732366,
-          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
-          "unconfirmed_tail_seconds": 4.717271717,
-          "observed_until_monotonic_ns": 155843360004083,
-          "pause_clock_complete": true
-        },
-        "min_complete_interval_fps": 10.484955621939342,
-        "resources": {
-          "samples": 44,
-          "cpu_percent_whole_machine": 57.59602331958043,
-          "mem_available_mib_mean": 963.9429154829545,
-          "mem_available_mib_min": 956.71484375,
-          "temperature_c_min": 72.777,
-          "temperature_c_max": 76.875,
-          "app_pss_mib_samples": 8,
-          "app_pss_mib_mean": 301.2650146484375,
-          "app_pss_mib_peak": 421.255859375,
-          "npu_busy_percent_samples": 44,
-          "npu_busy_percent_mean": 46.15909090909091,
-          "npu_busy_percent_peak": 51.0,
-          "gpu_busy_samples": 44,
-          "gpu_busy_percent_mean": 98.29545454545455,
-          "gpu_busy_percent_peak": 99,
-          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-        },
-        "frequencies": {
-          "cpu0_khz": {
-            "count": 44,
-            "mean": 1800000.0,
-            "min": 1800000,
-            "max": 1800000
-          },
-          "gpu_hz": {
-            "count": 44,
-            "mean": 800000000.0,
-            "min": 800000000,
-            "max": 800000000
-          },
-          "scope": "Same confirmed INTERACTIVE resource samples; CPU0 only and GPU reported frequency, not per-core/NPU frequency or continuous DVFS trace."
-        },
-        "snapshot_progress": {
-          "pairs": 7,
-          "snapshot_span_seconds": 35.212898037,
-          "counter_deltas": {
-            "metrics.completed_frames": 563,
-            "metrics.face_frames": 563,
-            "source.consumed_frames": 563,
-            "source.skipped_frames": 298
-          },
-          "analysis_fps": 15.988459666353702,
-          "face_fps": 15.988459666353702,
-          "stage_wall": {
-            "metrics.conversion_mean_ms": {
-              "count": 563,
-              "mean_ms": 2.688853477797511
-            },
-            "metrics.inference_completion_mean_ms": {
-              "count": 563,
-              "mean_ms": 101.54652975133232
-            },
-            "metrics.received_to_completed_mean_ms": {
-              "count": 563,
-              "mean_ms": 125.71140465364127
-            },
-            "npu.mesh_mean_ms": {
-              "count": 563,
-              "mean_ms": 39.28322582238011
-            },
-            "npu.post_mean_ms": {
-              "count": 563,
-              "mean_ms": 48.6282469804618
-            }
-          },
-          "scope": "Differences between consecutive INTERACTIVE snapshots inside the same confirmed interval/session. Excluded state gaps are never bridged. This subset is shorter than SF/resources and the means overlap in execution, not additive GPU time."
-        },
-        "result_age_ms": {
-          "count": 9,
-          "mean": 179.11111111111111,
-          "min": 150,
-          "max": 213
-        },
-        "applied_pose_age_ms": {
-          "count": 9,
-          "mean": 96.36262522222222,
-          "min": 93.031176,
-          "max": 100.816052
+          "nonnegative_integer_monotonic_by_context": true,
+          "scope": "Non-atomic live field reads; no per-group/cross-field exact ratio gate. Exact completed-group API counters belong only to the separate synchronous pixel gate."
         }
       }
     ],
-    "candidate_gain_percent": 15.041565186650029,
-    "candidate_gain_over_ordinary_reference_mean_percent": 15.041565186650029,
-    "candidate_gain_over_old_specialized_mean_percent": 7.456472869031439,
+    "candidate_gain_over_constant_white_reference_mean_percent": 0.07178227672153259,
+    "candidate_gain_over_constant_white_first_percent": -0.001845922235998998,
+    "candidate_gain_over_constant_white_repeat_percent": 0.14551897980519257,
     "all_confirmed_active": true,
     "unknown_tails_excluded": true,
-    "prior_fixed35s_false_preserved": true,
+    "original_v1_failed_attempt_preserved": true,
+    "three_new_v2_runs_only": true,
     "default_enabled": false,
     "goal30fps": false,
     "thermal_causality_claimed": false,
     "freshness_threshold_preregistered": false,
     "production_default_qualified": false,
-    "performance_sample_scope": "Full confirmed SF/resources; face progress uses shorter contained same-session snapshot pairs; CPU wall not GPU timer; CPU/face costs versusordinary retained."
+    "performance_improvement_demonstrated": false,
+    "performance_sample_scope": "Full confirmed SF/resources; shorter contained snapshot pairs for face; CPU wall not GPU timer. Candidate nearly equals first baseline; small mean difference does not establish repeatable gain."
   },
   "host_evidence": {
-    "evidence_versionCode": 46,
-    "primary_policy_checks": 75,
-    "production_gl_boundary_checks": 177,
+    "evidence_versionCode": 47,
+    "production_group_submission_checks": 606,
     "independent_compiled_changed_classes": 8,
-    "actual_options_renderer_checks": 55,
-    "cli_cases": 6,
-    "individual_reference_scene_rig_deformer_checks": 310,
+    "actual_gradle_options_renderer_checks": 89,
+    "independent_sdk_options_renderer_checks": 89,
+    "root_cli_cases": 6,
+    "independent_cli_cases": 7,
+    "prior_color_checks": 252,
     "prior_shader_layout_checks": 57693,
     "prior_lifecycle_checks": 200,
     "prior_shader_checks": 528,
+    "independently_compiled_v46_default_trace_exact": true,
     "sdk35_compiled": true,
     "frozen_source_peer_review_no_blockers": true
   },
   "device_evidence": {
-    "evidence_versionCode": 46,
+    "evidence_versionCode": 47,
     "normal_renderer_ready": true,
-    "ordinary_individual_draw_calls": 280,
+    "ordinary_individual_draw_calls": 308,
     "ordinary_default_specialized": false,
     "ordinary_default_constant_white": false,
+    "ordinary_default_group_reuse": false,
     "camera_error_3_persists": true,
     "live_face_capture_passed": false,
     "all_four_configs_byte_exact": true,
-    "config_validation_scope": "Root live-read SHA checks and saved execution/summary chain; peer did not independently reread device files.",
+    "config_validation_scope": "Root live-read checks with saved raw configuration bytes and execution/summary chain independently compared; peer did not reread device files.",
     "java_runtime_owner_threads_absent_after_normal_back": true,
     "role_page_smoke": true,
     "full_v44_role_browser_suite_rerun": false,
@@ -961,8 +1179,8 @@
   "unreviewed_model_pipeline_delta_included": false,
   "new_portal_source_included": false,
   "v1_experiment_source_included": false,
-  "release_document": "docs/production-app-v46-20261007.md",
-  "gpu_pose_suite_scope_this_release": "69x16=1104 direct pairs; other variants not rerun.",
+  "release_document": "docs/production-app-v47-20261007.md",
+  "gpu_pose_suite_scope_this_release": "69x16 direct pairs; other variants not rerun.",
   "earlier_ada_pose_suite_rerun": false,
   "native_dependencies_match_v36": true,
   "apk_assets_byte_exact_v36": 78,
@@ -3654,7 +3872,7 @@
     "rerun_this_release": false,
     "evidence_retained_from_prior_release": true
   },
-  "final_candidate_variant": "v2-constant-white-primary",
+  "final_candidate_variant": "group-uniform-reuse",
   "debug_lower_resolution_benefit_scope": "Historical V39 only, not measured in V43.",
   "native_dependencies_match_v39": true,
   "apk_assets_byte_exact_v39": 78,
@@ -7195,12 +7413,16 @@
     "evidence_retained_from_prior_release": true
   },
   "candidate_history": {
-    "versionCode": 46,
-    "initial_build_before_last_setter_guard_rejected": true,
-    "final_build_v2_matches_15_frozen_code_inputs": true,
-    "prior_v45_release_available_by_exact_git_ref": true
+    "versionCode": 47,
+    "gradle_success_before_host_get_file_hash_failure_preserved": true,
+    "host_finalize_fixed_no_production_change_or_rebuild": true,
+    "compiled_source_inputs": 13,
+    "first_aba_private_counter_assertion_failure_preserved": true,
+    "first_aba_third_run_not_started": true,
+    "second_aba_three_new_runs": true,
+    "prior_v46_release_available_by_exact_git_ref": true
   },
-  "review_scope": "Exact17source/docs/tests; sameV46APK direct finite pixels and full confirmed replay metrics. No newasset,privateNPU/eye,personalvideo,APK or rawQA published.",
+  "review_scope": "Exact15source/docs/tests; sameAPK finite pixels and fresh three-run recorded comparison. No newasset,privateNPU/eye,personalvideo,APK/rawQA published.",
   "native_dependencies_match_v40": true,
   "apk_assets_byte_exact_v40": 78,
   "apk_native_byte_exact_v40": 9,
@@ -56594,7 +56816,7 @@
     "observed_rgb_mismatches": 0,
     "observed_alpha_mismatches": 0
   },
-  "frame_rate_improvement_scope": "SameV46APK ordinary/old-specialized/new/old-specialized/ordinary:15.041565% over ordinary mean and7.456473% over old-specialized mean. CPU/face costs versusordinary retained; temperatures differ, no long-term/default claim.",
+  "frame_rate_improvement_scope": "Candidate12.14509 FPS vsconstant-white12.14531/12.12744; mean-relative+0.071782percent does not establish repeatable improvement. Sequential temperatures,face costs and unknown tails retained.",
   "native_dependencies_match_v43": true,
   "apk_assets_byte_exact_v43": 78,
   "apk_native_byte_exact_v43": 9,
@@ -112660,18 +112882,20 @@
     }
   },
   "specialized_batch": {
-    "pixel_evidence_versionCode": 46,
-    "performance_evidence_versionCode": 46,
-    "performance_apk_sha256": "ac201955cf475f002b5152ab93a6877039c750c4cb8bf495ad9db8c3b0cd11fb",
+    "pixel_evidence_versionCode": 47,
+    "performance_evidence_versionCode": 47,
+    "performance_apk_sha256": "6a17d1a28d99389fb4555ded72af06b5109157c7590c6d0a8b667b480c52b0d2",
     "debug_only": true,
     "default_enabled": false,
     "constant_white_primary": true,
     "constant_white_primary_default_enabled": false,
+    "reuse_group_uniforms": true,
+    "reuse_group_uniforms_default_enabled": false,
     "model_sha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
     "original_mesh_and_textures": true,
     "pixel_buffers_independent_same_cpu_pose": true,
     "pixel_reference_backend": "individual_ovr4",
-    "candidate_backend": "per_entry_specialized_constant_white_ovr4",
+    "candidate_backend": "per_entry_specialized_constant_white_group_reuse_ovr4",
     "material_variants": 5,
     "compiled_programs": 10,
     "draws_per_four_view_group_reference": 7,
@@ -112689,6 +112913,7 @@
     "alpha_mismatches": 0,
     "actual_driver_pixel_gate_passed": true,
     "ordinary_individual_compared": true,
+    "ordinary_fps_compared_this_release": false,
     "all_possible_poses_validated": false,
     "optical_alignment_validated": false,
     "verified_primary_entries": 1,
@@ -112827,33 +113052,39 @@
       }
     ],
     "color_vbo_storage_unchanged": true,
+    "synchronous_pixel_returned_api_counters": {
+      "returned_use_program_calls": 1380,
+      "vp_upload_calls": 1380,
+      "world_upload_calls": 1932,
+      "normal_upload_calls": 1932,
+      "sampler_uniform_calls": 1656,
+      "skipped_use_program_calls": 552,
+      "shared_uniform_reuses": 552,
+      "draw_calls": 1932,
+      "completed_view_groups": 276
+    },
+    "submission_counter_scope": "GL-owner calls that returned, including partial failed groups; not GPU completion. Skips count branch decisions.",
+    "asynchronous_counter_gate": "Nonnegative integers and monotonic per observed context only; no atomic cross-field/completed-group ratio assertion.",
     "confirmed_active_fps": [
-      10.54710900752326,
-      11.297961559866598,
-      12.12285972655735,
-      11.265332028473605,
-      10.528507804345608
+      12.145313750729049,
+      12.145089557681892,
+      12.127441828057234
     ],
-    "candidate_gain_over_ordinary_reference_mean_percent": 15.041565186650029,
-    "candidate_gain_over_old_specialized_mean_percent": 7.456472869031439,
+    "candidate_gain_over_constant_white_reference_mean_percent": 0.07178227672153259,
+    "candidate_gain_over_constant_white_first_percent": -0.001845922235998998,
+    "candidate_gain_over_constant_white_repeat_percent": 0.14551897980519257,
     "all_full_collection_gates": true,
     "all_full_active_evidence_gates": true,
-    "preregistered_scope": "all confirmed INTERACTIVE intervals, minimum40seconds, five sequential runs",
-    "prior_v44_fixed_first35_seconds_gates": [
-      false,
-      false,
-      false
-    ],
+    "preregistered_scope": "New ABA v2: all confirmed INTERACTIVE intervals, minimum40seconds; no v1 data spliced.",
     "unknown_tail_seconds": [
-      4.732143968,
-      4.774587972,
-      4.86177486,
-      4.933896651,
-      4.717271717
+      4.837667243,
+      4.809753172,
+      4.900976157
     ],
     "long_endurance_tested": false,
     "production_default_qualified": false,
-    "freshness_threshold_preregistered": false
+    "freshness_threshold_preregistered": false,
+    "performance_improvement_demonstrated": false
   },
   "role_browser": {
     "browsing_read_only": true,
@@ -112887,17 +113118,20 @@
     "full_blink_qualified": false,
     "files_published": false
   },
-  "joint_performance_apk_versionCode": 46,
-  "joint_performance_apk_sha256": "ac201955cf475f002b5152ab93a6877039c750c4cb8bf495ad9db8c3b0cd11fb",
+  "joint_performance_apk_versionCode": 47,
+  "joint_performance_apk_sha256": "6a17d1a28d99389fb4555ded72af06b5109157c7590c6d0a8b667b480c52b0d2",
   "native_dependencies_match_v44": true,
   "apk_assets_byte_exact_v44": 78,
   "apk_native_byte_exact_v44": 9,
   "previous_release_ref": {
-    "commit": "75f47a006f875717cb1c9b9b3cc5f1c8e8b669df",
+    "commit": "049fae6cc83f698a08e6504630642f14394318ef",
     "path": "product-release-manifest.json",
-    "sha256": "8cfc6782cfc1cc23598d25ecc7b05c4d74f9bde67e3e5a5c2ebccddef29e6793"
+    "sha256": "b717075a4718017f1bf5a9c007f2f3310915a0251f5edab94cb6520f3668b740"
   },
   "native_dependencies_match_v45": true,
   "apk_assets_byte_exact_v45": 78,
-  "apk_native_byte_exact_v45": 9
+  "apk_native_byte_exact_v45": 9,
+  "native_dependencies_match_v46": true,
+  "apk_assets_byte_exact_v46": 78,
+  "apk_native_byte_exact_v46": 9
 }

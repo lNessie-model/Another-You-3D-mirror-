@@ -84,7 +84,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private PersistentMultiviewFbos persistentFbos;
     private long glContextGeneration;
     private boolean gpuProfileRequested;
-    private boolean ormRg8Requested,pbrFastMathRequested,specializedBatchRequested,constantWhitePrimaryRequested;
+    private boolean ormRg8Requested,pbrFastMathRequested,specializedBatchRequested,constantWhitePrimaryRequested,reuseGroupUniformsRequested;
     private volatile RuntimeGpuProfile gpuProfile;
     private long gpuCallbackId,gpuFramePacingEpoch;
     private int gpuFrameTarget;
@@ -284,7 +284,13 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     synchronized void setConstantWhitePrimary(boolean enabled){
         if(surfaceInitialized)throw new IllegalStateException("Primary color mode must be configured before GL initialization");
         if(enabled&&!specializedBatchRequested)throw new IllegalArgumentException("Constant-white primary requires specialized batch");
+        if(!enabled&&reuseGroupUniformsRequested)throw new IllegalArgumentException("Disable group uniform reuse before primary color mode");
         constantWhitePrimaryRequested=enabled;
+    }
+    synchronized void setReuseGroupUniforms(boolean enabled){
+        if(surfaceInitialized)throw new IllegalStateException("Group uniform reuse must be configured before GL initialization");
+        if(enabled&&!constantWhitePrimaryRequested)throw new IllegalArgumentException("Group uniform reuse requires constant-white primary");
+        reuseGroupUniformsRequested=enabled;
     }
     synchronized void setEmptyInterlace(boolean enabled){
         if(surfaceInitialized)throw new IllegalStateException("Empty interlace must be configured before GL initialization");
@@ -440,7 +446,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             }
             if(avatarAssets!=null) {
                 avatarScene=loadRuntimeAvatar();
-                if(specializedBatchRequested){avatarScene.beginSpecializedBatch(constantWhitePrimaryRequested);avatarScene.selectSpecializedBatch(true);}
+                if(specializedBatchRequested){avatarScene.beginSpecializedBatch(constantWhitePrimaryRequested,reuseGroupUniformsRequested);avatarScene.selectSpecializedBatch(true);}
                 if(emptyInterlaceRequested)avatarScene.enableScreenBounds();
                 if(avatarShutdown)avatarScene.stopCpu();
             }
@@ -630,7 +636,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("empty_interlace_bounds_mean_ms",emptyBoundsMeanMs).put("empty_interlace_bounds_frames",emptyBoundsFrames)
                 .put("empty_interlace_scope","conservative all-view union of uploaded positions; geometric screen fraction, not measured texel traffic or GPU time; bounds mean is projection only; uploaded-position scan is included in avatar prepare/upload wall; default off")
                 .put("orm_rg8_requested",ormRg8Requested).put("pbr_fast_math_requested",pbrFastMathRequested)
-                .put("specialized_batch_requested",specializedBatchRequested).put("constant_white_primary_requested",constantWhitePrimaryRequested)
+                .put("specialized_batch_requested",specializedBatchRequested).put("constant_white_primary_requested",constantWhitePrimaryRequested).put("reuse_group_uniforms_requested",reuseGroupUniformsRequested)
                 .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
                 .put("multiview_fbo_actual",multiviewFboActual).put("persistent_fbo_count",persistentFboCount)
                 .put("camera_vp_requested",cachedCameraVpRequested?"cached":"per_frame").put("camera_vp_actual",cameraVpActual)

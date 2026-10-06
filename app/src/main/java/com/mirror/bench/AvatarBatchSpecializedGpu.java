@@ -16,7 +16,9 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
     private final List<Pair> materials=new ArrayList<>();
     private final boolean multiview;
     private final AvatarPrimaryColorPolicy primaryColor;
+    private final boolean reuseGroupUniforms;
     private long drawCalls,groups,serialGroups,multiviewGroups;
+    private long useProgramCalls,vpUploads,worldUploads,normalUploads,samplerAssignments,skippedProgramCalls,sharedUniformReuses;
     private int lastProgram,lastViewCount;
     private boolean closed;
 
@@ -26,10 +28,17 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
     }
     AvatarBatchSpecializedGpu(AvatarBatchLayout layout,int[] borrowedBuffers,boolean multiview,
             float[] colors,float[] params,float[] pbrParams,boolean constantWhitePrimary) {
+        this(layout,borrowedBuffers,multiview,colors,params,pbrParams,constantWhitePrimary,false);
+    }
+    AvatarBatchSpecializedGpu(AvatarBatchLayout layout,int[] borrowedBuffers,boolean multiview,
+            float[] colors,float[] params,float[] pbrParams,boolean constantWhitePrimary,boolean reuseGroupUniforms) {
+        if(reuseGroupUniforms&&!constantWhitePrimary)
+            throw new IllegalArgumentException("Group submission experiment requires constant-white primary");
         if(layout==null||borrowedBuffers==null||borrowedBuffers.length!=5)
             throw new IllegalArgumentException("Existing textured PBR batch buffers required");
         for(int buffer:borrowedBuffers)if(buffer==0)throw new IllegalArgumentException("Live batch buffers required");
         this.layout=layout;this.buffers=borrowedBuffers;this.multiview=multiview;
+        this.reuseGroupUniforms=reuseGroupUniforms;
         // Only the actual immutable packed colors qualify; every primary instance is checked.
         // Model identity is separately enforced by the Scene's exact-Geralt experiment gate.
         primaryColor=constantWhitePrimary?AvatarPrimaryColorPolicy.verify(layout):null;
@@ -41,7 +50,7 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
                 Material material=new Material(colors,params,pbrParams,i);String key=fragmentSource(material,white);
                 Pair pair=unique.get(key);
                 if(pair==null) {
-                    pair=new Pair(material,multiview,white,constantWhitePrimary);materials.add(pair);unique.put(key,pair);
+                    pair=new Pair(material,multiview,white,constantWhitePrimary,materials.size());materials.add(pair);unique.put(key,pair);
                 }
                 entries[i]=pair;
             }
@@ -66,15 +75,24 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[4]);
         GLES30.glEnableVertexAttribArray(4);GLES30.glVertexAttribPointer(4,2,GLES30.GL_FLOAT,false,8,0);
         GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,buffers[3]);
+        // Deliberately local to this call: no stale state across groups, modes, failures or contexts.
+        int lastGroupProgram=0,seenMask=0;
         for(int i=0;i<entries.length;i++) {
-            Program p=count==4?entries[i].multi:entries[i].single;
-            GLES30.glUseProgram(p.id);
-            GLES30.glUniformMatrix4fv(p.vp,count,false,vp,0);
-            GLES30.glUniformMatrix4fv(p.world,1,false,worlds,i*16);
-            if(p.normal>=0)GLES30.glUniformMatrix3fv(p.normal,1,false,normals,i*9);
-            if(p.atlas>=0)GLES30.glUniform1i(p.atlas,0);
-            if(p.normalMap>=0)GLES30.glUniform1i(p.normalMap,1);
-            if(p.orm>=0)GLES30.glUniform1i(p.orm,2);
+            Pair pair=entries[i];Program p=count==4?pair.multi:pair.single;
+            int bit=1<<pair.variant;boolean firstUse=!reuseGroupUniforms||(seenMask&bit)==0;
+            if(!reuseGroupUniforms||p.id!=lastGroupProgram) {
+                GLES30.glUseProgram(p.id);useProgramCalls++;lastGroupProgram=p.id;
+            }else skippedProgramCalls++;
+            if(firstUse){GLES30.glUniformMatrix4fv(p.vp,count,false,vp,0);vpUploads++;}
+            else sharedUniformReuses++;
+            GLES30.glUniformMatrix4fv(p.world,1,false,worlds,i*16);worldUploads++;
+            if(p.normal>=0){GLES30.glUniformMatrix3fv(p.normal,1,false,normals,i*9);normalUploads++;}
+            if(firstUse) {
+                if(p.atlas>=0){GLES30.glUniform1i(p.atlas,0);samplerAssignments++;}
+                if(p.normalMap>=0){GLES30.glUniform1i(p.normalMap,1);samplerAssignments++;}
+                if(p.orm>=0){GLES30.glUniform1i(p.orm,2);samplerAssignments++;}
+                seenMask|=bit;
+            }
             var e=layout.entries().get(i);
             GLES30.glDrawElements(GLES30.GL_TRIANGLES,e.indexCount,GLES30.GL_UNSIGNED_INT,e.firstIndex*4);
             drawCalls++;lastProgram=p.id;lastViewCount=count;
@@ -101,6 +119,12 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
                     .put("index_byte_offset",e.firstIndex*4).put("material_variant",materials.indexOf(entries[i])));
         }
         return new JSONObject().put("backend","per_entry_material_specialized").put("closed",closed)
+                .put("group_uniform_reuse_requested",reuseGroupUniforms).put("group_uniform_reuse_actual",reuseGroupUniforms&&!closed)
+                .put("returned_use_program_calls",useProgramCalls).put("vp_upload_calls",vpUploads)
+                .put("world_upload_calls",worldUploads).put("normal_upload_calls",normalUploads)
+                .put("sampler_uniform_calls",samplerAssignments).put("skipped_use_program_calls",skippedProgramCalls)
+                .put("shared_uniform_reuses",sharedUniformReuses)
+                .put("submission_counter_scope","GL-owner calls that returned, including partial failed groups; not GPU completion. Skips count branch decisions.")
                 .put("constant_white_requested",primaryColor!=null).put("constant_white_actual",primaryColor!=null&&!closed)
                 .put("constant_white_verified_entries",primaryColor==null?0:primaryColor.primaryEntries())
                 .put("constant_white_verified_vertices",primaryColor==null?0:primaryColor.verifiedVertices())
@@ -126,8 +150,10 @@ final class AvatarBatchSpecializedGpu implements AutoCloseable {
     private static void checkGl(String label){int error=GLES30.glGetError();if(error!=GLES30.GL_NO_ERROR)throw new IllegalStateException(label+" GL error "+error);}
     private static String colorMode(boolean white){return white?"constant_white_primary":"interpolated";}
     private static final class Pair implements AutoCloseable {
-        final Program single,multi;final boolean constantWhite;private boolean closed;
-        Pair(Material material,boolean multiview,boolean white,boolean validateColor) {
+        final Program single,multi;final boolean constantWhite;final int variant;private boolean closed;
+        Pair(Material material,boolean multiview,boolean white,boolean validateColor,int variant) {
+            if(variant<0||variant>=AvatarBatchLayout.MAX_ITEMS)throw new IllegalArgumentException("Bounded specialized variant required");
+            this.variant=variant;
             constantWhite=white;
             Program a=new Program(false,material,white,validateColor),b=null;
             try{if(multiview)b=new Program(true,material,white,validateColor);}
