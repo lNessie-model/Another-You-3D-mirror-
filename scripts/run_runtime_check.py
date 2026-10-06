@@ -422,6 +422,7 @@ def arguments():
     parser.add_argument("--cached-camera-vp", action="store_true", help="Debug-only opt-in static avatar camera matrix cache; defaults to per-frame calculation")
     parser.add_argument("--gpu-profile", action="store_true", help="Debug-only asynchronous GPU timer sampling; defaults off; can perturb driver scheduling")
     parser.add_argument("--orm-rg8", action="store_true", help="Debug-only validated Geralt ORM RG8 upload; defaults off; other models retain RGBA8")
+    parser.add_argument("--empty-interlace", action="store_true", help="Debug-only conservative empty-region texture sampling candidate; defaults off")
     parser.add_argument("--pbr-fast-math", action="store_true", help="Debug-only highp PBR arithmetic candidate; defaults off; retains full material and geometry")
     parser.add_argument("--npu-blendshapes", action="store_true", help="Debug-only normalized mixed CPU/NPU expression suffix; omission retains MediaPipe CPU 52")
     parser.add_argument("--private-head", action="store_true", help="Debug-only fixed app-private head; does not change stored-avatar selection")
@@ -635,6 +636,8 @@ def run(args):
         extras += " --ez test_gpu_profile true"
     if getattr(args,"orm_rg8",False):
         extras += " --ez test_orm_rg8 true"
+    if getattr(args,"empty_interlace",False):
+        extras += " --ez test_empty_interlace true"
     if getattr(args,"pbr_fast_math",False):
         extras += " --ez test_pbr_fast_math true"
     if getattr(args,"npu_blendshapes",False):

@@ -57,6 +57,7 @@ final class AvatarGpuScene {
     private final boolean pbrFastMathRequested;
     private boolean pbrFastMathSelected;
     private PbrComparison pbrComparison;
+    private AvatarScreenBounds screenBounds;
 
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview) throws Exception {
         return builtin(assets,multiview,false);
@@ -219,6 +220,7 @@ final class AvatarGpuScene {
             uploaded+=(long)primitive.upload.capacity()*4;
             }
             if(batch!=null)uploaded+=batch.upload(m,p,primitive.upload);
+            if(screenBounds!=null)screenBounds.updatePrimitive(m,p,primitive.upload);
             primitive.lastRevision=primitive.output.revision();
         }
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);
@@ -249,6 +251,7 @@ final class AvatarGpuScene {
                     uploaded+=(long)buffer.capacity()*4;
                     }
                     if(batch!=null)uploaded+=batch.upload(m,p,buffer);
+                    if(screenBounds!=null)screenBounds.updatePrimitive(m,p,buffer);
                     primitive.lastRevision=revision;meshChanged=true;
                   }
                   if(meshChanged)changed++;
@@ -355,6 +358,20 @@ final class AvatarGpuScene {
         if(sceneView.isIdentityTransform()){framing.copyFitMatrix(aspect,destination);return;}
         framing.copyFitMatrix(aspect,baseFit);sceneView.copyUserTransform(aspect,userTransform);
         Matrix.multiplyMM(destination,0,userTransform,0,baseFit,0);
+    }
+    /** GL owner, immediately after scene creation, before any asynchronous lease is consumed. */
+    void enableScreenBounds(){
+        if(screenBounds!=null)return;
+        if(asyncHasFrame||updates!=1)throw new IllegalStateException("Bounds tracking requires initial neutral VBOs");
+        screenBounds=new AvatarScreenBounds(asset,rig);
+        for(int m=0;m<primitives.length;m++)for(int p=0;p<primitives[m].size();p++)
+            screenBounds.updatePrimitive(m,p,primitives[m].get(p).upload);
+    }
+    /** Uses the exact accepted/displayed world matrices and the same fit as the draws. */
+    boolean copyScreenUvBounds(float[] vp,int count,float aspect,int viewW,int viewH,int outputW,int outputH,float[] out){
+        if(screenBounds==null){out[0]=out[1]=0;out[2]=out[3]=1;return false;}
+        copyFitMatrix(aspect,fit);
+        return screenBounds.copyUvBounds(displayedWorlds,fit,vp,count,viewW,viewH,outputW,outputH,out);
     }
     JSONObject status() throws Exception {
         JSONObject value;
