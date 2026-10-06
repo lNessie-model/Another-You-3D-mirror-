@@ -78,7 +78,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private PersistentMultiviewFbos persistentFbos;
     private long glContextGeneration;
     private boolean gpuProfileRequested;
-    private boolean ormRg8Requested;
+    private boolean ormRg8Requested,pbrFastMathRequested;
     private volatile RuntimeGpuProfile gpuProfile;
     private long gpuCallbackId,gpuFramePacingEpoch;
     private int gpuFrameTarget;
@@ -167,7 +167,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         AvatarGpuScene.DrawMode mode=avatarBatched?AvatarGpuScene.DrawMode.BATCHED:AvatarGpuScene.DrawMode.INDIVIDUAL;
         try {
             AvatarGpuScene loaded=AvatarGpuScene.bundled(avatarAssets,bundledAvatarDirectory,bundledModelDigest,
-                    bundledManifestDigest,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested);
+                    bundledManifestDigest,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested);
             avatarSourceKind="bundled";avatarPackageId=bundledAvatarId;return loaded;
         } catch(Exception failure) {
             avatarLoadWarning="所选角色无法读取，请返回角色库重新选择。";
@@ -189,7 +189,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         avatarPackageId="";avatarSourceKind="pending";
         if(privateHeadFiles!=null) {
             AvatarGpuScene.DrawMode mode=avatarBatched?AvatarGpuScene.DrawMode.BATCHED:AvatarGpuScene.DrawMode.INDIVIDUAL;
-            AvatarGpuScene scene=AvatarGpuScene.privateHeadCheck(privateHeadFiles,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested);
+            AvatarGpuScene scene=AvatarGpuScene.privateHeadCheck(privateHeadFiles,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested);
             avatarSourceKind="private_head_test";return scene;
         }
         if(bundledAvatarDirectory!=null&&bundledSelectionExplicit)return loadBundledRuntimeAvatar();
@@ -211,11 +211,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         // Never turn a failed experimental renderer into an apparently successful control.
         if(selected!=null) {
             AvatarGpuScene scene=AvatarGpuScene.fromAsset(selected.asset,selected.manifestJson,
-                    selected.ticket.modelSha256,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested);
+                    selected.ticket.modelSha256,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested);
             avatarPackageId=selected.ticket.packageId;avatarSourceKind="imported";return scene;
         }
         if(bundledAvatarDirectory!=null)return loadBundledRuntimeAvatar();
-        AvatarGpuScene scene=AvatarGpuScene.builtin(avatarAssets,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested);
+        AvatarGpuScene scene=AvatarGpuScene.builtin(avatarAssets,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested);
         avatarSourceKind="builtin";return scene;
     }
     synchronized void setAvatarAsynchronous(boolean value) {
@@ -265,6 +265,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     synchronized void setOrmRg8(boolean enabled) {
         if(surfaceInitialized)throw new IllegalStateException("ORM upload mode must be configured before GL initialization");
         ormRg8Requested=enabled;
+    }
+    synchronized void setPbrFastMath(boolean enabled) {
+        if(surfaceInitialized)throw new IllegalStateException("PBR shader mode must be configured before GL initialization");
+        pbrFastMathRequested=enabled;
     }
     synchronized void setStaticBackgroundCache(boolean enabled) {
         if(surfaceInitialized)throw new IllegalStateException("Background cache must be configured before GL initialization");
@@ -589,7 +593,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         RuntimeGlLifecycle.Snapshot glState=runtimeGlLifecycle.snapshot();
         RuntimeGpuProfile currentGpuProfile=gpuProfile;
         return new JSONObject().put("runtime_mode",runtimeMode).put("diagnostic_scene",avatarAssets==null)
-                .put("orm_rg8_requested",ormRg8Requested)
+                .put("orm_rg8_requested",ormRg8Requested).put("pbr_fast_math_requested",pbrFastMathRequested)
                 .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
                 .put("multiview_fbo_actual",multiviewFboActual).put("persistent_fbo_count",persistentFboCount)
                 .put("camera_vp_requested",cachedCameraVpRequested?"cached":"per_frame").put("camera_vp_actual",cameraVpActual)

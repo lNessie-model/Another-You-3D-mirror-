@@ -54,6 +54,9 @@ final class AvatarGpuScene {
     private final AvatarOrmUploadPolicy.Decision ormUploadPolicy;
     private volatile boolean ormRg8Uploaded;
     private OrmComparison ormComparison;
+    private final boolean pbrFastMathRequested;
+    private boolean pbrFastMathSelected;
+    private PbrComparison pbrComparison;
 
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview) throws Exception {
         return builtin(assets,multiview,false);
@@ -65,6 +68,9 @@ final class AvatarGpuScene {
         return builtin(assets,multiview,asynchronous,drawMode,false);
     }
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview,boolean asynchronous,DrawMode drawMode,boolean ormRg8Requested) throws Exception {
+        return builtin(assets,multiview,asynchronous,drawMode,ormRg8Requested,false);
+    }
+    static AvatarGpuScene builtin(AssetManager assets,boolean multiview,boolean asynchronous,DrawMode drawMode,boolean ormRg8Requested,boolean pbrFastMath) throws Exception {
         String directory="avatars/builtin-guide/";
         byte[] manifest,glb;
         try(InputStream input=assets.open(directory+"avatar.json")){manifest=readBounded(input,262_144);}
@@ -75,7 +81,7 @@ final class AvatarGpuScene {
         String hash=sha256(glb);
         if(!hash.equalsIgnoreCase(json.getString("modelSha256")))throw new IllegalArgumentException("Avatar GLB digest differs from manifest");
         AvatarAsset asset=AvatarGlbLoader.load(glb);
-        return fromAsset(asset,new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,drawMode,ormRg8Requested);
+        return fromAsset(asset,new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,drawMode,ormRg8Requested,pbrFastMath);
     }
     /** APK catalog selection. Read and decode only this one model on its GL owner. */
     static AvatarGpuScene bundled(AssetManager assets,String directory,String modelDigest,String manifestDigest,
@@ -84,6 +90,10 @@ final class AvatarGpuScene {
     }
     static AvatarGpuScene bundled(AssetManager assets,String directory,String modelDigest,String manifestDigest,
                                   boolean multiview,boolean asynchronous,DrawMode mode,boolean ormRg8Requested)throws Exception {
+        return bundled(assets,directory,modelDigest,manifestDigest,multiview,asynchronous,mode,ormRg8Requested,false);
+    }
+    static AvatarGpuScene bundled(AssetManager assets,String directory,String modelDigest,String manifestDigest,
+                                  boolean multiview,boolean asynchronous,DrawMode mode,boolean ormRg8Requested,boolean pbrFastMath)throws Exception {
         if(!directory.matches("avatars/(?:catalog/[a-z0-9][a-z0-9-]{0,63}|builtin-guide)"))
             throw new IllegalArgumentException("Invalid bundled avatar directory");
         if(!modelDigest.matches("[0-9a-f]{64}")||!manifestDigest.matches("[0-9a-f]{64}"))
@@ -98,7 +108,7 @@ final class AvatarGpuScene {
         String hash=sha256(glb);
         if(!hash.equals(modelDigest)||!hash.equalsIgnoreCase(json.getString("modelSha256")))
             throw new IllegalArgumentException("Bundled avatar GLB digest mismatch");
-        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode,ormRg8Requested);
+        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode,ormRg8Requested,pbrFastMath);
     }
     /** Debug-only caller uses this fixed app-private diagnostic directory; never selects a stored avatar. */
     static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,DrawMode mode)throws Exception {
@@ -108,13 +118,16 @@ final class AvatarGpuScene {
         return privateHeadCheck(files,multiview,asynchronous,mode,false);
     }
     static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,boolean asynchronous,DrawMode mode,boolean ormRg8Requested)throws Exception {
+        return privateHeadCheck(files,multiview,asynchronous,mode,ormRg8Requested,false);
+    }
+    static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,boolean asynchronous,DrawMode mode,boolean ormRg8Requested,boolean pbrFastMath)throws Exception {
         java.io.File directory=new java.io.File(files,"tripo-head-check");byte[] manifest,glb;
         try(InputStream in=new java.io.FileInputStream(new java.io.File(directory,"avatar.json"))){manifest=readBounded(in,262_144);}
         JSONObject json=new JSONObject(new String(manifest,StandardCharsets.UTF_8));
         if(!"character.glb".equals(json.getString("model")))throw new IllegalArgumentException("Diagnostic head model filename");
         try(InputStream in=new java.io.FileInputStream(new java.io.File(directory,"character.glb"))){glb=readBounded(in,AvatarGlbLoader.MAX_FILE_BYTES);}
         String hash=sha256(glb);if(!hash.equalsIgnoreCase(json.getString("modelSha256")))throw new IllegalArgumentException("Diagnostic head digest mismatch");
-        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode,ormRg8Requested);
+        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode,ormRg8Requested,pbrFastMath);
     }
     /** Inputs are a validated CPU asset/manifest and its verified model digest; no package-store dependency. */
     static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous) throws Exception {
@@ -124,18 +137,22 @@ final class AvatarGpuScene {
         return fromAsset(asset,manifestJson,modelSha256,multiview,asynchronous,drawMode,false);
     }
     static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous,DrawMode drawMode,boolean ormRg8Requested) throws Exception {
+        return fromAsset(asset,manifestJson,modelSha256,multiview,asynchronous,drawMode,ormRg8Requested,false);
+    }
+    static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous,DrawMode drawMode,boolean ormRg8Requested,boolean pbrFastMath) throws Exception {
         if(drawMode==null)throw new IllegalArgumentException("Avatar draw mode required");
         if(drawMode==DrawMode.VERIFY&&asynchronous)throw new IllegalArgumentException("Avatar pixel verification requires synchronous pose ownership");
         AvatarRig rig=new AvatarRig(asset,manifestJson);
-        AvatarGpuScene scene=new AvatarGpuScene(asset,rig,modelSha256,multiview,drawMode,ormRg8Requested);
+        AvatarGpuScene scene=new AvatarGpuScene(asset,rig,modelSha256,multiview,drawMode,ormRg8Requested,pbrFastMath);
         try {
             if(asynchronous)scene.poseWorker=new AvatarPoseWorker(asset,manifestJson);
             return scene;
         } catch(Exception|Error failure){try{scene.dispose();}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
     }
     @SuppressWarnings("unchecked")
-    private AvatarGpuScene(AvatarAsset asset,AvatarRig rig,String hash,boolean multiview,DrawMode drawMode,boolean ormRg8Requested) {
+    private AvatarGpuScene(AvatarAsset asset,AvatarRig rig,String hash,boolean multiview,DrawMode drawMode,boolean ormRg8Requested,boolean pbrFastMath) {
         this.asset=asset;this.rig=rig;sha256=hash;this.drawMode=drawMode;
+        pbrFastMathRequested=pbrFastMath;pbrFastMathSelected=pbrFastMath;
         ormUploadPolicy=AvatarOrmUploadPolicy.decide(asset,hash,ormRg8Requested);
         drawPartition=new AvatarDrawPartition(asset,rig);
         staticBackgroundNodes=drawPartition.staticNodes();
@@ -147,7 +164,7 @@ final class AvatarGpuScene {
         if(atlas)uploadAtlas(asset.albedoAtlas());
         boolean pbr=asset.normalMap()!=null;
         if(pbr){uploadMap(asset.normalMap(),1);uploadMap(asset.ormMap(),2);}
-        if(drawMode!=DrawMode.BATCHED){program=new Program(false,atlas,pbr);multiviewProgram=multiview?new Program(true,atlas,pbr):null;}
+        if(drawMode!=DrawMode.BATCHED){program=new Program(false,atlas,pbr,pbrFastMath);multiviewProgram=multiview?new Program(true,atlas,pbr,pbrFastMath):null;}
         int count=0;
         for(int m=0;m<weights.length;m++) {
             weights[m]=new float[asset.meshes().get(m).targetCount()];
@@ -157,7 +174,7 @@ final class AvatarGpuScene {
             }
         }
         primitiveCount=count;
-        if(drawMode!=DrawMode.INDIVIDUAL)batch=new AvatarBatchGpu(asset,rig,multiview);
+        if(drawMode!=DrawMode.INDIVIDUAL)batch=new AvatarBatchGpu(asset,rig,multiview,pbrFastMath);
         framing=AvatarGeometryBounds.fromAsset(asset,rig);
         prepare(new float[52],new float[3]);
         checkGl("avatar initialization");
@@ -167,6 +184,7 @@ final class AvatarGpuScene {
     void dispose() {
         stopCpu();
         if(ormComparison!=null)ormComparison.close();
+        if(pbrComparison!=null)pbrComparison.close();
         if(batch!=null){batch.dispose();batch=null;}
         for(int buffer:allocatedBuffers)GLES30.glDeleteBuffers(1,new int[]{buffer},0);
         allocatedBuffers.clear();
@@ -281,7 +299,7 @@ final class AvatarGpuScene {
             throw new IllegalStateException("Static/dynamic split requires eligible trailing unlit props and individual draw mode");
         if(drawMode==DrawMode.BATCHED){drawBatched(viewProjections,viewCount,aspect);return;}
         if((viewCount!=1&&viewCount!=4)||viewProjections.length<viewCount*16)throw new IllegalArgumentException("Invalid avatar view group");
-        Program active=viewCount==4?multiviewProgram:program;
+        Program active=selectedPbrProgram(viewCount);
         if(active==null)throw new IllegalStateException("Avatar multiview program was not initialized");
         // Fixed envelope includes morphs and rigid joints; preserve framing throughout every head pose.
         // Uniform root coordinate scale is absorbed by this normalized automatic fit, not extra zoom.
@@ -353,7 +371,10 @@ final class AvatarGpuScene {
                 .put("timing_scope","online means of applied poses since GL scene creation, including initial neutral pose; no per-frame samples retained")
                 .put("complete_source_mapping",rig.completeSourceCoverage()).put("artwork_validated",false)
                 .put("normal_policy",rig.normalPolicy()).put("deformation_scope","once per animation snapshot; all independent views share the same VBO")
-                .put("draw_backend",drawMode.name().toLowerCase(java.util.Locale.ROOT));
+                .put("draw_backend",drawMode.name().toLowerCase(java.util.Locale.ROOT))
+                .put("pbr_fast_math_requested",pbrFastMathRequested)
+                .put("pbr_shader_variant",AvatarPbrShaderVariant.name(asset.normalMap()!=null,pbrFastMathSelected));
+        if(asset.normalMap()!=null)value.put("pbr_fragment_source_sha256",AvatarPbrShaderVariant.sha256(AvatarPbrShaderVariant.fragment(pbrFastMathSelected)));
         }
         AvatarBatchGpu currentBatch=batch;
         if(asset.albedoAtlas()!=null)value.put("albedo_atlas",new JSONObject().put("width",asset.albedoAtlas().width()).put("height",asset.albedoAtlas().height()).put("encoded_bytes",asset.albedoAtlas().encodedBytes()));
@@ -423,14 +444,14 @@ final class AvatarGpuScene {
     }
     private static final class Program {
         final int id,viewProjection,world,normal,color,unlit,roughness,sampler,useTexture,normalSampler,ormSampler,pbr;
-        Program(boolean multiview,boolean atlas,boolean hasPbr) {
+        Program(boolean multiview,boolean atlas,boolean hasPbr,boolean fastMath) {
             String vertex=atlas?atlasVertex(VERTEX):VERTEX;
             if(multiview)vertex=vertex.replace("#version 300 es","#version 300 es\n#extension GL_OVR_multiview2 : require\nlayout(num_views=4) in;")
                     .replace("uniform mat4 uViewProjection;","uniform mat4 uViewProjection[4];")
                     .replace("uViewProjection*", "uViewProjection[gl_ViewID_OVR]*");
             int vs=0,fs=0,created=0;
             try {
-                vs=shader(GLES30.GL_VERTEX_SHADER,vertex);fs=shader(GLES30.GL_FRAGMENT_SHADER,hasPbr?PBR_FRAGMENT:atlas?atlasFragment(FRAGMENT):FRAGMENT);
+                vs=shader(GLES30.GL_VERTEX_SHADER,vertex);fs=shader(GLES30.GL_FRAGMENT_SHADER,hasPbr?AvatarPbrShaderVariant.fragment(fastMath):atlas?atlasFragment(FRAGMENT):FRAGMENT);
                 created=GLES30.glCreateProgram();GLES30.glAttachShader(created,vs);GLES30.glAttachShader(created,fs);GLES30.glLinkProgram(created);
                 int[] ok=new int[1];GLES30.glGetProgramiv(created,GLES30.GL_LINK_STATUS,ok,0);
                 if(ok[0]==0)throw new IllegalStateException("Avatar program: "+GLES30.glGetProgramInfoLog(created));
@@ -451,11 +472,79 @@ final class AvatarGpuScene {
         if(ormComparison!=null)ormComparison.verifyBound();
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,atlasTexture);
     }
+    private Program selectedPbrProgram(int count){
+        if(count!=1&&count!=4)throw new IllegalArgumentException("Invalid individual view group");
+        if(pbrFastMathSelected==pbrFastMathRequested)return count==4?multiviewProgram:program;
+        if(pbrComparison==null)throw new IllegalStateException("PBR comparison not initialized");
+        return count==4?pbrComparison.alternateMultiview:pbrComparison.alternateSingle;
+    }
+    /** Two shader variants and both draw backends share one synchronous pose, texture set and VBO set. */
+    PbrComparison createPbrComparison(){
+        if(pbrComparison!=null||ormComparison!=null||asset.normalMap()==null||poseWorker!=null
+                ||drawMode!=DrawMode.VERIFY||program==null||batch==null)
+            throw new IllegalStateException("PBR comparison requires a synchronous PBR VERIFY scene without another comparison");
+        PbrComparison created=new PbrComparison();
+        try{created.initialize();pbrComparison=created;return created;}
+        catch(RuntimeException|Error failure){try{created.close();}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
+    }
+    final class PbrComparison implements AutoCloseable {
+        private final Thread owner=Thread.currentThread();
+        private final int[] bound=new int[1];
+        private final String referenceBatchSha=batch.pbrFragmentSha256(false),candidateBatchSha=batch.pbrFragmentSha256(true);
+        private Program alternateSingle,alternateMultiview;
+        private boolean closed;
+        private long referenceIndividual,candidateIndividual,referenceBatched,candidateBatched;
+        private void initialize(){
+            alternateSingle=new Program(false,true,true,!pbrFastMathRequested);
+            if(multiviewProgram!=null)alternateMultiview=new Program(true,true,true,!pbrFastMathRequested);
+            batch.beginPbrComparison();
+        }
+        void draw(float[] vp,int count,float aspect,boolean fast,boolean batched){
+            requireOwner();pbrFastMathSelected=fast;batch.selectPbrVariant(fast);
+            if(batched)drawBatched(vp,count,aspect);else AvatarGpuScene.this.draw(vp,count,aspect);
+            verifyBound(count,fast,batched);
+        }
+        private void verifyBound(int count,boolean fast,boolean batched){
+            requireOwner();
+            int expected=batched?batch.selectedPbrProgramId(count):selectedPbrProgram(count).id;
+            GLES30.glGetIntegerv(GLES30.GL_CURRENT_PROGRAM,bound,0);
+            if(bound[0]!=expected)throw new IllegalStateException("PBR diagnostic program differs from selection");
+            checkGl("PBR diagnostic program binding");
+            if(batched){if(fast)candidateBatched++;else referenceBatched++;}
+            else {if(fast)candidateIndividual++;else referenceIndividual++;}
+        }
+        JSONObject status()throws Exception {
+            return new JSONObject().put("reference_variant",AvatarPbrShaderVariant.REFERENCE).put("candidate_variant",AvatarPbrShaderVariant.FAST)
+                .put("reference_individual_binding_checks",referenceIndividual).put("candidate_individual_binding_checks",candidateIndividual)
+                .put("reference_batched_binding_checks",referenceBatched).put("candidate_batched_binding_checks",candidateBatched)
+                .put("reference_individual_fragment_sha256",AvatarPbrShaderVariant.sha256(AvatarPbrShaderVariant.fragment(false)))
+                .put("candidate_individual_fragment_sha256",AvatarPbrShaderVariant.sha256(AvatarPbrShaderVariant.fragment(true)))
+                .put("reference_batched_fragment_sha256",referenceBatchSha)
+                .put("candidate_batched_fragment_sha256",candidateBatchSha)
+                .put("selected_fast_math",pbrFastMathSelected).put("closed",closed)
+                .put("scope","Actual GL_CURRENT_PROGRAM checked immediately after each selected draw; shared prepared pose, textures and VBOs; not GPU timing");
+        }
+        private void requireOwner(){if(closed||Thread.currentThread()!=owner)throw new IllegalStateException("PBR comparison requires live GL owner");}
+        @Override public void close(){
+            if(Thread.currentThread()!=owner)throw new IllegalStateException("PBR comparison close requires GL owner");
+            if(closed)return;closed=true;pbrFastMathSelected=pbrFastMathRequested;pbrComparison=null;
+            Program a=alternateSingle,b=alternateMultiview;alternateSingle=null;alternateMultiview=null;
+            ResourceCleanup cleanup=new ResourceCleanup(null);
+            cleanup.close("PBR comparison batch",batch::endPbrComparison);
+            if(a!=null)cleanup.close("PBR comparison single",()->GLES30.glDeleteProgram(a.id));
+            if(b!=null)cleanup.close("PBR comparison multiview",()->GLES30.glDeleteProgram(b.id));
+            cleanup.close("PBR comparison GL errors",()->checkGl("PBR comparison cleanup"));
+            Throwable failure=cleanup.failure();
+            if(failure instanceof Error)throw (Error)failure;
+            if(failure instanceof RuntimeException)throw (RuntimeException)failure;
+            if(failure!=null)throw new IllegalStateException(failure);
+        }
+    }
     /** Diagnostic only, on this scene's GL owner/current context. RG8 must already be really uploaded.
      * Retains exactly one extra RGBA ORM map; both draws share all other textures, CPU state and VBOs.
      */
     OrmComparison createOrmComparison(){
-        if(ormComparison!=null||!ormUploadPolicy.requested||!ormUploadPolicy.eligible||!ormRg8Uploaded||detailTextures[1]==0)
+        if(ormComparison!=null||pbrComparison!=null||!ormUploadPolicy.requested||!ormUploadPolicy.eligible||!ormRg8Uploaded||detailTextures[1]==0)
             throw new IllegalStateException("ORM comparison requires an actual eligible RG8 scene and no existing comparison");
         int candidate=detailTextures[1],reference=0;
         try{

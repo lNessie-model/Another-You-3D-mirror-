@@ -43,7 +43,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     private boolean privateHead;
     private boolean verifyPrivateHead;
     private boolean verifyBackgroundCache;
-    private boolean verifyOrmRg8,ormVerificationComplete;
+    private boolean verifyOrmRg8,ormVerificationComplete,verifyPbrFastMath,pbrVerificationComplete;
     private int backgroundVerificationViews=20;
     private int verificationViewCount=20;
     private int verificationViewHeight=720;
@@ -76,12 +76,19 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     @Override protected void onPause(){cancelled=true;surface.onPause();super.onPause();}
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
         // Old GL names belong to the destroyed context; do not dispose them in this new context.
-        scene=null;error="";ormVerificationComplete=false;runId=UUID.randomUUID().toString();startedNs=SystemClock.elapsedRealtimeNanos();contextGeneration++;
+        scene=null;error="";ormVerificationComplete=false;pbrVerificationComplete=false;runId=UUID.randomUUID().toString();startedNs=SystemClock.elapsedRealtimeNanos();contextGeneration++;
         try {
             readVerificationConfiguration(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
             verifyBackgroundCache=readBackgroundVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,privateHead);
-            verifyOrmRg8=readOrmVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,
+            verifyPbrFastMath=readPbrVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,
                     privateHead||verifyPrivateHead||verifyBackgroundCache||verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16);
+            verifyOrmRg8=readOrmVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,
+                    privateHead||verifyPrivateHead||verifyBackgroundCache||verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16||verifyPbrFastMath);
+            if(verifyPbrFastMath){
+                writeArtifact("avatar-pbr-fast-math-check.json",new JSONObject().put("running",true).put("passed",false).put("performance_evidence",false));
+                show("正在比较完整角色的着色计算；帧率另行实测，可退出取消");
+                return;
+            }
             if(verifyOrmRg8){
                 writeArtifact("avatar-orm-rg8-check.json",new JSONObject().put("running",true).put("passed",false).put("performance_evidence",false));
                 show("正在核对原始材质与纹理优化的设备画面；此检查不测帧率");
@@ -105,6 +112,17 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     }
     @Override public void onSurfaceChanged(GL10 gl,int width,int height) {
         this.width=width;this.height=height;
+        if(verifyPbrFastMath){
+            if(pbrVerificationComplete||!error.isEmpty()||cancelled)return;
+            try {
+                JSONObject report=AvatarPbrFastMathCheck.run(getAssets(),getFilesDir(),()->cancelled);
+                if(cancelled)report.put("passed",false).put("cancelled",true);
+                writeArtifact("avatar-pbr-fast-math-check.json",report.put("running",false).put("performance_evidence",false));
+                pbrVerificationComplete=true;
+                show(report.optBoolean("passed")?"着色差异初筛通过；画面及帧率另行验收":"着色差异超出初筛限制，请查看报告");
+            }catch(Throwable failure){reportFailure(failure);}
+            return;
+        }
         if(verifyOrmRg8){
             if(ormVerificationComplete||!error.isEmpty()||cancelled)return;
             try {
@@ -202,6 +220,8 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
             write(new JSONObject().put("running",false).put("passed",false).put("error",error));
             if(verifyPrivateHead)writeArtifact("tripo-head-multiview-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error));
             if(verifyBackgroundCache)writeArtifact(backgroundVerificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
+            if(getIntent().getExtras()!=null&&getIntent().getExtras().containsKey("verify_pbr_fast_math"))
+                writeArtifact("avatar-pbr-fast-math-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error).put("performance_evidence",false));
             if(getIntent().getExtras()!=null&&getIntent().getExtras().containsKey("verify_orm_rg8"))
                 writeArtifact("avatar-orm-rg8-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error).put("performance_evidence",false));
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
@@ -210,6 +230,14 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     }
     private static void checkGl(String operation){int code=GLES30.glGetError();if(code!=GLES30.GL_NO_ERROR)throw new IllegalStateException(operation+" GL error "+code);}
     private String backgroundVerificationFile(){return "tripo-head-background-cache-"+backgroundVerificationViews+"-check.json";}
+    @SuppressWarnings("deprecation") static boolean readPbrVerification(Bundle extras,boolean debug,boolean otherMode){
+        String key="verify_pbr_fast_math";
+        if(extras==null||!extras.containsKey(key))return false;
+        Object value=extras.get(key);
+        if(!debug||!(value instanceof Boolean))throw new IllegalArgumentException("PBR verification requires an explicit debug Boolean");
+        if(Boolean.TRUE.equals(value)&&otherMode)throw new IllegalArgumentException("Select only the PBR verification");
+        return Boolean.TRUE.equals(value);
+    }
     @SuppressWarnings("deprecation") static boolean readOrmVerification(Bundle extras,boolean debug,boolean otherMode){
         String key="verify_orm_rg8";
         if(extras==null||!extras.containsKey(key))return false;

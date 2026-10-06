@@ -31,7 +31,7 @@ foreach ($tool in @($javac, $java)) {
 $classes = Join-Path $projectRoot 'app\build\avatar-scene-review-tests\classes'
 New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $sources = @('AvatarAsset', 'AvatarRig', 'AvatarGlbLoader', 'AvatarDeformer', 'AvatarFraming',
-    'AvatarGeometryBounds', 'BlendshapeSchema', 'AvatarPoseWorker', 'AvatarGpuScene','AvatarOrmUploadPolicy', 'AvatarDrawPartition', 'AvatarBatchLayout', 'AvatarBatchGpu', 'AvatarPoseProgressWatchdog', 'RuntimeStatusOrder') |
+    'AvatarGeometryBounds', 'BlendshapeSchema', 'AvatarPoseWorker', 'AvatarGpuScene','AvatarPbrShaderVariant','ResourceCleanup','AvatarOrmUploadPolicy', 'AvatarDrawPartition', 'AvatarBatchLayout', 'AvatarBatchGpu', 'AvatarPoseProgressWatchdog', 'RuntimeStatusOrder') |
     ForEach-Object { Join-Path $projectRoot "app\src\main\java\com\mirror\bench\$_.java" }
 $sources += @('AvatarRigTest', 'AvatarGpuSceneProgressReviewTest', 'AvatarGpuSceneMetricsReviewTest', 'AvatarGpuSceneStopReviewTest', 'AvatarPoseProgressWatchdogTest', 'RuntimeStatusOrderTest', 'AvatarBatchShaderTest') |
     ForEach-Object { Join-Path $projectRoot "tests\$_.java" }

@@ -16,10 +16,17 @@ final class AvatarBatchGpu {
     private final boolean pbr;
     private final float[] pbrParams;
     private Program single,multiview;
+    private Program comparisonSingle,comparisonMultiview;
+    private final boolean pbrFastMath;
+    private boolean selectedFastMath;
     private final float[] worlds,normals,colors,params,fit=new float[16],inverse=new float[16];
     private final int vertexLimit,fragmentLimit,varyingLimit,requiredVertexVectors;
     private boolean disposed;
     AvatarBatchGpu(AvatarAsset asset,AvatarRig rig,boolean useMultiview) {
+        this(asset,rig,useMultiview,false);
+    }
+    AvatarBatchGpu(AvatarAsset asset,AvatarRig rig,boolean useMultiview,boolean pbrFastMath) {
+        this.pbrFastMath=pbrFastMath;selectedFastMath=pbrFastMath;
         atlas=asset.albedoAtlas()!=null;pbr=asset.normalMap()!=null;buffers=new int[atlas?5:4];
         boolean[] active=new boolean[asset.nodes().size()];for(int n=0;n<active.length;n++)active[n]=rig.activeNode(n);
         layout=new AvatarBatchLayout(asset,active);int count=layout.entries().size();
@@ -41,7 +48,7 @@ final class AvatarBatchGpu {
             if(pbr){pbrParams[i*4]=material.normalScale();pbrParams[i*4+1]=material.occlusionStrength();pbrParams[i*4+2]=material.metallic();pbrParams[i*4+3]=material.pbrMaps()?1:0;}
         }
         try {
-            single=new Program(false,count,atlas,pbr);multiview=useMultiview?new Program(true,count,atlas,pbr):null;
+            single=new Program(false,count,atlas,pbr,pbrFastMath);multiview=useMultiview?new Program(true,count,atlas,pbr,pbrFastMath):null;
             GLES30.glGenBuffers(buffers.length,buffers,0);
             GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[0]);
             GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,layout.vertexCount()*24,null,GLES30.GL_DYNAMIC_DRAW);
@@ -73,7 +80,7 @@ final class AvatarBatchGpu {
     void draw(float[] viewProjections,int viewCount,float aspect,AvatarFraming framing,float[] displayedWorlds,float[] suppliedFit) {
         if(disposed)throw new IllegalStateException("Disposed avatar batch");
         if((viewCount!=1&&viewCount!=4)||viewProjections.length<viewCount*16)throw new IllegalArgumentException("Invalid batch view group");
-        Program program=viewCount==4?multiview:single;if(program==null)throw new IllegalStateException("Batch multiview not initialized");
+        Program program=selectedProgram(viewCount);
         if(suppliedFit==null)framing.copyFitMatrix(aspect,fit);else {
             if(suppliedFit.length!=16)throw new IllegalArgumentException("Fit matrix requires sixteen entries");
             System.arraycopy(suppliedFit,0,fit,0,16);
@@ -111,11 +118,13 @@ final class AvatarBatchGpu {
                 .put("max_fragment_uniform_vectors",fragmentLimit).put("required_fragment_uniform_vectors",0)
                 .put("max_varying_vectors",varyingLimit).put("required_varying_vectors",pbr?7:atlas?6:5)
                 .put("albedo_atlas",atlas).put("static_uv_bytes",atlas?layout.vertexCount()*8:0)
-                .put("material_selection_stage","vertex_flat");
+                .put("material_selection_stage","vertex_flat")
+                .put("pbr_fast_math_requested",pbrFastMath).put("pbr_shader_variant",AvatarPbrShaderVariant.name(pbr,selectedFastMath));
     }
     /** Only the owning current EGL context may delete these names. */
     void dispose() {
         if(disposed)return;disposed=true;GLES30.glDeleteBuffers(buffers.length,buffers,0);
+        endPbrComparison();
         if(single!=null){GLES30.glDeleteProgram(single.id);single=null;}
         if(multiview!=null){GLES30.glDeleteProgram(multiview.id);multiview=null;}
     }
@@ -151,19 +160,22 @@ final class AvatarBatchGpu {
         return source.replace("void main(){","flat out highp vec4 vPbrParams;\nuniform vec4 uPbrValues["+count+"];\nvoid main(){vPbrParams=uPbrValues[int(aPrimitive)];");
     }
     static String fragmentSource(int count,boolean atlas,boolean pbr){
+        return fragmentSource(count,atlas,pbr,false);
+    }
+    static String fragmentSource(int count,boolean atlas,boolean pbr,boolean fastMath){
         if(!pbr)return fragmentSource(count,atlas);
-        return AvatarGpuScene.PBR_FRAGMENT.replace("uniform vec4 uColor;uniform float uUnlit;uniform float uRoughness;","flat in highp vec4 vMaterialColor;flat in highp vec3 vMaterialParams;")
+        return AvatarPbrShaderVariant.fragment(fastMath).replace("uniform vec4 uColor;uniform float uUnlit;uniform float uRoughness;","flat in highp vec4 vMaterialColor;flat in highp vec3 vMaterialParams;")
                 .replace("uniform float uUseTexture;","").replace("uniform vec4 uPbrParams;","flat in highp vec4 vPbrParams;")
                 .replace("uPbrParams","vPbrParams").replace("uUseTexture>0.5","vMaterialParams.z>0.5")
                 .replace("void main(){","void main(){vec4 uColor=vMaterialColor;float uUnlit=vMaterialParams.x;float uRoughness=vMaterialParams.y;");
     }
     private static final class Program {
         final int id,vp,world,normal,color,params,sampler,pbr,normalSampler,ormSampler;
-        Program(boolean multiview,int count,boolean atlas,boolean hasPbr) {
+        Program(boolean multiview,int count,boolean atlas,boolean hasPbr,boolean fastMath) {
             int vs=0,fs=0,created=0;
             try {
                 vs=AvatarGpuScene.shader(GLES30.GL_VERTEX_SHADER,vertexSource(multiview,count,atlas,hasPbr));
-                fs=AvatarGpuScene.shader(GLES30.GL_FRAGMENT_SHADER,fragmentSource(count,atlas,hasPbr));
+                fs=AvatarGpuScene.shader(GLES30.GL_FRAGMENT_SHADER,fragmentSource(count,atlas,hasPbr,fastMath));
                 created=GLES30.glCreateProgram();GLES30.glAttachShader(created,vs);GLES30.glAttachShader(created,fs);GLES30.glLinkProgram(created);
                 int[] ok=new int[1];GLES30.glGetProgramiv(created,GLES30.GL_LINK_STATUS,ok,0);
                 if(ok[0]==0)throw new IllegalStateException("Avatar batch program: "+GLES30.glGetProgramInfoLog(created));
@@ -175,6 +187,36 @@ final class AvatarBatchGpu {
             finally {if(vs!=0)GLES30.glDeleteShader(vs);if(fs!=0)GLES30.glDeleteShader(fs);}
         }
         private static int location(int program,String name){int value=GLES30.glGetUniformLocation(program,name);if(value<0)throw new IllegalStateException("Missing batch uniform "+name);return value;}
+    }
+    private Program selectedProgram(int viewCount){
+        if(viewCount!=1&&viewCount!=4)throw new IllegalArgumentException("Invalid batch view group");
+        Program program=selectedFastMath==pbrFastMath?(viewCount==4?multiview:single):(viewCount==4?comparisonMultiview:comparisonSingle);
+        if(program==null)throw new IllegalStateException("Selected batch program not initialized");
+        return program;
+    }
+    void beginPbrComparison(){
+        if(disposed||!pbr||comparisonSingle!=null)throw new IllegalStateException("Batch PBR comparison unavailable");
+        try{
+            comparisonSingle=new Program(false,layout.entries().size(),atlas,true,!pbrFastMath);
+            if(multiview!=null)comparisonMultiview=new Program(true,layout.entries().size(),atlas,true,!pbrFastMath);
+        }catch(RuntimeException|Error failure){try{endPbrComparison();}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
+    }
+    void selectPbrVariant(boolean fast){
+        if(disposed||comparisonSingle==null)throw new IllegalStateException("Live batch PBR comparison required");
+        selectedFastMath=fast;
+    }
+    int selectedPbrProgramId(int count){return selectedProgram(count).id;}
+    String pbrFragmentSha256(boolean fast){return AvatarPbrShaderVariant.sha256(fragmentSource(layout.entries().size(),atlas,pbr,fast));}
+    void endPbrComparison(){
+        selectedFastMath=pbrFastMath;
+        Program a=comparisonSingle,b=comparisonMultiview;comparisonSingle=null;comparisonMultiview=null;
+        ResourceCleanup cleanup=new ResourceCleanup(null);
+        if(a!=null)cleanup.close("batch PBR single",()->GLES30.glDeleteProgram(a.id));
+        if(b!=null)cleanup.close("batch PBR multiview",()->GLES30.glDeleteProgram(b.id));
+        Throwable failure=cleanup.failure();
+        if(failure instanceof Error)throw (Error)failure;
+        if(failure instanceof RuntimeException)throw (RuntimeException)failure;
+        if(failure!=null)throw new IllegalStateException(failure);
     }
     private static FloatBuffer direct(FloatBuffer source){var b=ByteBuffer.allocateDirect(source.remaining()*4).order(ByteOrder.nativeOrder()).asFloatBuffer();b.put(source);b.flip();return b;}
     private static IntBuffer direct(IntBuffer source){var b=ByteBuffer.allocateDirect(source.remaining()*4).order(ByteOrder.nativeOrder()).asIntBuffer();b.put(source);b.flip();return b;}
