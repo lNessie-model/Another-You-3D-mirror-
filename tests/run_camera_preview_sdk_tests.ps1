@@ -5,7 +5,7 @@ $classes=Join-Path $projectRoot 'app\build\camera-preview-sdk-tests\classes'
 $built=Join-Path $projectRoot 'app\build\intermediates\javac\debug\classes'
 New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $names=@('AvatarAsset','AvatarGlbLoader','AvatarRig','AvatarDeformer','AvatarFraming','AvatarGeometryBounds','BlendshapeSchema','AvatarPackageStore',
-    'AvatarPoseWorker','AvatarPoseProgressWatchdog','AvatarBatchLayout','AvatarBatchGpu','AvatarGpuScene','AvatarDrawPartition','MultiviewGl','PersistentMultiviewFbos','PersistentMultiviewGl','AvatarCameraProjectionCache',
+    'AvatarPoseWorker','AvatarPoseProgressWatchdog','AvatarBatchLayout','AvatarBatchGpu','AvatarGpuScene','AvatarOrmUploadPolicy','AvatarDrawPartition','MultiviewGl','PersistentMultiviewFbos','PersistentMultiviewGl','AvatarCameraProjectionCache',
     'FaceFrame','FaceControlCalibration','FaceControlMapper','InteractionController',
     'CameraPreviewSession','CameraPreviewPose','CameraPreviewAsset','CameraCalibrationAvatarPreview')
 $names+=@('AvatarBackgroundCache','AvatarBackgroundGl','BundledAvatarCatalog','BundledAvatarSelection','SceneViewSettings')

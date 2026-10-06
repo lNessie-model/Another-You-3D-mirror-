@@ -6,9 +6,9 @@ $json=Join-Path $root 'app\build\avatar-tests\json-20240303.jar'
 if((Get-FileHash -LiteralPath $json -Algorithm SHA256).Hash -ne '3CF6CD6892E32E2B4C1C39E0F52F5248A2F5B37646FDFBB79A66B46B618414ED'){throw 'Unexpected JSON-java test dependency'}
 New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $names=@('AvatarCameraProjectionCache','AvatarCameraProjectionCheck','PersistentMultiviewFbos','PersistentMultiviewGl','MultiviewGl','InterlaceRenderer','MirrorActivity',
-    'AvatarMultiviewCheck','AvatarPersistentFboCheck','AvatarBatchCheck','AvatarPixelComparison','AvatarPoseFixtures','AvatarPreviewActivity','PanelCalibration',
+    'AvatarMultiviewCheck','AvatarPersistentFboCheck','AvatarBatchCheck','AvatarPixelComparison','AvatarPoseFixtures','AvatarPreviewActivity','AvatarOrmRg8Check','PanelCalibration',
     'RuntimeViewCount','RuntimeGlLifecycle','MirrorSettings','CalibrationActivity','PanelPreviewActivity','PanelTestImages')
-$names+=@('AvatarBackgroundCache','AvatarBackgroundGl','AvatarGpuScene','AvatarPoseWorker','AvatarDrawPartition','RuntimeInputStop','NativeCleanupUnconfirmed','RuntimeStatusOrder')
+$names+=@('AvatarBackgroundCache','AvatarBackgroundGl','AvatarGpuScene','AvatarOrmUploadPolicy','AvatarPoseWorker','AvatarDrawPartition','RuntimeInputStop','NativeCleanupUnconfirmed','RuntimeStatusOrder')
 $sources=$names | ForEach-Object {Join-Path $root "app\src\main\java\com\mirror\bench\$_.java"}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -cp "$json;$AndroidJar;$built" -d $classes @sources
 if($LASTEXITCODE -ne 0){throw 'View count actual SDK compilation failed'}

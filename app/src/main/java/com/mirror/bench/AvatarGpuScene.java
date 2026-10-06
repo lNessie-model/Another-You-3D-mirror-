@@ -51,6 +51,9 @@ final class AvatarGpuScene {
     private int atlasTexture;
     private final int[] detailTextures=new int[2];
     private final float[] pbrParams=new float[4];
+    private final AvatarOrmUploadPolicy.Decision ormUploadPolicy;
+    private volatile boolean ormRg8Uploaded;
+    private OrmComparison ormComparison;
 
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview) throws Exception {
         return builtin(assets,multiview,false);
@@ -59,6 +62,9 @@ final class AvatarGpuScene {
         return builtin(assets,multiview,asynchronous,DrawMode.INDIVIDUAL);
     }
     static AvatarGpuScene builtin(AssetManager assets,boolean multiview,boolean asynchronous,DrawMode drawMode) throws Exception {
+        return builtin(assets,multiview,asynchronous,drawMode,false);
+    }
+    static AvatarGpuScene builtin(AssetManager assets,boolean multiview,boolean asynchronous,DrawMode drawMode,boolean ormRg8Requested) throws Exception {
         String directory="avatars/builtin-guide/";
         byte[] manifest,glb;
         try(InputStream input=assets.open(directory+"avatar.json")){manifest=readBounded(input,262_144);}
@@ -69,11 +75,15 @@ final class AvatarGpuScene {
         String hash=sha256(glb);
         if(!hash.equalsIgnoreCase(json.getString("modelSha256")))throw new IllegalArgumentException("Avatar GLB digest differs from manifest");
         AvatarAsset asset=AvatarGlbLoader.load(glb);
-        return fromAsset(asset,new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,drawMode);
+        return fromAsset(asset,new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,drawMode,ormRg8Requested);
     }
     /** APK catalog selection. Read and decode only this one model on its GL owner. */
     static AvatarGpuScene bundled(AssetManager assets,String directory,String modelDigest,String manifestDigest,
                                   boolean multiview,boolean asynchronous,DrawMode mode)throws Exception {
+        return bundled(assets,directory,modelDigest,manifestDigest,multiview,asynchronous,mode,false);
+    }
+    static AvatarGpuScene bundled(AssetManager assets,String directory,String modelDigest,String manifestDigest,
+                                  boolean multiview,boolean asynchronous,DrawMode mode,boolean ormRg8Requested)throws Exception {
         if(!directory.matches("avatars/(?:catalog/[a-z0-9][a-z0-9-]{0,63}|builtin-guide)"))
             throw new IllegalArgumentException("Invalid bundled avatar directory");
         if(!modelDigest.matches("[0-9a-f]{64}")||!manifestDigest.matches("[0-9a-f]{64}"))
@@ -88,38 +98,45 @@ final class AvatarGpuScene {
         String hash=sha256(glb);
         if(!hash.equals(modelDigest)||!hash.equalsIgnoreCase(json.getString("modelSha256")))
             throw new IllegalArgumentException("Bundled avatar GLB digest mismatch");
-        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode);
+        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode,ormRg8Requested);
     }
     /** Debug-only caller uses this fixed app-private diagnostic directory; never selects a stored avatar. */
     static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,DrawMode mode)throws Exception {
         return privateHeadCheck(files,multiview,false,mode);
     }
     static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,boolean asynchronous,DrawMode mode)throws Exception {
+        return privateHeadCheck(files,multiview,asynchronous,mode,false);
+    }
+    static AvatarGpuScene privateHeadCheck(java.io.File files,boolean multiview,boolean asynchronous,DrawMode mode,boolean ormRg8Requested)throws Exception {
         java.io.File directory=new java.io.File(files,"tripo-head-check");byte[] manifest,glb;
         try(InputStream in=new java.io.FileInputStream(new java.io.File(directory,"avatar.json"))){manifest=readBounded(in,262_144);}
         JSONObject json=new JSONObject(new String(manifest,StandardCharsets.UTF_8));
         if(!"character.glb".equals(json.getString("model")))throw new IllegalArgumentException("Diagnostic head model filename");
         try(InputStream in=new java.io.FileInputStream(new java.io.File(directory,"character.glb"))){glb=readBounded(in,AvatarGlbLoader.MAX_FILE_BYTES);}
         String hash=sha256(glb);if(!hash.equalsIgnoreCase(json.getString("modelSha256")))throw new IllegalArgumentException("Diagnostic head digest mismatch");
-        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode);
+        return fromAsset(AvatarGlbLoader.load(glb),new String(manifest,StandardCharsets.UTF_8),hash,multiview,asynchronous,mode,ormRg8Requested);
     }
     /** Inputs are a validated CPU asset/manifest and its verified model digest; no package-store dependency. */
     static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous) throws Exception {
         return fromAsset(asset,manifestJson,modelSha256,multiview,asynchronous,DrawMode.INDIVIDUAL);
     }
     static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous,DrawMode drawMode) throws Exception {
+        return fromAsset(asset,manifestJson,modelSha256,multiview,asynchronous,drawMode,false);
+    }
+    static AvatarGpuScene fromAsset(AvatarAsset asset,String manifestJson,String modelSha256,boolean multiview,boolean asynchronous,DrawMode drawMode,boolean ormRg8Requested) throws Exception {
         if(drawMode==null)throw new IllegalArgumentException("Avatar draw mode required");
         if(drawMode==DrawMode.VERIFY&&asynchronous)throw new IllegalArgumentException("Avatar pixel verification requires synchronous pose ownership");
         AvatarRig rig=new AvatarRig(asset,manifestJson);
-        AvatarGpuScene scene=new AvatarGpuScene(asset,rig,modelSha256,multiview,drawMode);
+        AvatarGpuScene scene=new AvatarGpuScene(asset,rig,modelSha256,multiview,drawMode,ormRg8Requested);
         try {
             if(asynchronous)scene.poseWorker=new AvatarPoseWorker(asset,manifestJson);
             return scene;
-        } catch(Exception|Error failure){scene.dispose();throw failure;}
+        } catch(Exception|Error failure){try{scene.dispose();}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
     }
     @SuppressWarnings("unchecked")
-    private AvatarGpuScene(AvatarAsset asset,AvatarRig rig,String hash,boolean multiview,DrawMode drawMode) {
+    private AvatarGpuScene(AvatarAsset asset,AvatarRig rig,String hash,boolean multiview,DrawMode drawMode,boolean ormRg8Requested) {
         this.asset=asset;this.rig=rig;sha256=hash;this.drawMode=drawMode;
+        ormUploadPolicy=AvatarOrmUploadPolicy.decide(asset,hash,ormRg8Requested);
         drawPartition=new AvatarDrawPartition(asset,rig);
         staticBackgroundNodes=drawPartition.staticNodes();
         displayedWorlds=new float[asset.nodes().size()*16];
@@ -144,11 +161,12 @@ final class AvatarGpuScene {
         framing=AvatarGeometryBounds.fromAsset(asset,rig);
         prepare(new float[52],new float[3]);
         checkGl("avatar initialization");
-        } catch(RuntimeException|Error failure) {dispose();throw failure;}
+        } catch(RuntimeException|Error failure) {try{dispose();}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
     }
     /** Call only while the owning EGL context is current. On context loss discard this object instead. */
     void dispose() {
         stopCpu();
+        if(ormComparison!=null)ormComparison.close();
         if(batch!=null){batch.dispose();batch=null;}
         for(int buffer:allocatedBuffers)GLES30.glDeleteBuffers(1,new int[]{buffer},0);
         allocatedBuffers.clear();
@@ -339,7 +357,8 @@ final class AvatarGpuScene {
         }
         AvatarBatchGpu currentBatch=batch;
         if(asset.albedoAtlas()!=null)value.put("albedo_atlas",new JSONObject().put("width",asset.albedoAtlas().width()).put("height",asset.albedoAtlas().height()).put("encoded_bytes",asset.albedoAtlas().encodedBytes()));
-        if(asset.normalMap()!=null)value.put("pbr_materials",new JSONObject().put("normal_width",asset.normalMap().width()).put("orm_width",asset.ormMap().width()).put("normal_scale",asset.materials().get(0).normalScale()).put("lighting","GGX key light, diffuse fill, hemisphere ambient; no image-based lighting or skin subsurface scattering").put("tangent_frame","fragment derivatives of current deformed geometry; not authored MikkTSpace tangents").put("sampling","GPU-generated mip chain, trilinear minification; original level-zero bytes retained").put("texture_gpu_bytes",mapGpuBytes(asset.albedoAtlas().width(),asset.albedoAtlas().height(),true)+mapGpuBytes(asset.normalMap().width(),asset.normalMap().height(),true)+mapGpuBytes(asset.ormMap().width(),asset.ormMap().height(),true)));
+        if(asset.normalMap()!=null)value.put("pbr_materials",new JSONObject().put("normal_width",asset.normalMap().width()).put("orm_width",asset.ormMap().width()).put("normal_scale",asset.materials().get(0).normalScale()).put("lighting","GGX key light, diffuse fill, hemisphere ambient; no image-based lighting or skin subsurface scattering").put("tangent_frame","fragment derivatives of current deformed geometry; not authored MikkTSpace tangents").put("sampling","GPU-generated mip chain, trilinear minification; original used level-zero channels retained").put("texture_gpu_bytes",mapGpuBytes(asset.albedoAtlas().width(),asset.albedoAtlas().height(),true)+mapGpuBytes(asset.normalMap().width(),asset.normalMap().height(),true)+AvatarOrmUploadPolicy.logicalBytes(asset.ormMap().width(),asset.ormMap().height(),ormRg8Uploaded?2:4,true)).put("texture_gpu_bytes_scope","logical sized-format mip texels; not measured GPU residency"));
+        if(ormUploadPolicy!=null)value.put("orm_upload",ormUploadStatus());
         if(currentBatch!=null)value.put("batch",currentBatch.status());
         if(poseWorker!=null) {
             var s=poseWorker.status();value.put("pose_worker",new JSONObject().put("submitted_inputs",s.submittedInputs)
@@ -351,6 +370,17 @@ final class AvatarGpuScene {
                     .put("run_exit_marked",s.runExitMarked).put("thread_state",s.threadState.name()).put("cpu_stop",cpuStopJson(s.stop)));
         }
         return value;
+    }
+    private JSONObject ormUploadStatus()throws Exception {
+        boolean uploaded=ormRg8Uploaded;boolean present=asset.ormMap()!=null;
+        long actual=uploaded?ormUploadPolicy.rgBytes:ormUploadPolicy.rgbaBytes;
+        return new JSONObject().put("requested",ormUploadPolicy.requested).put("eligible",ormUploadPolicy.eligible)
+                .put("actual",!present?"no_orm":uploaded?"rg8":"rgba8")
+                .put("fallback_reason",ormUploadPolicy.requested&&!ormUploadPolicy.eligible?ormUploadPolicy.reason:"")
+                .put("policy",ormUploadPolicy.reason).put("rgba8_logical_bytes",ormUploadPolicy.rgbaBytes)
+                .put("actual_logical_bytes",actual).put("saved_logical_bytes",ormUploadPolicy.rgbaBytes-actual)
+                .put("payload_scope","sized-format texels including all mip levels; not driver allocation or residency")
+                .put("quality_scope","R/G level-zero bytes retained; GPU-generated mips/pixels and performance require device verification");
     }
     private static JSONObject cpuStopJson(AvatarPoseWorker.StopReceipt receipt)throws Exception {
         return new JSONObject().put("worker_id",receipt.workerId()).put("clock","System.nanoTime")
@@ -418,7 +448,51 @@ final class AvatarGpuScene {
     }
     private void bindAtlas(){
         for(int i=0;i<2;i++)if(detailTextures[i]!=0){GLES30.glActiveTexture(GLES30.GL_TEXTURE1+i);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,detailTextures[i]);}
+        if(ormComparison!=null)ormComparison.verifyBound();
         GLES30.glActiveTexture(GLES30.GL_TEXTURE0);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,atlasTexture);
+    }
+    /** Diagnostic only, on this scene's GL owner/current context. RG8 must already be really uploaded.
+     * Retains exactly one extra RGBA ORM map; both draws share all other textures, CPU state and VBOs.
+     */
+    OrmComparison createOrmComparison(){
+        if(ormComparison!=null||!ormUploadPolicy.requested||!ormUploadPolicy.eligible||!ormRg8Uploaded||detailTextures[1]==0)
+            throw new IllegalStateException("ORM comparison requires an actual eligible RG8 scene and no existing comparison");
+        int candidate=detailTextures[1],reference=0;
+        try{
+            uploadMap(asset.ormMap(),2,false);reference=detailTextures[1];
+            if(reference==0||reference==candidate)throw new IllegalStateException("ORM reference texture must be distinct");
+            ormComparison=new OrmComparison(reference,candidate);return ormComparison;
+        }catch(RuntimeException|Error failure){
+            if(reference!=0&&reference!=candidate)try{GLES30.glDeleteTextures(1,new int[]{reference},0);checkGl("ORM reference creation cleanup");}
+            catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}
+            throw failure;
+        }finally{detailTextures[1]=candidate;ormRg8Uploaded=true;}
+    }
+    final class OrmComparison implements AutoCloseable {
+        private final int reference,candidate;
+        private final Thread owner=Thread.currentThread();
+        private final int[] bound=new int[1];
+        private boolean selectedRg8=true,closed;
+        private long rgbaBindings,rgBindings;
+        private OrmComparison(int reference,int candidate){this.reference=reference;this.candidate=candidate;}
+        void draw(float[] vp,int count,float aspect,boolean rg8,boolean batched){
+            requireOwner();selectedRg8=rg8;detailTextures[1]=rg8?candidate:reference;ormRg8Uploaded=rg8;
+            if(batched)drawBatched(vp,count,aspect);else AvatarGpuScene.this.draw(vp,count,aspect);
+        }
+        private void verifyBound(){
+            requireOwner();GLES30.glActiveTexture(GLES30.GL_TEXTURE2);GLES30.glGetIntegerv(GLES30.GL_TEXTURE_BINDING_2D,bound,0);
+            if(bound[0]!=(selectedRg8?candidate:reference))throw new IllegalStateException("ORM diagnostic texture binding differs from selection");
+            checkGl("ORM diagnostic binding");if(selectedRg8)rgBindings++;else rgbaBindings++;
+        }
+        JSONObject status()throws Exception{return new JSONObject().put("reference_texture",reference).put("candidate_texture",candidate)
+                .put("rgba8_binding_checks",rgbaBindings).put("rg8_binding_checks",rgBindings).put("closed",closed)
+                .put("scope","actual GL_TEXTURE_2D binding on texture unit 2, checked within each scene bind immediately before drawing");}
+        private void requireOwner(){if(closed||Thread.currentThread()!=owner)throw new IllegalStateException("ORM comparison requires live GL owner");}
+        @Override public void close(){
+            if(Thread.currentThread()!=owner)throw new IllegalStateException("ORM comparison close requires GL owner");
+            if(closed)return;closed=true;detailTextures[1]=candidate;ormRg8Uploaded=true;ormComparison=null;
+            GLES30.glDeleteTextures(1,new int[]{reference},0);checkGl("ORM reference cleanup");
+        }
     }
     private void unbindMaps(){
         for(int i=2;i>=0;i--){GLES30.glActiveTexture(GLES30.GL_TEXTURE0+i);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);}
@@ -428,13 +502,16 @@ final class AvatarGpuScene {
     }
     /** Albedo is sRGB; normal/ORM are linear. Ownership is recorded before any upload can fail. */
     private void uploadMap(AvatarAsset.AlbedoAtlas atlas,int unit){
-        Bitmap bitmap=null;
+        uploadMap(atlas,unit,unit==2&&ormUploadPolicy.eligible);
+    }
+    private void uploadMap(AvatarAsset.AlbedoAtlas atlas,int unit,boolean rg8){
+        Bitmap bitmap=null;int texture=0;
         try(InputStream input=atlas.openStream()){
             BitmapFactory.Options options=new BitmapFactory.Options();options.inScaled=false;options.inPremultiplied=false;options.inPreferredConfig=Bitmap.Config.ARGB_8888;
             bitmap=BitmapFactory.decodeStream(input,null,options);
             if(bitmap==null||bitmap.getWidth()!=atlas.width()||bitmap.getHeight()!=atlas.height()||bitmap.getConfig()!=Bitmap.Config.ARGB_8888)
                 throw new IllegalStateException("Atlas PNG decode differs from validated RGB8 dimensions/config");
-            int[] name=new int[1];GLES30.glGenTextures(1,name,0);if(unit==0)atlasTexture=name[0];else detailTextures[unit-1]=name[0];
+            int[] name=new int[1];GLES30.glGenTextures(1,name,0);texture=name[0];if(unit==0)atlasTexture=name[0];else detailTextures[unit-1]=name[0];
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0+unit);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,name[0]);
             boolean mip=asset.normalMap()!=null;
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_MIN_FILTER,mip?GLES30.GL_LINEAR_MIPMAP_LINEAR:GLES30.GL_LINEAR);
@@ -442,12 +519,52 @@ final class AvatarGpuScene {
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_S,GLES30.GL_CLAMP_TO_EDGE);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D,GLES30.GL_TEXTURE_WRAP_T,GLES30.GL_CLAMP_TO_EDGE);
             int levels=1;if(mip)for(int n=Math.max(atlas.width(),atlas.height());n>1;n>>=1)levels++;
-            GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,levels,unit==0?GLES30.GL_SRGB8_ALPHA8:GLES30.GL_RGBA8,atlas.width(),atlas.height());
-            GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D,0,0,0,bitmap,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE);
+            GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D,levels,unit==0?GLES30.GL_SRGB8_ALPHA8:rg8?GLES30.GL_RG8:GLES30.GL_RGBA8,atlas.width(),atlas.height());
+            if(rg8)uploadRg8Pixels(bitmap);
+            else GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D,0,0,0,bitmap,GLES30.GL_RGBA,GLES30.GL_UNSIGNED_BYTE);
             if(mip)GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D);
             checkGl("avatar map upload unit "+unit);GLES30.glBindTexture(GLES30.GL_TEXTURE_2D,0);GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
-        } catch(java.io.IOException e){throw new IllegalStateException("Atlas stream failed",e);}
+            if(unit==2)ormRg8Uploaded=rg8;
+        } catch(java.io.IOException|RuntimeException|Error failure){
+            if(texture!=0){
+                try{GLES30.glDeleteTextures(1,new int[]{texture},0);checkGl("failed avatar map deletion");}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}
+                if(unit==0)atlasTexture=0;else detailTextures[unit-1]=0;
+            }
+            if(unit==2)ormRg8Uploaded=false;
+            if(failure instanceof java.io.IOException)throw new IllegalStateException("Atlas stream failed",failure);
+            if(failure instanceof RuntimeException)throw (RuntimeException)failure;
+            throw (Error)failure;
+        }
         finally {if(bitmap!=null)bitmap.recycle();}
+    }
+    /** Construction only, bounded 64-row staging. No asset buffers, pixel memory or shader changes. */
+    private static void uploadRg8Pixels(Bitmap bitmap){
+        int width=bitmap.getWidth(),height=bitmap.getHeight(),rows=Math.min(height,AvatarOrmUploadPolicy.STRIP_ROWS);
+        int[] pixels=new int[width*rows];IntBuffer argb=IntBuffer.wrap(pixels).asReadOnlyBuffer();
+        ByteBuffer rg=ByteBuffer.allocateDirect(width*rows*2);
+        int[] fields={GLES30.GL_UNPACK_ALIGNMENT,GLES30.GL_UNPACK_ROW_LENGTH,GLES30.GL_UNPACK_SKIP_ROWS,GLES30.GL_UNPACK_SKIP_PIXELS};
+        int[] saved=new int[fields.length],pbo=new int[1];
+        for(int i=0;i<fields.length;i++)GLES30.glGetIntegerv(fields[i],saved,i);
+        GLES30.glGetIntegerv(GLES30.GL_PIXEL_UNPACK_BUFFER_BINDING,pbo,0);checkGl("ORM unpack state");
+        if(pbo[0]!=0)throw new IllegalStateException("ORM CPU upload requires no pixel unpack buffer");
+        Throwable primary=null;
+        try {
+            for(int i=0;i<fields.length;i++)GLES30.glPixelStorei(fields[i],i==0?1:0);
+            for(int y=0;y<height;y+=rows){
+                int n=Math.min(rows,height-y),count=width*n;
+                bitmap.getPixels(pixels,0,width,0,y,width,n);
+                argb.position(0);argb.limit(count);rg.position(0);rg.limit(count*2);
+                AvatarOrmUploadPolicy.packArgb(argb,rg,count);
+                GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D,0,0,y,width,n,GLES30.GL_RG,GLES30.GL_UNSIGNED_BYTE,rg);
+            }
+            checkGl("ORM RG8 base upload");
+        }catch(RuntimeException|Error failure){primary=failure;throw failure;}
+        finally {
+            try{
+                for(int i=0;i<fields.length;i++)GLES30.glPixelStorei(fields[i],saved[i]);
+                checkGl("ORM unpack restoration");
+            }catch(RuntimeException|Error cleanup){if(primary!=null)primary.addSuppressed(cleanup);else throw cleanup;}
+        }
     }
     static long mapGpuBytes(int width,int height,boolean mip){
         long bytes=0;while(true){bytes+=4L*width*height;if(!mip||(width==1&&height==1))return bytes;width=Math.max(1,width/2);height=Math.max(1,height/2);}
