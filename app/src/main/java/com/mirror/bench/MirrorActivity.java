@@ -1163,7 +1163,8 @@ public final class MirrorActivity extends Activity {
             String preset=null;
             if(value(extras,"test_view_preset")!=null) {
                 preset=text(extras,"test_view_preset","");
-                if(!debug||!java.util.Arrays.asList(MirrorSettings.VIEW_PRESETS).contains(preset))
+                if(!debug||!(java.util.Arrays.asList(MirrorSettings.VIEW_PRESETS).contains(preset)
+                        ||preset.equals("240x384")||preset.equals("200x320")))
                     throw new IllegalArgumentException("View preset override requires a supported debug preset");
             }
             int target=integer(extras,"test_active_target_fps",31);
