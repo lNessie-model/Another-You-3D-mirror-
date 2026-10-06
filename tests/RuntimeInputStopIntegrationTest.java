@@ -71,6 +71,8 @@ public final class RuntimeInputStopIntegrationTest {
         Field unsafeField=sun.misc.Unsafe.class.getDeclaredField("theUnsafe");unsafeField.setAccessible(true);
         sun.misc.Unsafe unsafe=(sun.misc.Unsafe)unsafeField.get(null);
         MirrorActivity activity=(MirrorActivity)unsafe.allocateInstance(MirrorActivity.class);
+        // Unsafe bypasses field initializers; admit the real startup gate before exercising the input latch.
+        MirrorStartupGate startup=new MirrorStartupGate();startup.markDiagnosticReady();set(activity,"avatarStartup",startup);
         set(activity,"resumed",true);set(activity,"configurationError","");set(activity,"reportedPreflightError","");
         set(activity,"interaction",new InteractionController());set(activity,"lastEventState",InteractionController.State.ERROR);
         Method start=method("startIfReady",boolean.class);

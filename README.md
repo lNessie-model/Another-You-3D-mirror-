@@ -6,15 +6,16 @@
 
 ## 当前版本
 
-当前版本为 **V37 / 0.2.6**（versionCode 37），源工程冻结点 `6b3a5694433a935c2ea85414c1c12bad55c6de52`。新增默认关闭的 PBR 算术候选：仅显式 debug Boolean `test_pbr_fast_math=true` 启用 Schlick 五次幂乘法与 Smith/spec 分母合并。普通入口继续原着色器；ORM RG8 和 GPU 计时也默认关闭。
+当前版本为 **V38 / 0.2.7**（versionCode 38），源工程冻结点 `5400f46e511b45003e0604c075157d4e13d945c4`。首页“设置”进入独立页面；浏览设置和关于页不会启动相机、面捕或GL。画面、相机、高级编辑器保留原有保存/取消流程，退出运行页返回设置；明确“返回首页”仍返回首页。
 
-- 完整 Geralt、原贴图、highp、TBN、全部 normalize、GGX 下限、掠射夹限及16独立视点保持。实际 Mali-G52 的九姿态×16层×两种绘制方式共 **288 对**通过预设像素门：最大RGB差1、最高逐层RMSE0.0011411、alpha差0；144/144/36/36次实际程序绑定核验。不是全69姿态、美术或光学验收。
-- 同APK、完整Geralt、16×400×640、1200×1920输出、动态NV21录像推理，原/候选/原实际呈现 **8.897 / 8.817 / 8.894 FPS**。未证明提升，未达到30FPS；短测有温度顺序差异，不作因果或持续性能承诺，且不含USB采集或视频解码。
-- 正常首页/角色页、普通Geralt首帧、Back退出和四份原设置保持通过。相机仍Camera2流配置错误，没有实时采集验收。**78 assets、9 native entries与V36逐字节一致**，三个可选角色、27项素材和原内部debug签名不变。
-- 产品路径已是RGA转色、RKNN detector/478、CPU平滑/姿态/FP32归一化、混合CPU/NPU52后段；没有剩余MediaPipe GPU面捕可迁移NPU。GPU busy不是PBR独占时间，提高NPU占用也不等于提高渲染FPS。
-- 未选模型制作WIP、私人人脸片段/数组、设备设置、截图/报告/output、APK及build产物不发布。固定15项生产依赖、LICENSE/NOTICE和V35/V36历史文档保留。
+- 实机通过独立设置、关于、两种返回首页、三个编辑器、普通Geralt首帧和角色页检查。两次新的冷启动会话都打开了相机校准面板，角色预览READY；退出后没有GL或pose线程。READY仅表示角色预览，**相机仍有Camera2流配置错误，未通过实时采集**。画面/相机编辑器当前各需三次Back，高级编辑器需两次，返回层级进一步简化尚未完成。
+- 相机面板请求会等待角色初始化和实际首帧就绪；暂停时不消费，Back取消待打开请求。V1曾因过早消费请求而被拒绝，V2修复后重新完成两次真实面板验收。私有设置入口未增加权限。
+- **78 assets、9 native entries与V37逐字节一致**，四份原配置和原内部debug签名保持。三个角色、27项素材及渲染/推理算法未改。PBR算术候选、ORM RG8与GPU计时继续默认关闭。
+- **V38没有重测联合FPS或PBR像素门，也不声称性能提升。** V37完整Geralt、16×400×640、动态NV21回放的原/候选/原 **8.897 / 8.817 / 8.894 FPS** 是历史短测，不含USB采集或视频解码，未达到30FPS。九姿态288对像素证据也仅属于V37。
+- 修正Unsafe测试夹具缺少真实启动Gate的初始化；旧V37同夹具可复现NPE，生产启动守卫未改。当前输入停止桥接52项、GL生命周期34项通过；不等于重新执行全部历史测试。
+- 未选模型制作WIP、私人人脸片段/数组、设备设置、截图/报告/output、APK及build产物不发布。固定15项依赖、LICENSE/NOTICE及V35/V36/V37历史说明完整保留。
 
-详见 [V37 实现与实际验收](docs/production-app-v37-20261006.md)、[V36 ORM 对照历史](docs/production-app-v36-20261006.md)、[V35 计时历史](docs/production-app-v35-20261006.md)、[正式 App 规格](docs/production-app-spec-20261005.md)和[同步历史](docs/repository-sync-20261005.md)。实时面捕、其余角色艺术/设备验收、更多三维背景与16+视点30FPS仍未完成。
+详见 [V38 设置导航与实际验收](docs/production-app-v38-20261006.md)、[V37 PBR 历史](docs/production-app-v37-20261006.md)、[V36 ORM 历史](docs/production-app-v36-20261006.md)、[V35 计时历史](docs/production-app-v35-20261006.md)、[正式 App 规格](docs/production-app-spec-20261005.md)和[同步历史](docs/repository-sync-20261005.md)。实时面捕、其余角色艺术/设备验收、更多三维背景与16+视点30FPS仍未完成。
 
 ## 目录
 

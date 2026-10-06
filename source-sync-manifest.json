@@ -1,8 +1,8 @@
 {
-  "source_commit": "6b3a5694433a935c2ea85414c1c12bad55c6de52",
+  "source_commit": "5400f46e511b45003e0604c075157d4e13d945c4",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 721,
+  "file_count": 723,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,28 +35,28 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 43322,
-      "source_sha256": "26de2af75f9f626ff47e6463e3333d1816a624028be5018efe13709595f4f6ff",
-      "repository_bytes": 43322,
-      "repository_sha256": "26de2af75f9f626ff47e6463e3333d1816a624028be5018efe13709595f4f6ff",
+      "source_bytes": 43915,
+      "source_sha256": "2364e6387c82e7e1121cd736a283534286f4489076df61f3151e9ce53a7456b2",
+      "repository_bytes": 43915,
+      "repository_sha256": "2364e6387c82e7e1121cd736a283534286f4489076df61f3151e9ce53a7456b2",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 910,
-      "source_sha256": "f1c5d916dd5e515a3be2239cdda42fd9911bf5572f51622cefaf469ee79e63f1",
+      "source_sha256": "5c1410c9ca1b69927625fa359f28fb4ab876b67de463e6b2319cd43327559519",
       "repository_bytes": 910,
-      "repository_sha256": "f1c5d916dd5e515a3be2239cdda42fd9911bf5572f51622cefaf469ee79e63f1",
+      "repository_sha256": "5c1410c9ca1b69927625fa359f28fb4ab876b67de463e6b2319cd43327559519",
       "publication_transformation": null
     },
     {
       "source_path": "app/src/main/AndroidManifest.xml",
       "repository_path": "app/src/main/AndroidManifest.xml",
-      "source_bytes": 3691,
-      "source_sha256": "f532fd8cdf79ab26e1df2e211706f17ebbbe1ca0ed25cf7c2687c5b86929f92c",
-      "repository_bytes": 3691,
-      "repository_sha256": "f532fd8cdf79ab26e1df2e211706f17ebbbe1ca0ed25cf7c2687c5b86929f92c",
+      "source_bytes": 3853,
+      "source_sha256": "e4ba340dc494558a43aa365cac4a9fed1d28cba40e8512a4308ed76ae8fa4f2f",
+      "repository_bytes": 3853,
+      "repository_sha256": "e4ba340dc494558a43aa365cac4a9fed1d28cba40e8512a4308ed76ae8fa4f2f",
       "publication_transformation": null
     },
     {
@@ -1269,19 +1269,19 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
-      "source_bytes": 81513,
-      "source_sha256": "815b96b491f5dd6ca2947c76f8629750657608ecf6a44d485b33f153ee491840",
-      "repository_bytes": 81513,
-      "repository_sha256": "815b96b491f5dd6ca2947c76f8629750657608ecf6a44d485b33f153ee491840",
+      "source_bytes": 82154,
+      "source_sha256": "e00129af473db4c422f343c88bd6c222f9ed09dbbfd327317e4f5b6229647eca",
+      "repository_bytes": 82154,
+      "repository_sha256": "e00129af473db4c422f343c88bd6c222f9ed09dbbfd327317e4f5b6229647eca",
       "publication_transformation": null
     },
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorHomeActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorHomeActivity.java",
-      "source_bytes": 3918,
-      "source_sha256": "87242fe4c7d551b20b394e94cd10dcbce731228310f88aa271bc5610ed035931",
-      "repository_bytes": 3918,
-      "repository_sha256": "87242fe4c7d551b20b394e94cd10dcbce731228310f88aa271bc5610ed035931",
+      "source_bytes": 3956,
+      "source_sha256": "48fbb9deae905ea4508082b415fe0549dffe1b86e023b04157b9968b4178944e",
+      "repository_bytes": 3956,
+      "repository_sha256": "48fbb9deae905ea4508082b415fe0549dffe1b86e023b04157b9968b4178944e",
       "publication_transformation": null
     },
     {
@@ -1308,6 +1308,15 @@
       "source_sha256": "bdb9de348684a4bf12dfd10a13a58f284e2aa5a2dc924cceda7edb14af819de6",
       "repository_bytes": 9467,
       "repository_sha256": "bdb9de348684a4bf12dfd10a13a58f284e2aa5a2dc924cceda7edb14af819de6",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/MirrorSettingsActivity.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/MirrorSettingsActivity.java",
+      "source_bytes": 3047,
+      "source_sha256": "18f3f7f34bd31f7dc42d77d62c31fd153291fa16e2320de87eb11bcd5bc61edd",
+      "repository_bytes": 3047,
+      "repository_sha256": "18f3f7f34bd31f7dc42d77d62c31fd153291fa16e2320de87eb11bcd5bc61edd",
       "publication_transformation": null
     },
     {
@@ -2343,6 +2352,15 @@
       "source_sha256": "07db170a3e2d8a8bd3f07be530c52f3be3414d0ae8d4184841c9a2bc716703fa",
       "repository_bytes": 6764,
       "repository_sha256": "07db170a3e2d8a8bd3f07be530c52f3be3414d0ae8d4184841c9a2bc716703fa",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v38-20261006.md",
+      "repository_path": "docs/production-app-v38-20261006.md",
+      "source_bytes": 4199,
+      "source_sha256": "26cc7d752af19c46ac30247041319b1cb3e32a84e2a22c9dc582bbcd84199273",
+      "repository_bytes": 4199,
+      "repository_sha256": "26cc7d752af19c46ac30247041319b1cb3e32a84e2a22c9dc582bbcd84199273",
       "publication_transformation": null
     },
     {
@@ -4963,10 +4981,10 @@
     {
       "source_path": "tests/RuntimeInputStopIntegrationTest.java",
       "repository_path": "tests/RuntimeInputStopIntegrationTest.java",
-      "source_bytes": 8190,
-      "source_sha256": "9ab657fdb09a40d718394ed578e5c90a345325e25b0d6ef1a8a22fa9da9bd3b1",
-      "repository_bytes": 8190,
-      "repository_sha256": "9ab657fdb09a40d718394ed578e5c90a345325e25b0d6ef1a8a22fa9da9bd3b1",
+      "source_bytes": 8429,
+      "source_sha256": "ada39016b0d201eb10a0e408b6cacd01b417bf7b94dd32d36c69926e0c059325",
+      "repository_bytes": 8429,
+      "repository_sha256": "ada39016b0d201eb10a0e408b6cacd01b417bf7b94dd32d36c69926e0c059325",
       "publication_transformation": null
     },
     {
@@ -6467,16 +6485,16 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "032707ed4b280dd96b7fe50a475ef1b076455c20",
-  "public_parent_commit": "5e67d17befbfd9755383f1ad2e359617e3d1e532",
-  "versionCode": 37,
-  "versionName": "0.2.6",
-  "release_apk_sha256": "58ffb077578ea64314724d4d8f5422e1b436953b6ffd6e6b5b645e127286c1e7",
+  "previous_source_commit": "6b3a5694433a935c2ea85414c1c12bad55c6de52",
+  "public_parent_commit": "00dbdca7f6400fd0568489f8d2fd9b1ce4377b61",
+  "versionCode": 38,
+  "versionName": "0.2.7",
+  "release_apk_sha256": "fba44e64390f1968385aba54134d595e571d88414a2ce17df0cd8fe558dc328c",
   "last_iteration": {
-    "versionCode": 37,
-    "versionName": "0.2.6",
-    "approved_source_delta_files": 33,
-    "public_parent": "5e67d17befbfd9755383f1ad2e359617e3d1e532",
+    "versionCode": 38,
+    "versionName": "0.2.7",
+    "approved_source_delta_files": 8,
+    "public_parent": "00dbdca7f6400fd0568489f8d2fd9b1ce4377b61",
     "frozen_copy_hashes_verified": true,
     "unreviewed_model_pipeline_work_included": false,
     "v1_experiment_included": false
