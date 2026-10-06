@@ -6,16 +6,16 @@
 
 ## 当前版本
 
-当前版本为 **V43 / 0.2.12，最终候选 v3**（versionCode 43），源工程冻结点 `1d2fdd4152642f6c2f33b067b167fdd3e695a8fe`。新增独立材质覆盖诊断，并公开一组明确标为**候选审阅用途**的 Sephiroth 下颌模型与三张设备预览。普通运行仍为16视点 / 400×640、原完整PBR；本轮没有实现材质缓存，也没有新FPS测试。
+当前版本为 **V44 / 0.2.13，最终候选 v2**（versionCode 44），源工程冻结点 `05f9f2ffb2af8b7ebf3dc48eed3aefdc983e34fa`。角色页一次浏览一位，明确区分正在浏览和实际使用；仅点击“使用”才保存选择。默认关闭的分材质着色器得到有限画面验证及对原调试合批路径的短测提升，**尚未与普通默认 individual 路径比较，不自动启用**。
 
-- 覆盖诊断使用同姿态的16个实际视图，分别统计保存场景与默认场景的9姿态。**18 fixtures / 288层**的参考与ID诊断alpha覆盖零差；固定外部估计mask的全0、全255及单字节篡改均被拒绝。mask来自UV中心样本估计与全子节点安全mip规则，命中只代表**估计可缓存覆盖**，不代表保守安全、PBR画质或光学映射验收。
-- 保存场景中主primitive占前景约86.35%，估计命中占主primitive约38.44%、占前景约33.19%；默认场景约89.64%、18.96%、16.99%。这些是实际16层像素计数，**不能预测GPU收益**。完整2048级mask需要约891,393个着色texel；后续先评估可见UV分区/LOD成本，未直接启用全尺寸缓存。外部R8输入不打包、不公开。
-- [Sephiroth下颌候选](review-assets/sephiroth-jaw-v1/README.md)仅包含GLB、绑定清单、有限设备验证说明与中性/张嘴/微笑三张合成角色预览，共7文件。模型SHA为 `d086ec755d554d87c261ed557cfa784b3aa4016277a71c230ebed6d5d5ce5484`。两组各9姿态×16层的serial/OVR与individual/batched对照实际RGB及alpha均零差。它**未集成正式APK，不代表角色美术、全部表情、实时面捕或性能验收**。
-- 新普通会话原Geralt渲染READY；自然两次Back先收起菜单、再返回首页，最终无GL/pose/runtime线程。四份原配置逐字节保持，**78 assets与9 native entries和V42逐字节相同**，原签名及15项固定依赖保持。Camera2流配置错误仍在，未恢复真人USB采集。
-- 20项统计测试通过。V42完整Geralt联合回放A-B-A约8.920 / 8.957 / 8.932 FPS及三个预先固定35秒窗口门false均作为历史保留；**本轮无新帧率收益证明，30FPS与完整目标仍未完成**。ORM/PBR fastmath/空白交织候选继续默认关闭。
-- 除上述明确授权的7份合成模型审阅文件外，不发布私人录像、运行时面部数组、设备配置、QA/截图/raw日志、APK/build/output或未选模型流水线WIP。
+- 角色浏览不启动相机、GLB或NPU，只保留一张有界缩略图；真实设备验证浏览不写配置、边界按钮、HOME返回、明确选择艾达王后进程重启保留、Ada渲染READY及恢复杰洛特。两个[实际界面截图](docs/production-app-v44-20261007.md#角色页)是合成角色UI，不含真人摄像头帧。Java线程采样未见GLThread/avatar-pose/MirrorRuntime owner；不声称GPU驻留内存归零。
+- 原Geralt SHA、完整PBR纹理/网格/UV不变。候选按7个entry使用5种材质专用program，同4-view组由1次变7次draw，借用原VBO/IBO。仅debug显式启用，拒绝与ORM、fastmath、背景缓存或空白交织实验混用。
+- 实际Mali的**69姿态×16独立400×640层，1104比较**通过预设maxRGB1/RMSE0.1/alpha0门：最大RGB差1级、最大层RMSE0.0019764级、351个RGB字节不同、alpha零差。参考276/candidate1932次提交；不是所有连续姿态、光学校准或美术验收。
+- 同APK完整Geralt/PBR、录像NV21/RGA/RKNN478/混合52、16×400×640与1200×1920交织，debug原合批/候选/原合批呈现 **8.9258 / 11.2783 / 8.9305 FPS**。全部确认INTERACTIVE采集/呈现证据完整，候选对两次参考均值约**26.32%**提升；CPU约增加4–5个百分点、GPU仍近满载。预注册前35秒辅助完整门**三组均false**保留，无长测或普通individual收益结论。
+- 普通入口候选仍关闭，原Geralt READY，四配置、**78 APK assets与9 native entries和V43字节一致**。USB流配置仍为Camera ERROR，未恢复实时采集；**16+视点30FPS及完整目标未完成**。
+- 私有NPU位移原型虽位置误差小，但经原法线重算有明显离群；私有眼睑候选也尚未完成闭眼校正。两者未接入APK、未公开。本轮只发布21项源码/文档/两张已授权UI图，不发布录像、面部数组、APK、QA/raw或未选WIP。V43的7项[下颌候选审阅文件](review-assets/sephiroth-jaw-v1/README.md)保持原样，仍非正式角色或美术验收。
 
-详见 [V43诊断与候选边界](docs/production-app-v43-20261007.md)、[V42性能实验](docs/production-app-v42-20261006.md)、[V41校准历史](docs/production-app-v41-20261006.md)和[正式App规格](docs/production-app-spec-20261005.md)。
+详见 [V44结果与边界](docs/production-app-v44-20261007.md)、[V43诊断历史](docs/production-app-v43-20261007.md)和[完整目标规格](docs/production-app-spec-20261005.md)。所有历史源README内容保留在[设备工程历史](docs/device-lab-history.md)。
 
 ## 目录
 

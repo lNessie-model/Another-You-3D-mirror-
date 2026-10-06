@@ -1,8 +1,8 @@
 {
-  "source_commit": "1d2fdd4152642f6c2f33b067b167fdd3e695a8fe",
+  "source_commit": "05f9f2ffb2af8b7ebf3dc48eed3aefdc983e34fa",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 760,
+  "file_count": 772,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,28 +35,28 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 46850,
-      "source_sha256": "36bccbb238c9bee580a4ee33c2fafa0492ee67bbe810c643c32dd49361294f4b",
-      "repository_bytes": 46850,
-      "repository_sha256": "36bccbb238c9bee580a4ee33c2fafa0492ee67bbe810c643c32dd49361294f4b",
+      "source_bytes": 47627,
+      "source_sha256": "ccff6ae6e713d6c311f88f559694f26bfba4407182bf0dbf73143bee12c0ef44",
+      "repository_bytes": 47627,
+      "repository_sha256": "ccff6ae6e713d6c311f88f559694f26bfba4407182bf0dbf73143bee12c0ef44",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 911,
-      "source_sha256": "8ae2ef48f4eff467b626069fe8f33b471e5f09de2aecc38b89ba246446f4e65d",
+      "source_sha256": "47276334eadbcaa197ed6ec1f21c85ced25ec9b2d5fe007b581b18bf3e977294",
       "repository_bytes": 911,
-      "repository_sha256": "8ae2ef48f4eff467b626069fe8f33b471e5f09de2aecc38b89ba246446f4e65d",
+      "repository_sha256": "47276334eadbcaa197ed6ec1f21c85ced25ec9b2d5fe007b581b18bf3e977294",
       "publication_transformation": null
     },
     {
       "source_path": "app/src/main/AndroidManifest.xml",
       "repository_path": "app/src/main/AndroidManifest.xml",
-      "source_bytes": 4144,
-      "source_sha256": "0a419cd17366405ac5a7fcc73c9bab55cc66a4bb73650ef55ee1d83cba836768",
-      "repository_bytes": 4144,
-      "repository_sha256": "0a419cd17366405ac5a7fcc73c9bab55cc66a4bb73650ef55ee1d83cba836768",
+      "source_bytes": 4273,
+      "source_sha256": "799189bb8d5a651ccedd726ccbcf01120f09d2151cf6840df9acbdc46e0b8117",
+      "repository_bytes": 4273,
+      "repository_sha256": "799189bb8d5a651ccedd726ccbcf01120f09d2151cf6840df9acbdc46e0b8117",
       "publication_transformation": null
     },
     {
@@ -753,10 +753,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/AvatarBatchGpu.java",
       "repository_path": "app/src/main/java/com/mirror/bench/AvatarBatchGpu.java",
-      "source_bytes": 18452,
-      "source_sha256": "9769c3f98ac899b3ef3c203658d681bba6dc6b7cb383fde938954d0d602fa330",
-      "repository_bytes": 18452,
-      "repository_sha256": "9769c3f98ac899b3ef3c203658d681bba6dc6b7cb383fde938954d0d602fa330",
+      "source_bytes": 20801,
+      "source_sha256": "7b3a492d8edd7f2729489007ded0526e6ff7b243d5b5a898325fa95fb771809b",
+      "repository_bytes": 20801,
+      "repository_sha256": "7b3a492d8edd7f2729489007ded0526e6ff7b243d5b5a898325fa95fb771809b",
       "publication_transformation": null
     },
     {
@@ -766,6 +766,15 @@
       "source_sha256": "65dbbe6d0c3e6abb7c5537828251b28c1ee7a1a8d82a9147c43411141f41ca7b",
       "repository_bytes": 3490,
       "repository_sha256": "65dbbe6d0c3e6abb7c5537828251b28c1ee7a1a8d82a9147c43411141f41ca7b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/AvatarBatchSpecializedGpu.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/AvatarBatchSpecializedGpu.java",
+      "source_bytes": 14603,
+      "source_sha256": "590a678adb80abfc74b150780cefb4b912c5740c00a1ad8354dc22549ef578c2",
+      "repository_bytes": 14603,
+      "repository_sha256": "590a678adb80abfc74b150780cefb4b912c5740c00a1ad8354dc22549ef578c2",
       "publication_transformation": null
     },
     {
@@ -834,10 +843,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/AvatarGpuScene.java",
       "repository_path": "app/src/main/java/com/mirror/bench/AvatarGpuScene.java",
-      "source_bytes": 59987,
-      "source_sha256": "c01a3d27d20efd17e297d7d196adddf3b7535da242d9b2579d92336b90717065",
-      "repository_bytes": 59987,
-      "repository_sha256": "c01a3d27d20efd17e297d7d196adddf3b7535da242d9b2579d92336b90717065",
+      "source_bytes": 61044,
+      "source_sha256": "40ec12626c154629c139e14efd9dd7a506f07ce02c234dc550e60af6d0083c65",
+      "repository_bytes": 61044,
+      "repository_sha256": "40ec12626c154629c139e14efd9dd7a506f07ce02c234dc550e60af6d0083c65",
       "publication_transformation": null
     },
     {
@@ -1008,6 +1017,15 @@
       "source_sha256": "b7133ef0a2eebb58a829ace8fb7f0d9fa92b40285e6bd9b1c9c8a97d22e95bbd",
       "repository_bytes": 8770,
       "repository_sha256": "b7133ef0a2eebb58a829ace8fb7f0d9fa92b40285e6bd9b1c9c8a97d22e95bbd",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/AvatarSpecializedCheck.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/AvatarSpecializedCheck.java",
+      "source_bytes": 9882,
+      "source_sha256": "2a03d992e3617e70a715e6be223fcfdc986b890e08b568cb0c5bf7da614ac6c7",
+      "repository_bytes": 9882,
+      "repository_sha256": "2a03d992e3617e70a715e6be223fcfdc986b890e08b568cb0c5bf7da614ac6c7",
       "publication_transformation": null
     },
     {
@@ -1334,10 +1352,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/InterlaceRenderer.java",
       "repository_path": "app/src/main/java/com/mirror/bench/InterlaceRenderer.java",
-      "source_bytes": 119717,
-      "source_sha256": "2556728f3a47dce5732d5f2b72f5b0da5a8a1cf6cce8d953c49bdbc695006118",
-      "repository_bytes": 119717,
-      "repository_sha256": "2556728f3a47dce5732d5f2b72f5b0da5a8a1cf6cce8d953c49bdbc695006118",
+      "source_bytes": 120189,
+      "source_sha256": "b4fe2e1c7af0ccb76da75910589321f54de0715e7bcb1741955efae9c59e982c",
+      "repository_bytes": 120189,
+      "repository_sha256": "b4fe2e1c7af0ccb76da75910589321f54de0715e7bcb1741955efae9c59e982c",
       "publication_transformation": null
     },
     {
@@ -1352,10 +1370,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
-      "source_bytes": 83818,
-      "source_sha256": "c856b8ab4d9f9f9011f0a95895105576c8957c9304980f74aa8f2a25d2c72205",
-      "repository_bytes": 83818,
-      "repository_sha256": "c856b8ab4d9f9f9011f0a95895105576c8957c9304980f74aa8f2a25d2c72205",
+      "source_bytes": 84696,
+      "source_sha256": "5d21996ba43b8cfd93539fcedf17c5c07eb4fb6f0b1bef3660d4f43c7fb847ea",
+      "repository_bytes": 84696,
+      "repository_sha256": "5d21996ba43b8cfd93539fcedf17c5c07eb4fb6f0b1bef3660d4f43c7fb847ea",
       "publication_transformation": null
     },
     {
@@ -1370,10 +1388,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorRolesActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorRolesActivity.java",
-      "source_bytes": 8778,
-      "source_sha256": "f7aa948ad6b4bacbbcc72f7de31e692e5a5ebcc60296a0aa6922da0cf005917e",
-      "repository_bytes": 8778,
-      "repository_sha256": "f7aa948ad6b4bacbbcc72f7de31e692e5a5ebcc60296a0aa6922da0cf005917e",
+      "source_bytes": 12497,
+      "source_sha256": "7af4e82476ca5367d0c60626a55da6716ceeb8018c49bbf2c0cf0837382a1339",
+      "repository_bytes": 12497,
+      "repository_sha256": "7af4e82476ca5367d0c60626a55da6716ceeb8018c49bbf2c0cf0837382a1339",
       "publication_transformation": null
     },
     {
@@ -1730,6 +1748,15 @@
       "source_sha256": "d28c8e6caae2026098ecf529891c3d547a8bd6aefa2715456ea1b621396ea139",
       "repository_bytes": 6327,
       "repository_sha256": "d28c8e6caae2026098ecf529891c3d547a8bd6aefa2715456ea1b621396ea139",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/SpecializedBatchCheckActivity.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/SpecializedBatchCheckActivity.java",
+      "source_bytes": 3579,
+      "source_sha256": "d4d20959af510211c4ad440409ffcbba75657304e711219292acfd343c6d7262",
+      "repository_bytes": 3579,
+      "repository_sha256": "d4d20959af510211c4ad440409ffcbba75657304e711219292acfd343c6d7262",
       "publication_transformation": null
     },
     {
@@ -2261,6 +2288,24 @@
       "publication_transformation": null
     },
     {
+      "source_path": "docs/images/v44-roles-ada.png",
+      "repository_path": "docs/images/v44-roles-ada.png",
+      "source_bytes": 295591,
+      "source_sha256": "1500f247145babc48a50c86f48ff7a7a871571b164bc66cfc3933c122e01edf7",
+      "repository_bytes": 295591,
+      "repository_sha256": "1500f247145babc48a50c86f48ff7a7a871571b164bc66cfc3933c122e01edf7",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/images/v44-roles-geralt.png",
+      "repository_path": "docs/images/v44-roles-geralt.png",
+      "source_bytes": 304204,
+      "source_sha256": "31d9964e60fe2d49709d33a68ab3ed431ad11771d61e2d493430448cf371ea12",
+      "repository_bytes": 304204,
+      "repository_sha256": "31d9964e60fe2d49709d33a68ab3ed431ad11771d61e2d493430448cf371ea12",
+      "publication_transformation": null
+    },
+    {
       "source_path": "docs/manual-face-ui-20261004.md",
       "repository_path": "docs/manual-face-ui-20261004.md",
       "source_bytes": 2599,
@@ -2490,6 +2535,15 @@
       "source_sha256": "04dd32135f3a0e8110cd4125c75b11051b24d258d2cf692d48766db68cba101a",
       "repository_bytes": 5881,
       "repository_sha256": "04dd32135f3a0e8110cd4125c75b11051b24d258d2cf692d48766db68cba101a",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v44-20261007.md",
+      "repository_path": "docs/production-app-v44-20261007.md",
+      "source_bytes": 7365,
+      "source_sha256": "4b3a4d554d0250f6d691b4a7454788dd8c4e3de3e89b4816e3ce33b4b37e4964",
+      "repository_bytes": 7365,
+      "repository_sha256": "4b3a4d554d0250f6d691b4a7454788dd8c4e3de3e89b4816e3ce33b4b37e4964",
       "publication_transformation": null
     },
     {
@@ -4075,10 +4129,10 @@
     {
       "source_path": "scripts/run_runtime_check.py",
       "repository_path": "scripts/run_runtime_check.py",
-      "source_bytes": 51310,
-      "source_sha256": "34f59b897d5c7041e85eea8de68eb89d553a6193ce157c4dffcd0a63f061d264",
-      "repository_bytes": 51310,
-      "repository_sha256": "34f59b897d5c7041e85eea8de68eb89d553a6193ce157c4dffcd0a63f061d264",
+      "source_bytes": 51581,
+      "source_sha256": "43fcb02b4969f9fdc7021f449f795587efa83746b60e7588b074289150bf451a",
+      "repository_bytes": 51581,
+      "repository_sha256": "43fcb02b4969f9fdc7021f449f795587efa83746b60e7588b074289150bf451a",
       "publication_transformation": null
     },
     {
@@ -4366,6 +4420,24 @@
       "source_sha256": "e488ebdaadf6fb07f0488d7f555b6f8e7c04e2a876e9e83492d7796c1b3cd65b",
       "repository_bytes": 4564,
       "repository_sha256": "e488ebdaadf6fb07f0488d7f555b6f8e7c04e2a876e9e83492d7796c1b3cd65b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/AvatarBatchSpecializedLifecycleTest.java",
+      "repository_path": "tests/AvatarBatchSpecializedLifecycleTest.java",
+      "source_bytes": 7850,
+      "source_sha256": "32157f9f0d3972c488e48de3273fec9daa7157d2facd600d057e3bc4fd6a6e72",
+      "repository_bytes": 7850,
+      "repository_sha256": "32157f9f0d3972c488e48de3273fec9daa7157d2facd600d057e3bc4fd6a6e72",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/AvatarBatchSpecializedShaderTest.java",
+      "repository_path": "tests/AvatarBatchSpecializedShaderTest.java",
+      "source_bytes": 5283,
+      "source_sha256": "cf653c3387e059c3c21c5a383bcfdb42bbde1e52b0f195da18f82fd092822500",
+      "repository_bytes": 5283,
+      "repository_sha256": "cf653c3387e059c3c21c5a383bcfdb42bbde1e52b0f195da18f82fd092822500",
       "publication_transformation": null
     },
     {
@@ -5270,6 +5342,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/SpecializedBatchConfigTest.java",
+      "repository_path": "tests/SpecializedBatchConfigTest.java",
+      "source_bytes": 4218,
+      "source_sha256": "50744ed325799a11535e55dffde2b7e36da4c88c919e8653477ada4c1941c790",
+      "repository_bytes": 4218,
+      "repository_sha256": "50744ed325799a11535e55dffde2b7e36da4c88c919e8653477ada4c1941c790",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/TripoFramingCheck.java",
       "repository_path": "tests/TripoFramingCheck.java",
       "source_bytes": 1344,
@@ -5960,6 +6041,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/run_avatar_batch_specialized_tests.ps1",
+      "repository_path": "tests/run_avatar_batch_specialized_tests.ps1",
+      "source_bytes": 3365,
+      "source_sha256": "479e57a1a0dffaf6451e6f028b9b9c6d6300e82bc592fe40bf930186cf4b9a6e",
+      "repository_bytes": 3365,
+      "repository_sha256": "479e57a1a0dffaf6451e6f028b9b9c6d6300e82bc592fe40bf930186cf4b9a6e",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/run_avatar_framing_tests.ps1",
       "repository_path": "tests/run_avatar_framing_tests.ps1",
       "source_bytes": 1660,
@@ -6489,6 +6579,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/run_specialized_batch_config_tests.ps1",
+      "repository_path": "tests/run_specialized_batch_config_tests.ps1",
+      "source_bytes": 1201,
+      "source_sha256": "ec9128bf1cba60a2370452ab7d470838fb245f947b6533ede5250e34b2a36a02",
+      "repository_bytes": 1201,
+      "repository_sha256": "ec9128bf1cba60a2370452ab7d470838fb245f947b6533ede5250e34b2a36a02",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/run_tap_contract_tests.cmd",
       "repository_path": "tests/run_tap_contract_tests.cmd",
       "source_bytes": 2469,
@@ -6522,6 +6621,15 @@
       "source_sha256": "b909c77c334da6bca543b5c213bf6b76a8fc37b452f3194538d8996a718b434e",
       "repository_bytes": 7073,
       "repository_sha256": "b909c77c334da6bca543b5c213bf6b76a8fc37b452f3194538d8996a718b434e",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/specialized-batch-stubs/android/opengl/GLES30.java",
+      "repository_path": "tests/specialized-batch-stubs/android/opengl/GLES30.java",
+      "source_bytes": 6093,
+      "source_sha256": "f10b4cd5506f8035edace558cbafa5a23d60ab88eeb5b359103536fdbc339739",
+      "repository_bytes": 6093,
+      "repository_sha256": "f10b4cd5506f8035edace558cbafa5a23d60ab88eeb5b359103536fdbc339739",
       "publication_transformation": null
     },
     {
@@ -6821,22 +6929,23 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "83d7123d0824589e37d2d8ad757d21f14ca306c4",
-  "public_parent_commit": "68378c8eab5e2d9096639d43f01b18e30f02fcab",
-  "versionCode": 43,
-  "versionName": "0.2.12",
-  "release_apk_sha256": "2a3b110b99d16053cf0dad522b7e41a47380c4e1dbaf1eaee2ff67c330e2cd08",
+  "previous_source_commit": "1d2fdd4152642f6c2f33b067b167fdd3e695a8fe",
+  "public_parent_commit": "8feff24f7e28b8318a691deed75d3eed74f9f18e",
+  "versionCode": 44,
+  "versionName": "0.2.13",
+  "release_apk_sha256": "8e6a6f33ab693ebed2b274d0dc40da76230fb3afa4182a45086a4fa881f652a6",
   "last_iteration": {
-    "versionCode": 43,
-    "versionName": "0.2.12",
-    "approved_source_delta_files": 20,
-    "public_parent": "68378c8eab5e2d9096639d43f01b18e30f02fcab",
+    "versionCode": 44,
+    "versionName": "0.2.13",
+    "approved_source_delta_files": 21,
+    "public_parent": "8feff24f7e28b8318a691deed75d3eed74f9f18e",
     "frozen_copy_hashes_verified": true,
     "unreviewed_model_pipeline_work_included": false,
-    "synthetic_review_asset_files": 7,
-    "review_asset_formal_apk_integration": false,
-    "ordinary_rendering_changed": false,
-    "material_cache_implemented": false
+    "approved_synthetic_role_ui_pngs": 2,
+    "new_review_asset_files": 0,
+    "existing_review_asset_files_preserved": 7,
+    "ordinary_default_rendering_changed": false,
+    "specialized_candidate_default": false
   },
   "source_sha_scope": "Frozen publication working bytes. Reviewed mappings from earlier iterations are retained; current unfrozen model-authoring worktree edits are excluded.",
   "source_git_text_normalization": "Source Git may normalize CRLF text to LF. Public copies preserve root-approved frozen working bytes via * -text; per-version index receipts record exact differences."

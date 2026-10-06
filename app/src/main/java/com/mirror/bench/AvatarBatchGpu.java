@@ -18,6 +18,9 @@ final class AvatarBatchGpu {
     private Program single,multiview;
     private Program comparisonSingle,comparisonMultiview;
     private AvatarMaterialCoverageGpu coverageDiagnostic;
+    private AvatarBatchSpecializedGpu specialized;
+    private boolean selectedSpecialized;
+    private long referenceDrawCalls,referenceGroups;
     private final boolean pbrFastMath;
     private boolean selectedFastMath;
     private final float[] worlds,normals,colors,params,fit=new float[16],inverse=new float[16];
@@ -62,7 +65,7 @@ final class AvatarBatchGpu {
             if(atlas){FloatBuffer uv=direct(layout.uvs());GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[4]);
                 GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER,uv.capacity()*4,uv,GLES30.GL_STATIC_DRAW);}
             checkGl("batch construction");
-        } catch(RuntimeException|Error failure){dispose();throw failure;}
+        } catch(RuntimeException|Error failure){try{dispose();}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
     }
     /** Already-computed floats go directly into subranges; no per-frame CPU repacking. */
     long upload(int mesh,int primitive,FloatBuffer source) {
@@ -92,6 +95,7 @@ final class AvatarBatchGpu {
             if(!Matrix.invertM(inverse,0,worlds,i*16))throw new IllegalStateException("Singular avatar batch node transform");
             for(int col=0;col<3;col++)for(int row=0;row<3;row++)normals[i*9+col*3+row]=inverse[row*4+col];
         }
+        if(selectedSpecialized){specialized.draw(viewProjections,viewCount,worlds,normals);return;}
         GLES30.glUseProgram(program.id);GLES30.glUniformMatrix4fv(program.vp,viewCount,false,viewProjections,0);
         GLES30.glUniformMatrix4fv(program.world,count,false,worlds,0);GLES30.glUniformMatrix3fv(program.normal,count,false,normals,0);
         GLES30.glUniform4fv(program.color,count,colors,0);GLES30.glUniform4fv(program.params,count,params,0);
@@ -109,36 +113,46 @@ final class AvatarBatchGpu {
         if(atlas){GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,buffers[4]);GLES30.glEnableVertexAttribArray(4);GLES30.glVertexAttribPointer(4,2,GLES30.GL_FLOAT,false,8,0);}
         GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,buffers[3]);
         GLES30.glDrawElements(GLES30.GL_TRIANGLES,layout.indexCount(),GLES30.GL_UNSIGNED_INT,0);
+        referenceDrawCalls++;referenceGroups++;
         for(int i=0;i<(atlas?5:4);i++)GLES30.glDisableVertexAttribArray(i);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,0);GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER,0);
     }
     void drawMaterialCoverage(float[] vp,int count,float[] fit,float[] displayedWorlds,int estimateTexture) {
-        if(disposed)throw new IllegalStateException("Disposed avatar batch");
+        if(disposed||specialized!=null)throw new IllegalStateException("Exclusive live avatar coverage batch required");
         if(coverageDiagnostic==null)coverageDiagnostic=new AvatarMaterialCoverageGpu(layout,buffers,multiview!=null);
         coverageDiagnostic.draw(vp,count,fit,displayedWorlds,estimateTexture);
     }
     org.json.JSONArray materialCoverageEntries()throws Exception {
-        if(disposed)throw new IllegalStateException("Disposed avatar batch");
+        if(disposed||specialized!=null)throw new IllegalStateException("Exclusive live avatar coverage batch required");
         if(coverageDiagnostic==null)coverageDiagnostic=new AvatarMaterialCoverageGpu(layout,buffers,multiview!=null);
         return coverageDiagnostic.entries();
     }
     JSONObject status()throws Exception {
-        return new JSONObject().put("draw_items",layout.entries().size()).put("draw_calls_per_view_group",1)
+        return new JSONObject().put("draw_items",layout.entries().size()).put("draw_calls_per_view_group",selectedSpecialized?layout.entries().size():1)
+                .put("specialized_selected",selectedSpecialized).put("reference_draw_calls",referenceDrawCalls).put("reference_view_groups",referenceGroups)
+                .put("specialized",specialized==null?JSONObject.NULL:specialized.status())
                 .put("vertices",layout.vertexCount()).put("indices",layout.indexCount()).put("extra_id_bytes",layout.vertexCount()*4)
                 .put("max_vertex_uniform_vectors",vertexLimit).put("required_vertex_uniform_vectors",requiredVertexVectors)
                 .put("max_fragment_uniform_vectors",fragmentLimit).put("required_fragment_uniform_vectors",0)
                 .put("max_varying_vectors",varyingLimit).put("required_varying_vectors",pbr?7:atlas?6:5)
                 .put("albedo_atlas",atlas).put("static_uv_bytes",atlas?layout.vertexCount()*8:0)
-                .put("material_selection_stage","vertex_flat")
+                .put("material_selection_stage",selectedSpecialized?"compile_time_per_entry":"vertex_flat")
                 .put("pbr_fast_math_requested",pbrFastMath).put("pbr_shader_variant",AvatarPbrShaderVariant.name(pbr,selectedFastMath));
     }
     /** Only the owning current EGL context may delete these names. */
     void dispose() {
-        if(disposed)return;disposed=true;GLES30.glDeleteBuffers(buffers.length,buffers,0);
-        if(coverageDiagnostic!=null){coverageDiagnostic.close();coverageDiagnostic=null;}
-        endPbrComparison();
-        if(single!=null){GLES30.glDeleteProgram(single.id);single=null;}
-        if(multiview!=null){GLES30.glDeleteProgram(multiview.id);multiview=null;}
+        if(disposed)return;disposed=true;
+        ResourceCleanup cleanup=new ResourceCleanup(null);
+        cleanup.close("batch buffers",()->GLES30.glDeleteBuffers(buffers.length,buffers,0));
+        AvatarMaterialCoverageGpu coverage=coverageDiagnostic;coverageDiagnostic=null;
+        cleanup.close("batch coverage",coverage);
+        cleanup.close("batch specialized",this::endSpecializedComparison);
+        cleanup.close("batch PBR comparison",this::endPbrComparison);
+        Program a=single,b=multiview;single=null;multiview=null;
+        if(a!=null)cleanup.close("batch single",()->GLES30.glDeleteProgram(a.id));
+        if(b!=null)cleanup.close("batch multiview",()->GLES30.glDeleteProgram(b.id));
+        Throwable failure=cleanup.failure();if(failure instanceof Error e)throw e;
+        if(failure instanceof RuntimeException r)throw r;if(failure!=null)throw new IllegalStateException(failure);
     }
     static String vertexSource(boolean multiview,int count) {
         String source=AvatarGpuScene.VERTEX.replace("layout(location=2) in vec4 aColor;",
@@ -207,7 +221,7 @@ final class AvatarBatchGpu {
         return program;
     }
     void beginPbrComparison(){
-        if(disposed||!pbr||comparisonSingle!=null)throw new IllegalStateException("Batch PBR comparison unavailable");
+        if(disposed||!pbr||comparisonSingle!=null||specialized!=null)throw new IllegalStateException("Batch PBR comparison unavailable");
         try{
             comparisonSingle=new Program(false,layout.entries().size(),atlas,true,!pbrFastMath);
             if(multiview!=null)comparisonMultiview=new Program(true,layout.entries().size(),atlas,true,!pbrFastMath);
@@ -229,6 +243,23 @@ final class AvatarBatchGpu {
         if(failure instanceof Error)throw (Error)failure;
         if(failure instanceof RuntimeException)throw (RuntimeException)failure;
         if(failure!=null)throw new IllegalStateException(failure);
+    }
+    /** Lazy opt-in. No candidate GL allocation on the default batch path. */
+    void beginSpecializedComparison(){
+        if(disposed||!atlas||!pbr||pbrFastMath||selectedFastMath||comparisonSingle!=null||coverageDiagnostic!=null||specialized!=null)
+            throw new IllegalStateException("Exclusive reference-PBR specialized comparison required");
+        AvatarBatchSpecializedGpu created=new AvatarBatchSpecializedGpu(layout,buffers,multiview!=null,colors,params,pbrParams);
+        specialized=created;selectedSpecialized=false;
+    }
+    void selectSpecialized(boolean enabled){
+        if(disposed||specialized==null)throw new IllegalStateException("Live specialized comparison required");
+        specialized.requireOwner();
+        selectedSpecialized=enabled;
+    }
+    void endSpecializedComparison(){
+        AvatarBatchSpecializedGpu old=specialized;if(old!=null)old.requireOwner();
+        selectedSpecialized=false;specialized=null;
+        if(old!=null)old.close();
     }
     private static FloatBuffer direct(FloatBuffer source){var b=ByteBuffer.allocateDirect(source.remaining()*4).order(ByteOrder.nativeOrder()).asFloatBuffer();b.put(source);b.flip();return b;}
     private static IntBuffer direct(IntBuffer source){var b=ByteBuffer.allocateDirect(source.remaining()*4).order(ByteOrder.nativeOrder()).asIntBuffer();b.put(source);b.flip();return b;}
