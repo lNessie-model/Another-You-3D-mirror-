@@ -1,8 +1,8 @@
 {
-  "source_commit": "59dc1403e2a22f124433f8f2e70f81ad72c4b7c4",
+  "source_commit": "380388c16460491a1ca428fb3ffb97ca22fbbda3",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 857,
+  "file_count": 864,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,19 +35,19 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 53249,
-      "source_sha256": "d4c91f36085a7aa357800cabb1677270f4addcfa4c3784f0a55d4eb186da7d7a",
-      "repository_bytes": 53249,
-      "repository_sha256": "d4c91f36085a7aa357800cabb1677270f4addcfa4c3784f0a55d4eb186da7d7a",
+      "source_bytes": 53994,
+      "source_sha256": "927247a6928b29eacfee6e8869868c5f567ebd56030feca142473d7de141a9e4",
+      "repository_bytes": 53994,
+      "repository_sha256": "927247a6928b29eacfee6e8869868c5f567ebd56030feca142473d7de141a9e4",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 886,
-      "source_sha256": "982461cafa3c6452f7fa9bd3a9231c406424e78d0cffff0bff8b60a45c079b00",
+      "source_sha256": "51c739d2adc2f2d6000ff482049cbb8b32459bd6eea2d92cfe128a40a64a5a5f",
       "repository_bytes": 886,
-      "repository_sha256": "982461cafa3c6452f7fa9bd3a9231c406424e78d0cffff0bff8b60a45c079b00",
+      "repository_sha256": "51c739d2adc2f2d6000ff482049cbb8b32459bd6eea2d92cfe128a40a64a5a5f",
       "publication_transformation": null
     },
     {
@@ -195,10 +195,10 @@
     {
       "source_path": "app/src/main/assets/library/catalog.json",
       "repository_path": "app/src/main/assets/library/catalog.json",
-      "source_bytes": 19609,
-      "source_sha256": "cf8d161befb21d3d1c3916daee42b00e72170c274b5219329b9664a759211398",
-      "repository_bytes": 19609,
-      "repository_sha256": "cf8d161befb21d3d1c3916daee42b00e72170c274b5219329b9664a759211398",
+      "source_bytes": 21517,
+      "source_sha256": "dee1d6129d310e79dc323c0492e029c26aa69c705aad90ccc14bc612fd218fe9",
+      "repository_bytes": 21517,
+      "repository_sha256": "dee1d6129d310e79dc323c0492e029c26aa69c705aad90ccc14bc612fd218fe9",
       "publication_transformation": null
     },
     {
@@ -436,6 +436,24 @@
       "publication_transformation": null
     },
     {
+      "source_path": "app/src/main/assets/library/head-leon-premium/preview.png",
+      "repository_path": "app/src/main/assets/library/head-leon-premium/preview.png",
+      "source_bytes": 819796,
+      "source_sha256": "556d8e1c182783ff7654f763a7111fad57f06cf30a7edcd5d5947020d3cc0c9a",
+      "repository_bytes": 819796,
+      "repository_sha256": "556d8e1c182783ff7654f763a7111fad57f06cf30a7edcd5d5947020d3cc0c9a",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-leon-premium/source.glb",
+      "repository_path": "app/src/main/assets/library/head-leon-premium/source.glb",
+      "source_bytes": 10604008,
+      "source_sha256": "10c45a892b15001a021d16a2a964c97c78cf30201ad8544222a2caf91380f6ef",
+      "repository_bytes": 10604008,
+      "repository_sha256": "10c45a892b15001a021d16a2a964c97c78cf30201ad8544222a2caf91380f6ef",
+      "publication_transformation": null
+    },
+    {
       "source_path": "app/src/main/assets/library/head-makima-early/preview.png",
       "repository_path": "app/src/main/assets/library/head-makima-early/preview.png",
       "source_bytes": 186388,
@@ -562,6 +580,24 @@
       "publication_transformation": null
     },
     {
+      "source_path": "app/src/main/assets/library/head-storm-premium/preview.png",
+      "repository_path": "app/src/main/assets/library/head-storm-premium/preview.png",
+      "source_bytes": 780639,
+      "source_sha256": "0ed94aef3af3ccab8e0feb808af1c098275264b4d867437522a440875ebf5941",
+      "repository_bytes": 780639,
+      "repository_sha256": "0ed94aef3af3ccab8e0feb808af1c098275264b4d867437522a440875ebf5941",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-storm-premium/source.glb",
+      "repository_path": "app/src/main/assets/library/head-storm-premium/source.glb",
+      "source_bytes": 10612428,
+      "source_sha256": "9a15a2f5f1e0023e738623718ddf28553d2bfeebc698f7df9f8665e003885d69",
+      "repository_bytes": 10612428,
+      "repository_sha256": "9a15a2f5f1e0023e738623718ddf28553d2bfeebc698f7df9f8665e003885d69",
+      "publication_transformation": null
+    },
+    {
       "source_path": "app/src/main/assets/library/head-sukuna/preview.png",
       "repository_path": "app/src/main/assets/library/head-sukuna/preview.png",
       "source_bytes": 178219,
@@ -577,6 +613,24 @@
       "source_sha256": "aa59c8ea758fdab9bdc78c64d0510079ef0467ecae54f65d7afb12b553c907a2",
       "repository_bytes": 3203008,
       "repository_sha256": "aa59c8ea758fdab9bdc78c64d0510079ef0467ecae54f65d7afb12b553c907a2",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-tifa-premium/preview.png",
+      "repository_path": "app/src/main/assets/library/head-tifa-premium/preview.png",
+      "source_bytes": 774267,
+      "source_sha256": "93e03bbb403235d2b106ccb361f5ac77b3c3e2520d9d73eb759bd1c2c58321d8",
+      "repository_bytes": 774267,
+      "repository_sha256": "93e03bbb403235d2b106ccb361f5ac77b3c3e2520d9d73eb759bd1c2c58321d8",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/assets/library/head-tifa-premium/source.glb",
+      "repository_path": "app/src/main/assets/library/head-tifa-premium/source.glb",
+      "source_bytes": 8869648,
+      "source_sha256": "b98204dd6d4a499640c6d1df064d27bde3b99f5078822b189420a50b8cc555bc",
+      "repository_bytes": 8869648,
+      "repository_sha256": "b98204dd6d4a499640c6d1df064d27bde3b99f5078822b189420a50b8cc555bc",
       "publication_transformation": null
     },
     {
@@ -2868,6 +2922,15 @@
       "source_sha256": "9ba7603c8afad9aee4064519e1941c91395fd4370f5890c1694f02a9def4eaf2",
       "repository_bytes": 7674,
       "repository_sha256": "9ba7603c8afad9aee4064519e1941c91395fd4370f5890c1694f02a9def4eaf2",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v53-20261008.md",
+      "repository_path": "docs/production-app-v53-20261008.md",
+      "source_bytes": 4286,
+      "source_sha256": "0e1301890084906a55867f07e156cd8510d5a051eb6516f2d796127688c734af",
+      "repository_bytes": 4286,
+      "repository_sha256": "0e1301890084906a55867f07e156cd8510d5a051eb6516f2d796127688c734af",
       "publication_transformation": null
     },
     {
@@ -7694,16 +7757,17 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "90163af349c7757b118ca7586d7be7f608a8f0b4",
-  "public_parent_commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
-  "versionCode": 52,
-  "versionName": "0.2.21",
-  "release_apk_sha256": "b7d776302ba0067cfd5a8f124b8772db6cb3733b91b265a949519defb7254a72",
+  "previous_source_commit": "59dc1403e2a22f124433f8f2e70f81ad72c4b7c4",
+  "public_parent_commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+  "versionCode": 53,
+  "versionName": "0.2.22",
+  "release_apk_sha256": "82cefba457ec74e87db72a24dba5ce6a2de4ec1639fcc24638177212b8b31fa0",
   "last_iteration": {
-    "versionCode": 52,
-    "versionName": "0.2.21",
-    "approved_source_delta_files": 23,
+    "versionCode": 53,
+    "versionName": "0.2.22",
+    "approved_source_delta_files": 10,
     "ordinary_qa_passed": true,
+    "qa_scope": "Static library UI only; no runtime GL/camera/performance retest",
     "all_historical_assets_preserved": true,
     "production_performance_improved": false,
     "full_goal_complete": false

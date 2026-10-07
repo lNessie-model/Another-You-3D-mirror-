@@ -380,6 +380,42 @@
       "sourceSha256": "c9557960faba4758e3370879413ad32469b2f1c174892ba9ca4f49f5a0959dd5",
       "previewPath": "library/head-android/preview.png",
       "previewSha256": "4fb8f2be144a03ecf71de21bd0be414272eab32b95d440fa2353674f5f1fcc8c"
+    },
+    {
+      "id": "head-tifa-premium",
+      "displayName": "蒂法风格·新原件",
+      "type": "head",
+      "status": "static_preview",
+      "sourceLabel": "新角色原件·2026.10.08",
+      "notes": "新模型原件与真实静态预览已保存。面部动作校正中，暂不用于实时魔镜。",
+      "sourcePath": "library/head-tifa-premium/source.glb",
+      "sourceSha256": "b98204dd6d4a499640c6d1df064d27bde3b99f5078822b189420a50b8cc555bc",
+      "previewPath": "library/head-tifa-premium/preview.png",
+      "previewSha256": "93e03bbb403235d2b106ccb361f5ac77b3c3e2520d9d73eb759bd1c2c58321d8"
+    },
+    {
+      "id": "head-leon-premium",
+      "displayName": "里昂风格·新原件",
+      "type": "head",
+      "status": "static_preview",
+      "sourceLabel": "新角色原件·2026.10.08",
+      "notes": "新模型原件与真实静态预览已保存。面部动作校正中，暂不用于实时魔镜。",
+      "sourcePath": "library/head-leon-premium/source.glb",
+      "sourceSha256": "10c45a892b15001a021d16a2a964c97c78cf30201ad8544222a2caf91380f6ef",
+      "previewPath": "library/head-leon-premium/preview.png",
+      "previewSha256": "556d8e1c182783ff7654f763a7111fad57f06cf30a7edcd5d5947020d3cc0c9a"
+    },
+    {
+      "id": "head-storm-premium",
+      "displayName": "暴风女风格·新原件",
+      "type": "head",
+      "status": "static_preview",
+      "sourceLabel": "新角色原件·2026.10.08",
+      "notes": "新模型原件与真实静态预览已保存。面部动作校正中，暂不用于实时魔镜。",
+      "sourcePath": "library/head-storm-premium/source.glb",
+      "sourceSha256": "9a15a2f5f1e0023e738623718ddf28553d2bfeebc698f7df9f8665e003885d69",
+      "previewPath": "library/head-storm-premium/preview.png",
+      "previewSha256": "0ed94aef3af3ccab8e0feb808af1c098275264b4d867437522a440875ebf5941"
     }
   ]
 }

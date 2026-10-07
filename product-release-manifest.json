@@ -79,22 +79,22 @@
   "default_role_id": "geralt",
   "asset_library": {
     "catalog": "app/src/main/assets/library/catalog.json",
-    "catalog_sha256": "cf8d161befb21d3d1c3916daee42b00e72170c274b5219329b9664a759211398",
-    "entries": 31,
-    "files": 63,
-    "bytes": 132741894,
+    "catalog_sha256": "dee1d6129d310e79dc323c0492e029c26aa69c705aad90ccc14bc612fd218fe9",
+    "entries": 34,
+    "files": 69,
+    "bytes": 165204588,
     "types": {
-      "head": 19,
+      "head": 22,
       "scene": 4,
       "image": 8
     },
     "statuses": {
       "runtime_ready": 4,
       "archive": 13,
-      "static_preview": 14
+      "static_preview": 17
     },
-    "total_ip_identities": 10,
-    "other_ip_identities_pending": 7,
+    "total_ip_identities": null,
+    "other_ip_identities_pending": null,
     "ready_role_ids": [
       "geralt",
       "builtin-guide",
@@ -105,7 +105,14 @@
     "all_library_bytes_match_final_apk": true,
     "listing_decodes_models": false,
     "previews_load_only_selected": true,
-    "ready_state_means_selectable_not_personal_face_accepted": true
+    "ready_state_means_selectable_not_personal_face_accepted": true,
+    "static_preview_head_entries": 11,
+    "historical_v52_identity_counts": {
+      "total_ip_identities": 10,
+      "other_ip_identities_pending": 7
+    },
+    "identity_count_scope": "Not recomputed for V53; static preview head entries may contain duplicate identities.",
+    "total_ip_identities_recomputed_this_release": false
   },
   "ada_trial": {
     "id": "ada-wong",
@@ -163,33 +170,33 @@
     "default_role_restored": "geralt",
     "personal_face_art_accepted": false
   },
-  "versionCode": 52,
-  "versionName": "0.2.21",
-  "source_commit": "59dc1403e2a22f124433f8f2e70f81ad72c4b7c4",
-  "public_parent": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
-  "created_at_utc": "2026-10-07T09:48:22.877165+00:00",
-  "local_apk_filename": "AvatarRuntime-v52-natural-presets-v1.apk",
-  "apk_sha256": "b7d776302ba0067cfd5a8f124b8772db6cb3733b91b265a949519defb7254a72",
-  "apk_bytes": 188725438,
+  "versionCode": 53,
+  "versionName": "0.2.22",
+  "source_commit": "380388c16460491a1ca428fb3ffb97ca22fbbda3",
+  "public_parent": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+  "created_at_utc": "2026-10-07T19:25:35.878316+00:00",
+  "local_apk_filename": "AvatarRuntime-v53-premium-source-gallery-v1.apk",
+  "apk_sha256": "82cefba457ec74e87db72a24dba5ce6a2de4ec1639fcc24638177212b8b31fa0",
+  "apk_bytes": 220462381,
   "apk_in_repository": false,
   "qa_passed": true,
-  "qa_scope": "Four-role UI, Sukuna/default-Geralt ordinary PBR frames, fault calibration cancel, static library, exact settings, Back and Java-owner exit; no personal live-face acceptance.",
+  "qa_scope": "Actual Home/role entry/library and three static PNG previews; settings byte exact. No new live rigs, runtime GL frame, USB capture or performance acceptance.",
   "live_face_qa_passed": false,
   "full_user_goal_complete": false,
-  "camera_blocker": "IllegalStateException: android.hardware.camera2.CameraAccessException: CAMERA_ERROR (3): endConfigure:510: Camera 0: Error configuring streams: Function not imp",
-  "camera_retested_this_release": true,
+  "camera_blocker": null,
+  "camera_retested_this_release": false,
   "camera_capture_passed": false,
-  "runtime_opened_this_release": true,
+  "runtime_opened_this_release": false,
   "gpu_retested_this_release": false,
-  "gpu_acceptance_scope_this_release": "Ordinary GL frames only, no new shader pixel-equivalence suite.",
+  "gpu_acceptance_scope_this_release": "No runtime model GL/GPU acceptance this release; actual static PNG library UI only.",
   "gpu_pose_suite_rerun_this_release": false,
-  "joint_performance_measured": true,
-  "joint_performance_input_scope": "Existing NV21 recording, Sukuna/originalPBR and RKNN478/mixed52 concurrently with 16 independent400x640 views; not USB or video decode.",
+  "joint_performance_measured": false,
+  "joint_performance_input_scope": "Not measured in V53; historical V52 evidence retained separately.",
   "joint_30fps_goal_met": false,
   "frame_rate_improvement_demonstrated": false,
   "private_fixtures_in_apk": false,
   "personal_video_in_apk": false,
-  "source_delta_file_count": 23,
+  "source_delta_file_count": 10,
   "frozen_delta_file_hashes_verified": true,
   "production_dependencies_match_v30": true,
   "native_dependencies_match_v35": true,
@@ -283,140 +290,70 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
       "path": "product-release-manifest.json",
-      "sha256": "c1691c34fd043b20b5c2479bf796c86a54e50d85bc51842cd733455c05ad706a"
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
     },
     "default_enabled": false
   },
   "recorded_face_performance": {
-    "performance_measured": true,
-    "rerun_this_release": true,
-    "versionCode": 52,
-    "apk_sha256": "b7d776302ba0067cfd5a8f124b8772db6cb3733b91b265a949519defb7254a72",
-    "single_comparator": false,
-    "presentation": {
-      "interactive_presented_fps": 9.558747478542973,
-      "interactive_duration_s": 34.620788103,
-      "sampled_duration_s": 34.523351594,
-      "intervals": [
-        {
-          "start_ns": 204151405327679,
-          "end_ns": 204186019357865,
-          "duration_s": 34.614030186,
-          "presented_frames": 331,
-          "presented_fps": 9.558747478542973,
-          "sampled_duration_s": 34.523351594,
-          "complete_history": true
-        },
-        {
-          "start_ns": 204186253750556,
-          "end_ns": 204186260508473,
-          "duration_s": 0.006757917,
-          "presented_frames": 0,
-          "presented_fps": null,
-          "sampled_duration_s": 0.0,
-          "complete_history": false
-        }
-      ],
-      "complete_active_evidence": false,
-      "meets_30_fps": false,
-      "fps_target": 30,
-      "rate_is_lower_bound": false,
-      "surface_history_gaps": [],
-      "surface_history_gap_seconds": 0.0,
-      "state_history_gaps": [],
-      "status_errors": [],
-      "ambiguous_surface_intervals": [],
-      "confirmed_until_monotonic_ns": 204186260508473,
-      "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
-      "unconfirmed_tail_seconds": 1.749499402,
-      "observed_until_monotonic_ns": 204188010007875,
-      "pause_clock_complete": true,
-      "collection_complete": true
+    "performance_measured": false,
+    "rerun_this_release": false,
+    "historical_versionCode": 52,
+    "historical_ref": {
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "path": "product-release-manifest.json",
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
     },
-    "interactive_system": {
-      "samples": 34,
-      "cpu_percent_whole_machine": 51.167404467016325,
-      "mem_available_mib_mean": 1006.8120404411765,
-      "mem_available_mib_min": 993.4453125,
-      "temperature_c_min": 62.222,
-      "temperature_c_max": 65.625,
-      "app_pss_mib_samples": 7,
-      "app_pss_mib_mean": 266.8549107142857,
-      "app_pss_mib_peak": 385.33984375,
-      "npu_busy_percent_samples": 34,
-      "npu_busy_percent_mean": 39.970588235294116,
-      "npu_busy_percent_peak": 43.0,
-      "gpu_busy_samples": 34,
-      "gpu_busy_percent_mean": 98.17647058823529,
-      "gpu_busy_percent_peak": 99,
-      "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-    },
-    "latest_input_session_metrics": {
-      "elapsed_s": 35.302064047,
-      "converted_frames": 573,
-      "submitted_frames": 573,
-      "completed_frames": 573,
-      "face_frames": 572,
-      "analysis_fps": 16.231345545040277,
-      "face_fps": 16.20301858946429,
-      "face_fraction": 0.9982547993019197,
-      "conversion_mean_ms": 2.4571101902268735,
-      "reference_conversion_mean_ms": 0,
-      "normalization_mean_ms": 0.0267910907504363,
-      "normalized_frames": 573,
-      "submission_mean_ms": 42.83198424258284,
-      "inference_completion_mean_ms": 74.39128330017448,
-      "received_to_completed_mean_ms": 98.04181827748684,
-      "landmarks": 478,
-      "blendshapes": 52,
-      "retained_timing_samples": 0,
-      "scope": "current input session, includes acquisition/idle; online means with bounded memory"
-    },
+    "historical_interactive_presented_fps": 9.558747478542973,
     "counts_toward_full_goal": false,
-    "production_default_qualified": false,
-    "scope": "Short existing recording, main34.614s interval9.559FPS, terminal6.758ms fragment0 frames; no live camera or improvement conclusion."
+    "production_default_qualified": false
   },
   "host_evidence": {
-    "focused_calibration_checks": 10601,
-    "bundled_catalog_checks": 72,
-    "selection_checks": 25,
-    "actual_apk_library_checks": 203,
-    "source_assets_library_entries": 31,
-    "old_render_suites_rerun": false
+    "actual_apk_library_checks": 212,
+    "source_assets_library_entries": 34,
+    "new_asset_files": 6,
+    "all_other_v52_apk_assets_byte_exact": true,
+    "native_libraries_byte_exact": 9,
+    "old_render_suites_rerun": false,
+    "new_static_sources_face_rig_accepted": false
   },
   "device_evidence": {
     "passed": true,
-    "versionCode": 52,
-    "versionName": "0.2.21",
-    "installedApkSha256": "b7d776302ba0067cfd5a8f124b8772db6cb3733b91b265a949519defb7254a72",
-    "configsByteExact": true,
-    "rolesCount": 4,
-    "libraryEntries": 31,
-    "sukunaSelectionAndFirstFramePassed": true,
-    "geraltRestoredUsingUi": true,
-    "originalGeraltPbrReady": true,
-    "allExperimentalMaterialFlagsFalse": true,
-    "cameraCalibrationCheckboxAndFaultDisabledActionsVerified": true,
-    "cameraCalibrationCancelReturnedSettings": true,
-    "gothicStaticPreviewReadable": true,
-    "staticPreviewDidNotChangeRole": true,
-    "homeRolesSettingsAboutLibrarySmoked": true,
-    "aboutVersion": "0.2.21",
-    "normalBackReturnedHome": true,
-    "noJavaRuntimeOwnersAfterNormalBack": true,
-    "cameraState": "ERROR",
-    "cameraError": "IllegalStateException: android.hardware.camera2.CameraAccessException: CAMERA_ERROR (3): endConfigure:510: Camera 0: Error configuring streams: Function not imp",
-    "liveCameraFaceAccepted": false,
-    "personalFaceArtAccepted": false,
-    "fullUserGoalComplete": false
+    "versionCode": 53,
+    "apk_sha256": "82cefba457ec74e87db72a24dba5ce6a2de4ec1639fcc24638177212b8b31fa0",
+    "home_restored": true,
+    "live_role_count": 4,
+    "library_count": 34,
+    "configs_byte_exact_after_browsing": true,
+    "static_previews": [
+      {
+        "role": "tifa",
+        "screenshot_sha256": "c92957bf57b864c720c240b653e0fcb1df4023ee2e1a90c5cde9d68b7e9648ac",
+        "preview_loaded": true,
+        "runtime_ready": false
+      },
+      {
+        "role": "leon",
+        "screenshot_sha256": "f11f07b77633c86c9bdbd0cfc3d072c3206dd50b2d71609da83db6e9ec9915dc",
+        "preview_loaded": true,
+        "runtime_ready": false
+      },
+      {
+        "role": "storm",
+        "screenshot_sha256": "aba89ecdd9c466120033ed8621d0c87fc4c7036c32e38b7f8e7e59f885783d95",
+        "preview_loaded": true,
+        "runtime_ready": false
+      }
+    ],
+    "scope": "Actual device Home/roles/library and all three static PNG previews. Does not prove new face rigs, camera capture, Mali model rendering or 30FPS.",
+    "personal_config_content_published": false
   },
   "unreviewed_model_pipeline_delta_included": false,
   "new_portal_source_included": false,
   "v1_experiment_source_included": false,
-  "release_document": "docs/production-app-v52-20261007.md",
-  "gpu_pose_suite_scope_this_release": "No new broad Mali pose comparison.",
+  "release_document": "docs/production-app-v53-20261008.md",
+  "gpu_pose_suite_scope_this_release": "Private host PN diagnostics; no new Mali pose comparison.",
   "earlier_ada_pose_suite_rerun": false,
   "native_dependencies_match_v36": true,
   "apk_assets_byte_exact_v36": 76,
@@ -772,13 +709,13 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
       "path": "product-release-manifest.json",
-      "sha256": "c1691c34fd043b20b5c2479bf796c86a54e50d85bc51842cd733455c05ad706a"
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
     },
     "default_enabled": false
   },
-  "joint_performance_retested_this_release": true,
+  "joint_performance_retested_this_release": false,
   "native_dependencies_match_v37": true,
   "apk_assets_byte_exact_v37": 76,
   "apk_native_byte_exact_v37": 9,
@@ -1538,8 +1475,13 @@
     "successful_device_camera_save_tested": false,
     "scene_editor_prior_evidence_versionCode": 40,
     "scene_editor_rerun_this_release": false,
-    "rerun_this_release": true,
-    "evidence_retained_from_prior_release": true
+    "rerun_this_release": false,
+    "evidence_retained_from_prior_release": true,
+    "prior_evidence_ref": {
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "path": "product-release-manifest.json",
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+    }
   },
   "production_performance_improved": false,
   "debug_lower_resolution_benefit_observed": false,
@@ -3084,7 +3026,7 @@
     "rerun_this_release": false,
     "evidence_retained_from_prior_release": true
   },
-  "final_candidate_variant": "ordinary-PBR-personal-brow-and-Sukuna-trial",
+  "final_candidate_variant": "ordinary-PBR-unchanged-runtime-with-premium-static-sources",
   "debug_lower_resolution_benefit_scope": "Historical V39 only, not measured in V43.",
   "native_dependencies_match_v39": true,
   "apk_assets_byte_exact_v39": 76,
@@ -6630,7 +6572,7 @@
     "prior_sync_evidence_preserved": true,
     "sephiroth_closure": "Private rejected trial; 3 new orientation/1 normal counterexample and up to13 leakage rays; no formal asset replaced"
   },
-  "review_scope": "23 exact source/test/asset/prose paths; preserve historical trees/LICENSE/unselected WIP; private Gothic binding rejected.",
+  "review_scope": "10 selected source/asset/prose paths, 13 public paths; preserve all historical trees/LICENSE and180 unrelated source WIP files.",
   "native_dependencies_match_v40": true,
   "apk_assets_byte_exact_v40": 76,
   "apk_native_byte_exact_v40": 9,
@@ -13724,8 +13666,13 @@
     "fault_disables_collect_confirm_save": true,
     "retry_current_owner_and_lifecycle_guarded": true,
     "private_input_frame_published": false,
-    "rerun_this_release": true,
-    "evidence_retained_from_prior_release": true
+    "rerun_this_release": false,
+    "evidence_retained_from_prior_release": true,
+    "prior_evidence_ref": {
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "path": "product-release-manifest.json",
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+    }
   },
   "native_dependencies_match_v41": true,
   "apk_assets_byte_exact_v41": 76,
@@ -27907,9 +27854,9 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
       "path": "product-release-manifest.json",
-      "sha256": "c1691c34fd043b20b5c2479bf796c86a54e50d85bc51842cd733455c05ad706a"
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
     },
     "default_enabled": false
   },
@@ -55999,7 +55946,7 @@
     "observed_rgb_mismatches": 0,
     "observed_alpha_mismatches": 0
   },
-  "frame_rate_improvement_scope": "No same-APK comparator; short main INTERACTIVE interval only, terminal6.758ms interval has no presentation; full active gate false.",
+  "frame_rate_improvement_scope": "No rendering change or V53 performance measurement; V52 results are historical.",
   "native_dependencies_match_v43": true,
   "apk_assets_byte_exact_v43": 76,
   "apk_native_byte_exact_v43": 9,
@@ -112068,13 +112015,330 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
       "path": "product-release-manifest.json",
-      "sha256": "c1691c34fd043b20b5c2479bf796c86a54e50d85bc51842cd733455c05ad706a"
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
     },
     "default_enabled": false
   },
   "role_browser": {
+    "browsing_read_only": true,
+    "explicit_use_persists": true,
+    "one_bounded_thumbnail": true,
+    "process_restart_selection_verified": false,
+    "from_runtime_result_preserved": true,
+    "configs_restored_exact": true,
+    "ui_screenshots": [
+      "v53-roles.png"
+    ],
+    "rerun_this_release": true,
+    "evidence_retained_from_prior_release": true,
+    "evidence_versionCode": 53,
+    "roles_count": 4,
+    "selection_changed_this_release": false,
+    "explicit_use_retested_this_release": false,
+    "scope_this_release": "Read-only role entry and library navigation; explicit role activation not retested."
+  },
+  "private_npu_deformation": {
+    "host_only": true,
+    "formal_apk_integrated": false,
+    "device_throughput_tested": false,
+    "normal_quality_qualified": false,
+    "files_published": false
+  },
+  "private_eye_candidate": {
+    "formal_apk_integrated": false,
+    "full_blink_qualified": false,
+    "files_published": false
+  },
+  "joint_performance_apk_versionCode": null,
+  "joint_performance_apk_sha256": null,
+  "native_dependencies_match_v44": true,
+  "apk_assets_byte_exact_v44": 76,
+  "apk_native_byte_exact_v44": 9,
+  "previous_release_ref": {
+    "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+    "path": "product-release-manifest.json",
+    "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+  },
+  "native_dependencies_match_v45": true,
+  "apk_assets_byte_exact_v45": 76,
+  "apk_native_byte_exact_v45": 9,
+  "native_dependencies_match_v46": true,
+  "apk_assets_byte_exact_v46": 76,
+  "apk_native_byte_exact_v46": 9,
+  "diagnostic_frame_rate_improvement_observed": false,
+  "native_dependencies_match_v47": true,
+  "apk_assets_byte_exact_v47": 76,
+  "apk_native_byte_exact_v47": 9,
+  "srgb_views": {
+    "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "path": "product-release-manifest.json",
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+    },
+    "default_enabled": false
+  },
+  "triangle_tangent": {
+    "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "path": "product-release-manifest.json",
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+    },
+    "default_enabled": false
+  },
+  "new_3d_backgrounds_accepted": false,
+  "native_dependencies_match_v48": true,
+  "apk_assets_byte_exact_v48": 76,
+  "apk_native_byte_exact_v48": 9,
+  "native_dependencies_match_parent": true,
+  "apk_assets_byte_exact_parent": 88,
+  "apk_native_byte_exact_parent": 9,
+  "production_candidate_enabled": false,
+  "gpu_triangle_tangent": {
+    "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "path": "product-release-manifest.json",
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+    },
+    "default_enabled": false
+  },
+  "primary_unlit_ablation": {
+    "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "path": "product-release-manifest.json",
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+    },
+    "default_enabled": false
+  },
+  "apk_asset_count": 95,
+  "apk_added_asset_count": 6,
+  "apk_modified_asset_count": 1,
+  "personal_brow_calibration": {
+    "rest_brow_channels": 2,
+    "explicit_capture_and_confirm": true,
+    "session_only": true,
+    "normalized_endpoint_preserved": true,
+    "old_behavior_bitwise_compatible": true,
+    "max_rest": 0.5,
+    "real_person_accepted": false,
+    "evidence_versionCode": 52,
+    "rerun_this_release": false
+  },
+  "sukuna_trial": {
+    "model_sha256": "04f1ffbbe44a8287261e5fa1d5c57531f682b564a77a4775404bfb8b3698842e",
+    "status": "corrected_trial",
+    "actual_device_first_frame": true,
+    "actual_java_poses": 80,
+    "new_geometry_orientation_counterexamples": 0,
+    "new_normal_counterexamples": 0,
+    "inherited_reversed_triangle_instances": 398,
+    "inherited_normal_opposition_instances": 11046,
+    "instance_scope": "Accumulated across80poses, not unique triangles",
+    "personal_face_accepted": false,
+    "artist_fully_accepted": false,
+    "evidence_versionCode": 52,
+    "rerun_this_release": false
+  },
+  "new_head_sources": {
+    "tripo_billed_credits": 360,
+    "balance_after": 8730,
+    "new_library_entries": 3,
+    "sources": [
+      {
+        "name": "tifa",
+        "task_id": "9d934182-8312-4674-8e67-d6fecddca594",
+        "source_sha256": "b98204dd6d4a499640c6d1df064d27bde3b99f5078822b189420a50b8cc555bc",
+        "billed_credits": 120,
+        "static_preview_in_apk": true,
+        "face_binding_accepted": false
+      },
+      {
+        "name": "leon",
+        "task_id": "1d648c53-9e41-422d-ad30-571ccaf94670",
+        "source_sha256": "10c45a892b15001a021d16a2a964c97c78cf30201ad8544222a2caf91380f6ef",
+        "billed_credits": 120,
+        "static_preview_in_apk": true,
+        "face_binding_accepted": false
+      },
+      {
+        "name": "storm",
+        "task_id": "1e988a3d-346c-4473-9f86-9a3652c298fb",
+        "source_sha256": "9a15a2f5f1e0023e738623718ddf28553d2bfeebc698f7df9f8665e003885d69",
+        "billed_credits": 120,
+        "static_preview_in_apk": true,
+        "face_binding_accepted": false
+      }
+    ],
+    "all_previews_from_actual_glb": true,
+    "new_sources_static_only": true,
+    "new_face_rigs_in_apk": false
+  },
+  "previous_v52_device_evidence": {
+    "passed": true,
+    "versionCode": 52,
+    "versionName": "0.2.21",
+    "installedApkSha256": "b7d776302ba0067cfd5a8f124b8772db6cb3733b91b265a949519defb7254a72",
+    "configsByteExact": true,
+    "rolesCount": 4,
+    "libraryEntries": 31,
+    "sukunaSelectionAndFirstFramePassed": true,
+    "geraltRestoredUsingUi": true,
+    "originalGeraltPbrReady": true,
+    "allExperimentalMaterialFlagsFalse": true,
+    "cameraCalibrationCheckboxAndFaultDisabledActionsVerified": true,
+    "cameraCalibrationCancelReturnedSettings": true,
+    "gothicStaticPreviewReadable": true,
+    "staticPreviewDidNotChangeRole": true,
+    "homeRolesSettingsAboutLibrarySmoked": true,
+    "aboutVersion": "0.2.21",
+    "normalBackReturnedHome": true,
+    "noJavaRuntimeOwnersAfterNormalBack": true,
+    "cameraState": "ERROR",
+    "cameraError": "IllegalStateException: android.hardware.camera2.CameraAccessException: CAMERA_ERROR (3): endConfigure:510: Camera 0: Error configuring streams: Function not imp",
+    "liveCameraFaceAccepted": false,
+    "personalFaceArtAccepted": false,
+    "fullUserGoalComplete": false
+  },
+  "previous_v52_host_evidence": {
+    "focused_calibration_checks": 10601,
+    "bundled_catalog_checks": 72,
+    "selection_checks": 25,
+    "actual_apk_library_checks": 203,
+    "source_assets_library_entries": 31,
+    "old_render_suites_rerun": false
+  },
+  "previous_v52_recorded_face_performance": {
+    "performance_measured": true,
+    "rerun_this_release": true,
+    "versionCode": 52,
+    "apk_sha256": "b7d776302ba0067cfd5a8f124b8772db6cb3733b91b265a949519defb7254a72",
+    "single_comparator": false,
+    "presentation": {
+      "interactive_presented_fps": 9.558747478542973,
+      "interactive_duration_s": 34.620788103,
+      "sampled_duration_s": 34.523351594,
+      "intervals": [
+        {
+          "start_ns": 204151405327679,
+          "end_ns": 204186019357865,
+          "duration_s": 34.614030186,
+          "presented_frames": 331,
+          "presented_fps": 9.558747478542973,
+          "sampled_duration_s": 34.523351594,
+          "complete_history": true
+        },
+        {
+          "start_ns": 204186253750556,
+          "end_ns": 204186260508473,
+          "duration_s": 0.006757917,
+          "presented_frames": 0,
+          "presented_fps": null,
+          "sampled_duration_s": 0.0,
+          "complete_history": false
+        }
+      ],
+      "complete_active_evidence": false,
+      "meets_30_fps": false,
+      "fps_target": 30,
+      "rate_is_lower_bound": false,
+      "surface_history_gaps": [],
+      "surface_history_gap_seconds": 0.0,
+      "state_history_gaps": [],
+      "status_errors": [],
+      "ambiguous_surface_intervals": [],
+      "confirmed_until_monotonic_ns": 204186260508473,
+      "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
+      "unconfirmed_tail_seconds": 1.749499402,
+      "observed_until_monotonic_ns": 204188010007875,
+      "pause_clock_complete": true,
+      "collection_complete": true
+    },
+    "interactive_system": {
+      "samples": 34,
+      "cpu_percent_whole_machine": 51.167404467016325,
+      "mem_available_mib_mean": 1006.8120404411765,
+      "mem_available_mib_min": 993.4453125,
+      "temperature_c_min": 62.222,
+      "temperature_c_max": 65.625,
+      "app_pss_mib_samples": 7,
+      "app_pss_mib_mean": 266.8549107142857,
+      "app_pss_mib_peak": 385.33984375,
+      "npu_busy_percent_samples": 34,
+      "npu_busy_percent_mean": 39.970588235294116,
+      "npu_busy_percent_peak": 43.0,
+      "gpu_busy_samples": 34,
+      "gpu_busy_percent_mean": 98.17647058823529,
+      "gpu_busy_percent_peak": 99,
+      "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
+    },
+    "latest_input_session_metrics": {
+      "elapsed_s": 35.302064047,
+      "converted_frames": 573,
+      "submitted_frames": 573,
+      "completed_frames": 573,
+      "face_frames": 572,
+      "analysis_fps": 16.231345545040277,
+      "face_fps": 16.20301858946429,
+      "face_fraction": 0.9982547993019197,
+      "conversion_mean_ms": 2.4571101902268735,
+      "reference_conversion_mean_ms": 0,
+      "normalization_mean_ms": 0.0267910907504363,
+      "normalized_frames": 573,
+      "submission_mean_ms": 42.83198424258284,
+      "inference_completion_mean_ms": 74.39128330017448,
+      "received_to_completed_mean_ms": 98.04181827748684,
+      "landmarks": 478,
+      "blendshapes": 52,
+      "retained_timing_samples": 0,
+      "scope": "current input session, includes acquisition/idle; online means with bounded memory"
+    },
+    "counts_toward_full_goal": false,
+    "production_default_qualified": false,
+    "scope": "Short existing recording, main34.614s interval9.559FPS, terminal6.758ms fragment0 frames; no live camera or improvement conclusion."
+  },
+  "previous_v52_new_head_sources": {
+    "tripo_billed_credits": 140,
+    "balance_after": 9090,
+    "new_library_entries": 4,
+    "new_themes": 3,
+    "gothic_retexture_fixed": true,
+    "new_gothic_binding_in_apk": false,
+    "new_gothic_artist_accepted": false,
+    "elf_and_android_archived_due_to_missing_hair_top": true,
+    "all_previews_from_actual_glb": true
+  },
+  "previous_v52_personal_brow_calibration": {
+    "rest_brow_channels": 2,
+    "explicit_capture_and_confirm": true,
+    "session_only": true,
+    "normalized_endpoint_preserved": true,
+    "old_behavior_bitwise_compatible": true,
+    "max_rest": 0.5,
+    "real_person_accepted": false
+  },
+  "previous_v52_sukuna_trial": {
+    "model_sha256": "04f1ffbbe44a8287261e5fa1d5c57531f682b564a77a4775404bfb8b3698842e",
+    "status": "corrected_trial",
+    "actual_device_first_frame": true,
+    "actual_java_poses": 80,
+    "new_geometry_orientation_counterexamples": 0,
+    "new_normal_counterexamples": 0,
+    "inherited_reversed_triangle_instances": 398,
+    "inherited_normal_opposition_instances": 11046,
+    "instance_scope": "Accumulated across80poses, not unique triangles",
+    "personal_face_accepted": false,
+    "artist_fully_accepted": false
+  },
+  "previous_v52_role_browser": {
     "browsing_read_only": true,
     "explicit_use_persists": true,
     "one_bounded_thumbnail": true,
@@ -112091,120 +112355,21 @@
     "evidence_versionCode": 52,
     "roles_count": 4
   },
-  "private_npu_deformation": {
-    "host_only": true,
+  "camera_blocker_last_observed_versionCode": 52,
+  "camera_blocker_last_observed": "IllegalStateException: android.hardware.camera2.CameraAccessException: CAMERA_ERROR (3): endConfigure:510: Camera 0: Error configuring streams: Function not imp",
+  "historical_asset_counters_scope": "apk_assets_byte_exact_v35..v48 are retained older-release counters; use apk_assets_byte_exact_parent for V53.",
+  "natural_face_research": {
     "formal_apk_integrated": false,
-    "device_throughput_tested": false,
-    "normal_quality_qualified": false,
-    "files_published": false
-  },
-  "private_eye_candidate": {
-    "formal_apk_integrated": false,
-    "full_blink_qualified": false,
-    "files_published": false
-  },
-  "joint_performance_apk_versionCode": 52,
-  "joint_performance_apk_sha256": "b7d776302ba0067cfd5a8f124b8772db6cb3733b91b265a949519defb7254a72",
-  "native_dependencies_match_v44": true,
-  "apk_assets_byte_exact_v44": 76,
-  "apk_native_byte_exact_v44": 9,
-  "previous_release_ref": {
-    "commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
-    "path": "product-release-manifest.json",
-    "sha256": "c1691c34fd043b20b5c2479bf796c86a54e50d85bc51842cd733455c05ad706a"
-  },
-  "native_dependencies_match_v45": true,
-  "apk_assets_byte_exact_v45": 76,
-  "apk_native_byte_exact_v45": 9,
-  "native_dependencies_match_v46": true,
-  "apk_assets_byte_exact_v46": 76,
-  "apk_native_byte_exact_v46": 9,
-  "diagnostic_frame_rate_improvement_observed": false,
-  "native_dependencies_match_v47": true,
-  "apk_assets_byte_exact_v47": 76,
-  "apk_native_byte_exact_v47": 9,
-  "srgb_views": {
-    "evidence_retained_from_prior_release": true,
-    "rerun_this_release": false,
-    "prior_evidence_ref": {
-      "commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
-      "path": "product-release-manifest.json",
-      "sha256": "c1691c34fd043b20b5c2479bf796c86a54e50d85bc51842cd733455c05ad706a"
-    },
-    "default_enabled": false
-  },
-  "triangle_tangent": {
-    "evidence_retained_from_prior_release": true,
-    "rerun_this_release": false,
-    "prior_evidence_ref": {
-      "commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
-      "path": "product-release-manifest.json",
-      "sha256": "c1691c34fd043b20b5c2479bf796c86a54e50d85bc51842cd733455c05ad706a"
-    },
-    "default_enabled": false
-  },
-  "new_3d_backgrounds_accepted": false,
-  "native_dependencies_match_v48": true,
-  "apk_assets_byte_exact_v48": 76,
-  "apk_native_byte_exact_v48": 9,
-  "native_dependencies_match_parent": true,
-  "apk_assets_byte_exact_parent": 76,
-  "apk_native_byte_exact_parent": 9,
-  "production_candidate_enabled": false,
-  "gpu_triangle_tangent": {
-    "evidence_retained_from_prior_release": true,
-    "rerun_this_release": false,
-    "prior_evidence_ref": {
-      "commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
-      "path": "product-release-manifest.json",
-      "sha256": "c1691c34fd043b20b5c2479bf796c86a54e50d85bc51842cd733455c05ad706a"
-    },
-    "default_enabled": false
-  },
-  "primary_unlit_ablation": {
-    "evidence_retained_from_prior_release": true,
-    "rerun_this_release": false,
-    "prior_evidence_ref": {
-      "commit": "13cf26ac1b0ea2ba7889e967d24926af1a5a9df4",
-      "path": "product-release-manifest.json",
-      "sha256": "c1691c34fd043b20b5c2479bf796c86a54e50d85bc51842cd733455c05ad706a"
-    },
-    "default_enabled": false
-  },
-  "apk_asset_count": 89,
-  "apk_added_asset_count": 11,
-  "apk_modified_asset_count": 2,
-  "personal_brow_calibration": {
-    "rest_brow_channels": 2,
-    "explicit_capture_and_confirm": true,
-    "session_only": true,
-    "normalized_endpoint_preserved": true,
-    "old_behavior_bitwise_compatible": true,
-    "max_rest": 0.5,
-    "real_person_accepted": false
-  },
-  "sukuna_trial": {
-    "model_sha256": "04f1ffbbe44a8287261e5fa1d5c57531f682b564a77a4775404bfb8b3698842e",
-    "status": "corrected_trial",
-    "actual_device_first_frame": true,
-    "actual_java_poses": 80,
-    "new_geometry_orientation_counterexamples": 0,
-    "new_normal_counterexamples": 0,
-    "inherited_reversed_triangle_instances": 398,
-    "inherited_normal_opposition_instances": 11046,
-    "instance_scope": "Accumulated across80poses, not unique triangles",
-    "personal_face_accepted": false,
-    "artist_fully_accepted": false
-  },
-  "new_head_sources": {
-    "tripo_billed_credits": 140,
-    "balance_after": 9090,
-    "new_library_entries": 4,
-    "new_themes": 3,
-    "gothic_retexture_fixed": true,
-    "new_gothic_binding_in_apk": false,
-    "new_gothic_artist_accepted": false,
-    "elf_and_android_archived_due_to_missing_hair_top": true,
-    "all_previews_from_actual_glb": true
+    "new_artist_accepted_rigs": 0,
+    "gothic_combined_finite_closure_passed": true,
+    "gothic_art_accepted": false,
+    "gothic_known_limits": [
+      "Thick eyelid ring",
+      "Photographic eye corner fragments",
+      "Stiff jaw",
+      "New local normal opposition relative to original baseline"
+    ],
+    "tifa_native_eye_boundary_preparation_only": true,
+    "leon_static_lod_preparation_only": true
   }
 }
