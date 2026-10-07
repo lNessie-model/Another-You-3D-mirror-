@@ -416,6 +416,30 @@
       "sourceSha256": "9a15a2f5f1e0023e738623718ddf28553d2bfeebc698f7df9f8665e003885d69",
       "previewPath": "library/head-storm-premium/preview.png",
       "previewSha256": "0ed94aef3af3ccab8e0feb808af1c098275264b4d867437522a440875ebf5941"
+    },
+    {
+      "id": "head-astarion-premium",
+      "displayName": "阿斯代伦风格·新原件",
+      "type": "head",
+      "status": "static_preview",
+      "sourceLabel": "新角色原件·2026.10.08",
+      "notes": "新模型原件与真实静态预览已保存。面部动作校正中，暂不用于实时魔镜。",
+      "sourcePath": "library/head-astarion-premium/source.glb",
+      "sourceSha256": "9cff10ca66a323660e2c25d9a77ba5bee3bb0769ce4c96372394c9ab626e83a3",
+      "previewPath": "library/head-astarion-premium/preview.png",
+      "previewSha256": "8ceea53c5ef8d4823e9970812e148fc7bdd70dceff6153770063c7803e0ea367"
+    },
+    {
+      "id": "head-arwen-premium",
+      "displayName": "亚玟风格·研究原件",
+      "type": "head",
+      "status": "archive",
+      "sourceLabel": "新角色原件·2026.10.08",
+      "notes": "原件发顶较平、顶部有灰白条，颈边有衣料残留；待修复发顶与颈边，禁止用于实时魔镜。",
+      "sourcePath": "library/head-arwen-premium/source.glb",
+      "sourceSha256": "a6b6b3d81dc36c11105d8e494ead8e61852789893394c61d46d6d79803b69739",
+      "previewPath": "library/head-arwen-premium/preview.png",
+      "previewSha256": "bc3854cd908b484f1e54ccb5d2fd01f73178cdcdaf0c1d7090c7a71f9e5234e8"
     }
   ]
 }
