@@ -426,6 +426,7 @@ def arguments():
     parser.add_argument("--constant-white-primary", action="store_true", help="Debug-only bit-verified constant-white primary shader; requires avatar-batched and specialized-batch; defaults off")
     parser.add_argument("--reuse-group-uniforms", action="store_true", help="Debug-only per-draw-group program/VP/sampler reuse; requires constant-white-primary, specialized-batch and avatar-batched; defaults off")
     parser.add_argument("--srgb-views", action="store_true", help="Debug-only exact Geralt ordinary PBR linear-output/sRGB view targets; defaults off; requires 16 views and no other material experiment")
+    parser.add_argument("--triangle-tangent", action="store_true", help="Debug-only exact Geralt triangle tangent table; defaults off; requires explicit 16 views, ordinary asynchronous PBR and no other rendering experiment")
     parser.add_argument("--empty-interlace", action="store_true", help="Debug-only conservative empty-region texture sampling candidate; defaults off")
     parser.add_argument("--pbr-fast-math", action="store_true", help="Debug-only highp PBR arithmetic candidate; defaults off; retains full material and geometry")
     parser.add_argument("--npu-blendshapes", action="store_true", help="Debug-only explicit normalized mixed CPU/NPU expression suffix; omission uses the app default (currently enabled)")
@@ -434,6 +435,12 @@ def arguments():
     parser.add_argument("--view-count", type=int, choices=(16, 20), help="Debug-only count override; omission uses the saved application count, never saves preferences")
     parser.add_argument("--active-target-fps", type=int, choices=(31, 35), help="Debug-only frame pacing control; leaves idle rate and preferences unchanged")
     args = parser.parse_args()
+    if args.triangle_tangent and (args.view_count != 16 or args.avatar_synchronous or args.avatar_batched
+                                 or args.cached_camera_vp or args.gpu_profile or args.orm_rg8 or args.pbr_fast_math
+                                 or args.srgb_views or args.empty_interlace or args.specialized_batch
+                                 or args.constant_white_primary or args.reuse_group_uniforms or args.private_head):
+        parser.error("--triangle-tangent requires --view-count 16, ordinary asynchronous original Geralt PBR, "
+                     "and no other rendering experiment or GPU profiling")
     if args.srgb_views and (args.view_count not in (None,16) or args.avatar_batched or args.orm_rg8 or args.pbr_fast_math
                            or args.empty_interlace or args.specialized_batch or args.constant_white_primary
                            or args.reuse_group_uniforms or args.private_head):
@@ -656,6 +663,8 @@ def run(args):
         extras += " --ez test_reuse_group_uniforms true"
     if getattr(args,"srgb_views",False):
         extras += " --ez test_srgb_views true"
+    if getattr(args,"triangle_tangent",False):
+        extras += " --ez test_triangle_tangent true"
     if getattr(args,"empty_interlace",False):
         extras += " --ez test_empty_interlace true"
     if getattr(args,"pbr_fast_math",False):

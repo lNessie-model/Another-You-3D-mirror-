@@ -208,7 +208,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 store.recover();selected=store.readCurrent();
             }
             catch(Exception failure) {
-                if(srgbViewsRequested)throw failure; // Never hide failed candidate asset qualification with a fallback.
+                if(srgbViewsRequested||triangleTangentRequested)throw failure; // Never hide failed candidate asset qualification with a fallback.
                 String detail=failure.getClass().getSimpleName()+": "+failure.getMessage();
                 if(detail.length()>240)detail=detail.substring(0,240);
                 avatarLoadWarning="已选角色读取失败，暂用内置角色；原角色包保留。"+detail;
@@ -270,6 +270,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     synchronized void setGpuProfile(boolean enabled) {
         if(surfaceInitialized)throw new IllegalStateException("GPU sampling must be configured before GL initialization");
         gpuProfileRequested=enabled;
+    }
+    private boolean triangleTangentRequested;
+    synchronized void setTriangleTangent(boolean enabled) {
+        if(surfaceInitialized)throw new IllegalStateException("Triangle tangent must be configured before GL initialization");
+        triangleTangentRequested=enabled;
     }
     synchronized void setSrgbViews(boolean enabled) {
         if(surfaceInitialized)throw new IllegalStateException("sRGB views must be configured before GL initialization");
@@ -395,6 +400,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         renderThread=Thread.currentThread();
         runtimePoseTime=0;
         try {
+            if(triangleTangentRequested)TriangleTangentRuntimePolicy.requireOptions(views,avatarAsynchronous,
+                    !runtimeMode,avatarAssets==null,!scene,avatarBatched,srgbViewsRequested,ormRg8Requested,pbrFastMathRequested,
+                    specializedBatchRequested,constantWhitePrimaryRequested,reuseGroupUniformsRequested,staticBackgroundCacheRequested,
+                    emptyInterlaceRequested,privateHeadFiles!=null,cachedCameraVpRequested,gpuProfileRequested,atlas,atlasCopy,lookup,sharedPhase);
             if(srgbViewsRequested&&(!runtimeMode||avatarAssets==null||!scene||views!=16||avatarBatched
                     ||ormRg8Requested||pbrFastMathRequested||specializedBatchRequested||constantWhitePrimaryRequested
                     ||reuseGroupUniformsRequested||staticBackgroundCacheRequested||emptyInterlaceRequested||privateHeadFiles!=null
@@ -467,6 +476,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             }
             if(avatarAssets!=null) {
                 avatarScene=loadRuntimeAvatar();
+                if(triangleTangentRequested)try{avatarScene.enableTriangleTangentRuntime();}
+                catch(RuntimeException|Error failure){AvatarGpuScene failed=avatarScene;avatarScene=null;try{failed.dispose();}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
                 if(specializedBatchRequested){avatarScene.beginSpecializedBatch(constantWhitePrimaryRequested,reuseGroupUniformsRequested);avatarScene.selectSpecializedBatch(true);}
                 if(emptyInterlaceRequested)avatarScene.enableScreenBounds();
                 if(avatarShutdown)avatarScene.stopCpu();
@@ -481,7 +492,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
         // A failed candidate initialization has no qualified targets to resize. Preserve
         // its original actionable error instead of replacing it with missing-context fallout.
-        if(srgbViewsRequested&&!error.isEmpty())return;
+        if((srgbViewsRequested||triangleTangentRequested)&&!error.isEmpty())return;
         runtimeGlLifecycle.invalidate();
         cameraVpCache.invalidate();cameraVpActual="uninitialized";
         synchronized(this) {pacingEpoch++;}
@@ -681,6 +692,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("empty_interlace_skipped_fraction",emptyBoundsValid?1-(emptyUvBounds[2]-emptyUvBounds[0])*(emptyUvBounds[3]-emptyUvBounds[1]):0)
                 .put("empty_interlace_bounds_mean_ms",emptyBoundsMeanMs).put("empty_interlace_bounds_frames",emptyBoundsFrames)
                 .put("empty_interlace_scope","conservative all-view union of uploaded positions; geometric screen fraction, not measured texel traffic or GPU time; bounds mean is projection only; uploaded-position scan is included in avatar prepare/upload wall; default off")
+                .put("triangle_tangent_requested",triangleTangentRequested)
                 .put("srgb_views_requested",srgbViewsRequested)
                 .put("srgb_views_actual",!srgbViewsRequested?"disabled":!error.isEmpty()?"failed":srgbViewGl==null?"uninitialized":srgbViewGl.state())
                 .put("srgb_views_scope","linear original PBR to sRGB8-alpha8 view array, encoded SKIP_DECODE filtering; final window shader unchanged; experimental/unqualified")
@@ -1625,7 +1637,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(gpuProfile!=null)try{gpuProfile.close();}catch(Throwable cleanup){if(cleanup!=problem)problem.addSuppressed(cleanup);}
         if(cachedCameraVpRequested)cameraVpActual="failed";
         if(persistentFbosRequested){multiviewFboActual="failed";try{releasePersistentFbos();}catch(Throwable cleanup){problem.addSuppressed(cleanup);}}
-        if(!srgbViewsRequested||error.isEmpty())error=problem.toString();
+        if((!srgbViewsRequested&&!triangleTangentRequested)||error.isEmpty())error=problem.toString();
         Log.e("MirrorBench","GL failure",problem);
     }
     private static void checkGl() { int e=GLES30.glGetError(); if(e!=0) throw new IllegalStateException("GL error "+e); }

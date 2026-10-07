@@ -1,3 +1,7 @@
+当前状态：**V50 / 0.2.19**。已部署默认关闭的异步切线候选，并完成同包录像联合实测；三组真实呈现为10.515 / 10.880 / 10.529 FPS，30FPS仍未达到。详见[V50说明](docs/production-app-v50-20261007.md)。
+
+以下是逐轮保留的历史原文，各段“当前”仅指该段迭代当时。
+
 # Another You · 另一个你
 
 当前安装版 **V49 / 0.2.18**：新增独立、同步的三角面切线复用诊断，普通界面与渲染沿用原版。实际 Mali 的69姿态、2208组视图和48组最终交织画面全部通过原maxRGB1/RMSE0.1/alpha0门限；尚未接入实时异步流程或测FPS，默认运行不使用候选。原78资产/9库、四份配置、首页/角色/场景/设置/关于/Back和Java退出核验通过。完整角色校正、USB采集和16+视点30FPS仍未完成，见[本轮说明](docs/production-app-v49-20261007.md)。下方保留历史记录。
@@ -372,3 +376,15 @@ APK 为 `NpuHeadroom.apk`，SHA-256 `4c54b1b69e29ac47cdb66cbc16341e49cfdd67ec498
 
 - [Android GLES30 深度附件失效接口](https://developer.android.com/reference/android/opengl/GLES30#glInvalidateFramebuffer(int,%20int,%20int[],%20int))
 - [Android Activity 方向请求](https://developer.android.com/reference/android/app/Activity#setRequestedOrientation(int))
+
+## V50 2026-10-07
+
+## 当前版本
+
+V50 / 0.2.19已覆盖安装，保留黑金暗红、椭圆安全区的首页、角色、场景与设置。真实界面截图已在会话展示。
+
+新增默认关闭的实时异步三角面切线候选：69姿态、2208组分视图、48组最终交织画面通过原画质门。固定录像面捕与NPU、16视点渲染同时运行，原版 10.515 FPS、候选 10.880 FPS、原版复测 10.529 FPS；候选仅约 3.4% 提升，CPU更高、GPU仍约98%，保留默认原PBR路径。未达到30FPS。
+
+原78资产、9原生库和四配置保留，正常首帧/导航/Back与Java退出检查通过。此轮未替换模型；更多头部校正与相机流配置错误仍待处理。详见[V50说明](docs/production-app-v50-20261007.md)。录像、APK和原始QA保存在本地。
+
+当前状态与后续限制以本文件顶部的 V50 说明为准。

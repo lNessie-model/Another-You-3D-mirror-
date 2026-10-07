@@ -62,6 +62,7 @@ final class AvatarGpuScene {
     private boolean srgbOutputSelected;
     private SrgbComparison srgbComparison;
     private TriangleTangentComparison tangentComparison;
+    private volatile TriangleTangentRuntime tangentRuntime;
     private boolean disposed;
     // GL-owner submission counters; pixel verification snapshots them on that same owner.
     private long individualDrawCalls,individualViewGroups;
@@ -214,6 +215,7 @@ final class AvatarGpuScene {
         cleanup.close("avatar PBR comparison",pbrComparison);
         cleanup.close("avatar sRGB comparison",srgbComparison);
         cleanup.close("avatar triangle tangent comparison",tangentComparison);
+        cleanup.close("avatar triangle tangent runtime",tangentRuntime);
         AvatarBatchGpu oldBatch=batch;batch=null;specializedBatch=false;
         if(oldBatch!=null)cleanup.close("avatar batch",oldBatch::dispose);
         for(int buffer:allocatedBuffers)cleanup.close("avatar primitive buffer",()->GLES30.glDeleteBuffers(1,new int[]{buffer},0));
@@ -233,7 +235,11 @@ final class AvatarGpuScene {
     /** GL thread consumes an explicit Activity resume, using the worker's monotonic clock. */
     void resumeCpuPose(){poseProgress.resume(System.nanoTime());}
     void prepare(float[] blendshapes,float[] headAngles) {
-        if(poseWorker!=null){prepareAsync(blendshapes,headAngles);return;}
+        if(poseWorker!=null){
+            try{prepareAsync(blendshapes,headAngles);}
+            catch(RuntimeException|Error failure){if(tangentRuntime!=null)tangentRuntime.table.fail(failure);throw failure;}
+            return;
+        }
         long start=System.nanoTime();rig.update(blendshapes,headAngles);
         long rigEnd=System.nanoTime(),changed=0,uploaded=0;
         for(int m=0;m<weights.length;m++) {
@@ -282,6 +288,10 @@ final class AvatarGpuScene {
                     if(drawMode!=DrawMode.BATCHED) {
                     GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER,primitive.dynamicBuffer);
                     GLES30.glBufferSubData(GLES30.GL_ARRAY_BUFFER,0,buffer.capacity()*4,buffer);
+                    if(tangentRuntime!=null&&primitive==tangentRuntime.primary){
+                        checkGl("triangle runtime primary PN upload");
+                        tangentRuntime.table.captureUploaded(buffer,revision);
+                    }
                     uploaded+=(long)buffer.capacity()*4;
                     }
                     if(batch!=null)uploaded+=batch.upload(m,p,buffer);
@@ -312,7 +322,11 @@ final class AvatarGpuScene {
     }
     /** viewProjections contain one or four independent off-axis camera matrices, without model transform. */
     void draw(float[] viewProjections,int viewCount,float aspect) {
-        drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.ALL);
+        if(tangentRuntime==null){drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.ALL);return;}
+        Throwable primary=null;
+        try{tangentRuntime.requireOwner();drawPass(viewProjections,viewCount,aspect,AvatarDrawPartition.Pass.ALL);}
+        catch(RuntimeException|Error failure){primary=failure;tangentRuntime.table.fail(failure);throw failure;}
+        finally{try{tangentRuntime.table.unbind();}catch(RuntimeException|Error cleanup){tangentRuntime.table.fail(cleanup);if(primary!=null)primary.addSuppressed(cleanup);else throw cleanup;}}
     }
     /** Explicit diagnostic only; shares the reference's current uploaded VBOs, fit and world matrices. */
     void drawMaterialCoverage(float[] viewProjections,int viewCount,float aspect,int estimateTexture) {
@@ -339,7 +353,7 @@ final class AvatarGpuScene {
     void beginSpecializedBatch(){beginSpecializedBatch(false);}
     void beginSpecializedBatch(boolean constantWhitePrimary){beginSpecializedBatch(constantWhitePrimary,false);}
     void beginSpecializedBatch(boolean constantWhitePrimary,boolean reuseGroupUniforms){
-        if(tangentComparison!=null||srgbOutputRequested||srgbComparison!=null||disposed||specializedBatch||(drawMode!=DrawMode.BATCHED&&drawMode!=DrawMode.VERIFY)||batch==null||ormComparison!=null||pbrComparison!=null
+        if(tangentRuntime!=null||tangentComparison!=null||srgbOutputRequested||srgbComparison!=null||disposed||specializedBatch||(drawMode!=DrawMode.BATCHED&&drawMode!=DrawMode.VERIFY)||batch==null||ormComparison!=null||pbrComparison!=null
                 ||ormRg8Uploaded||pbrFastMathRequested||!sha256.equals("9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531"))
             throw new IllegalStateException("Specialized candidate requires original Geralt PBR batched scene without other material experiments");
         batch.beginSpecializedComparison(constantWhitePrimary,reuseGroupUniforms);specializedBatch=true;
@@ -394,6 +408,7 @@ final class AvatarGpuScene {
             for(GpuPrimitive primitive:primitives[mesh]) {
                 Program originalActive=active;
                 if(tangentComparison!=null)active=tangentComparison.beforePrimitive(active,primitive,n,viewProjections,viewCount,fittedWorld,normal);
+                if(tangentRuntime!=null)active=tangentRuntime.beforePrimitive(active,primitive,n,viewProjections,viewCount,fittedWorld,normal);
                 var material=asset.materials().get(primitive.source.materialIndex());
                 GLES30.glUniform4fv(active.color,1,primitive.materialColor,0);
                 GLES30.glUniform1f(active.unlit,material.unlit()?1:0);GLES30.glUniform1f(active.roughness,material.roughness());
@@ -412,6 +427,7 @@ final class AvatarGpuScene {
                 GLES30.glDrawElements(GLES30.GL_TRIANGLES,primitive.indexCount,GLES30.GL_UNSIGNED_INT,0);
                 individualDrawCalls++;individualLastProgram=active.id;individualLastViewCount=viewCount;
                 if(tangentComparison!=null)tangentComparison.afterPrimitive(active,primitive);
+                if(tangentRuntime!=null)tangentRuntime.afterPrimitive(active,primitive);
                 if(active!=originalActive){active=originalActive;GLES30.glUseProgram(active.id);}
             }
         }
@@ -479,6 +495,11 @@ final class AvatarGpuScene {
         if(asset.albedoAtlas()!=null)value.put("albedo_atlas",new JSONObject().put("width",asset.albedoAtlas().width()).put("height",asset.albedoAtlas().height()).put("encoded_bytes",asset.albedoAtlas().encodedBytes()));
         if(asset.normalMap()!=null)value.put("pbr_materials",new JSONObject().put("normal_width",asset.normalMap().width()).put("orm_width",asset.ormMap().width()).put("normal_scale",asset.materials().get(0).normalScale()).put("lighting","GGX key light, diffuse fill, hemisphere ambient; no image-based lighting or skin subsurface scattering").put("tangent_frame","fragment derivatives of current deformed geometry; not authored MikkTSpace tangents").put("sampling","GPU-generated mip chain, trilinear minification; original used level-zero channels retained").put("texture_gpu_bytes",mapGpuBytes(asset.albedoAtlas().width(),asset.albedoAtlas().height(),true)+mapGpuBytes(asset.normalMap().width(),asset.normalMap().height(),true)+AvatarOrmUploadPolicy.logicalBytes(asset.ormMap().width(),asset.ormMap().height(),ormRg8Uploaded?2:4,true)).put("texture_gpu_bytes_scope","logical sized-format mip texels; not measured GPU residency"));
         if(ormUploadPolicy!=null)value.put("orm_upload",ormUploadStatus());
+        if(tangentRuntime!=null){
+            value.put("triangle_tangent",tangentRuntime.status());
+            value.put("pbr_fragment_source_scope","Reference fragment SHA describes other six entries; primary candidate source SHA is in triangle_tangent");
+            value.getJSONObject("pbr_materials").put("tangent_frame","Primary per-triangle world T/B from owned actual uploaded PN; other entries original fragment derivatives");
+        }else value.put("triangle_tangent",new JSONObject().put("requested",false).put("actual","disabled"));
         if(currentBatch!=null)value.put("batch",currentBatch.status());
         if(poseWorker!=null) {
             var s=poseWorker.status();value.put("pose_worker",new JSONObject().put("submitted_inputs",s.submittedInputs)
@@ -588,9 +609,95 @@ final class AvatarGpuScene {
         if(pbrComparison==null)throw new IllegalStateException("PBR comparison not initialized");
         return count==4?pbrComparison.alternateMultiview:pbrComparison.alternateSingle;
     }
+    /** GL owner, immediately after initial neutral upload, before consuming any worker output. */
+    void enableTriangleTangentRuntime(){
+        TriangleTangentRuntimePolicy.requireScene(sha256,asset.normalMap()!=null,drawMode==DrawMode.INDIVIDUAL,poseWorker!=null,staticBackgroundNodes.length!=0);
+        if(disposed||tangentRuntime!=null||tangentComparison!=null||srgbOutputRequested||pbrFastMathRequested||ormUploadPolicy.requested
+                ||srgbComparison!=null||pbrComparison!=null||ormComparison!=null||specializedBatch||screenBounds!=null||asyncHasFrame||updates!=1)
+            throw new IllegalStateException("Exclusive initial asynchronous ordinary tangent runtime required");
+        if(asset.nodes().get(2).meshIndex()!=0||primitives[0].get(0).source.materialIndex()!=0||primitives[0].get(0).source.vertexCount()!=13975||primitives[0].get(0).indexCount!=9213*3)
+            throw new IllegalStateException("Exact node2/mesh0/primitive0 Geralt topology required");
+        TriangleTangentRuntime made=new TriangleTangentRuntime();
+        try{
+            made.single=new Program(false,true,true,false,false,true);
+            if(multiviewProgram!=null)made.multi=new Program(true,true,true,false,false,true);
+            made.table=new TriangleTangentRuntimeGl(made.primary.source);
+            checkGl("runtime tangent initial primary upload");
+            made.table.captureUploaded(made.primary.upload,made.primary.lastRevision);
+            tangentRuntime=made;
+        }catch(RuntimeException|Error failure){try{made.close();}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
+    }
+    /** Diagnostic only: one already-applied worker output, no prepare/consume/CPU scheduling here. */
+    void drawTriangleTangentRuntimeComparison(float[] vp,int count,float aspect,boolean candidate){
+        TriangleTangentRuntime active=tangentRuntime;
+        if(active==null)throw new IllegalStateException("Runtime tangent comparison requires enabled async candidate");
+        active.requireOwner();if(active.diagnostic)throw new IllegalStateException("Nested runtime comparison");
+        active.selected=candidate;active.diagnostic=true;
+        try{draw(vp,count,aspect);}finally{active.selected=true;active.diagnostic=false;}
+    }
+    /** Diagnostic only: exercise producer slot reuse without changing uploaded PN or displayed matrices. */
+    long triangleTangentDiagnosticSubmitUnapplied(float[] coefficients,float[] angles){
+        if(tangentRuntime==null)throw new IllegalStateException("Runtime tangent is not enabled");
+        tangentRuntime.requireOwner();if(tangentRuntime.diagnostic)throw new IllegalStateException("Cannot submit during a comparison draw");
+        return poseWorker.submit(coefficients,angles);
+    }
+    private final class TriangleTangentRuntime implements AutoCloseable {
+        private final Thread owner=Thread.currentThread();
+        private final GpuPrimitive primary=primitives[0].get(0);
+        private final int[] bound=new int[1];
+        private volatile Program single,multi;
+        private TriangleTangentRuntimeGl table;
+        private boolean selected=true,diagnostic;
+        private volatile boolean closed;
+        private volatile long referenceDraws,candidateDraws,referenceChecks,candidateChecks;
+        private Program beforePrimitive(Program original,GpuPrimitive primitive,int node,float[] vp,int count,float[] actualWorld,float[] actualNormal){
+            requireOwner();if(primitive!=primary||!selected)return original;
+            if(node!=2)throw new IllegalStateException("Runtime tangent primary node differs");
+            table.prepare(actualWorld,primary.lastRevision);
+            Program chosen=count==4?multi:single;if(chosen==null)throw new IllegalStateException("Runtime tangent program missing");
+            table.bind();GLES30.glUseProgram(chosen.id);
+            GLES30.glUniformMatrix4fv(chosen.viewProjection,count,false,vp,0);GLES30.glUniformMatrix4fv(chosen.world,1,false,actualWorld,0);GLES30.glUniformMatrix3fv(chosen.normal,1,false,actualNormal,0);
+            GLES30.glUniform1i(chosen.sampler,0);GLES30.glUniform1i(chosen.normalSampler,1);GLES30.glUniform1i(chosen.ormSampler,2);GLES30.glUniform1i(chosen.tangentSampler,3);
+            return chosen;
+        }
+        private void afterPrimitive(Program active,GpuPrimitive primitive){
+            if(primitive!=primary)return;
+            if(diagnostic){verifyDiagnosticBindings(active);if(selected)candidateChecks++;else referenceChecks++;}
+            if(selected){candidateDraws++;table.unbind();}else referenceDraws++;
+        }
+        private void verifyDiagnosticBindings(Program active){
+            GLES30.glGetIntegerv(GLES30.GL_CURRENT_PROGRAM,bound,0);if(bound[0]!=active.id)throw new IllegalStateException("Runtime tangent diagnostic program mismatch");
+            GLES30.glGetUniformiv(active.id,active.normalSampler,bound,0);if(bound[0]!=1)throw new IllegalStateException("Runtime normal sampler differs");
+            GLES30.glGetUniformiv(active.id,active.ormSampler,bound,0);if(bound[0]!=2)throw new IllegalStateException("Runtime ORM sampler differs");
+            try{
+                for(int unit=1;unit<=2;unit++){GLES30.glActiveTexture(GLES30.GL_TEXTURE0+unit);GLES30.glGetIntegerv(GLES30.GL_TEXTURE_BINDING_2D,bound,0);if(bound[0]!=detailTextures[unit-1])throw new IllegalStateException("Runtime detail texture differs");}
+                if(selected){GLES30.glGetUniformiv(active.id,active.tangentSampler,bound,0);if(bound[0]!=3)throw new IllegalStateException("Runtime tangent sampler differs");GLES30.glActiveTexture(GLES30.GL_TEXTURE3);GLES30.glGetIntegerv(GLES30.GL_TEXTURE_BINDING_2D,bound,0);if(bound[0]!=table.texture())throw new IllegalStateException("Runtime tangent texture differs");GLES30.glGetIntegerv(GLES30.GL_SAMPLER_BINDING,bound,0);if(bound[0]!=0)throw new IllegalStateException("Runtime tangent sampler override");}
+            }finally{GLES30.glActiveTexture(GLES30.GL_TEXTURE0);}
+            checkGl("Runtime tangent diagnostic bindings");
+        }
+        private void requireOwner(){if(closed||Thread.currentThread()!=owner||poseWorker==null||tangentComparison!=null||table==null||!table.healthy())throw new IllegalStateException("Runtime tangent owner failed/closed/differs");}
+        private JSONObject status()throws Exception{
+            return table.status().put("actual",!table.healthy()?"failed":candidateDraws==0?"ready_unsubmitted":"triangle_tb_async")
+                .put("runtime_candidate_primary_draws",candidateDraws).put("runtime_reference_primary_draws",referenceDraws)
+                .put("diagnostic_candidate_binding_checks",candidateChecks).put("diagnostic_reference_binding_checks",referenceChecks)
+                .put("candidate_single_program",single==null?0:single.id).put("candidate_multiview_program",multi==null?0:multi.id)
+                .put("reference_fragment_sha256",AvatarPbrShaderVariant.sha256(PBR_FRAGMENT)).put("candidate_fragment_sha256",AvatarPbrShaderVariant.sha256(TriangleTangentShader.fragment(PBR_FRAGMENT)))
+                .put("snapshot_ownership","fixed GL-owned heap PN copied before releasing worker lease; no retained worker buffer")
+                .put("cache_key","actual uploaded primary revision plus all 16 raw float bits of actual fitted world (including physical aspect)")
+                .put("primary_node",2).put("primary_mesh",0).put("primary_primitive",0).put("primary_material",0);
+        }
+        @Override public void close(){
+            if(Thread.currentThread()!=owner)throw new IllegalStateException("Runtime tangent close owner differs");if(closed)return;closed=true;
+            ResourceCleanup cleanup=new ResourceCleanup(null);if(table!=null)cleanup.close("runtime tangent table",table);
+            Program a=single,b=multi;single=multi=null;
+            if(a!=null)cleanup.close("runtime tangent single",()->GLES30.glDeleteProgram(a.id));if(b!=null)cleanup.close("runtime tangent OVR",()->GLES30.glDeleteProgram(b.id));
+            cleanup.close("runtime tangent cleanup",()->checkGl("runtime tangent programs"));
+            if(cleanup.failure()!=null)throw new IllegalStateException("Runtime tangent cleanup",cleanup.failure());
+        }
+    }
     /** Synchronous, ordinary-only diagnostic. No runtime option or background worker owns this path. */
     TriangleTangentComparison createTriangleTangentComparison(){
-        if(disposed||tangentComparison!=null||poseWorker!=null||drawMode!=DrawMode.INDIVIDUAL||!SrgbViewPolicy.GERALT.equals(sha256)
+        if(disposed||tangentRuntime!=null||tangentComparison!=null||poseWorker!=null||drawMode!=DrawMode.INDIVIDUAL||!SrgbViewPolicy.GERALT.equals(sha256)
                 ||asset.normalMap()==null||srgbOutputRequested||pbrFastMathRequested||ormUploadPolicy.requested||srgbComparison!=null||pbrComparison!=null||ormComparison!=null||specializedBatch)
             throw new IllegalStateException("Exclusive synchronous original Geralt ordinary tangent comparison required");
         if(asset.nodes().get(2).meshIndex()!=0||primitives[0].get(0).source.materialIndex()!=0||primitives[0].get(0).source.vertexCount()!=13975||primitives[0].get(0).indexCount!=9213*3)
@@ -646,7 +753,7 @@ final class AvatarGpuScene {
     /** Diagnostic only: both variants use the exact same prepared primitive buffers/textures. */
     SrgbComparison createSrgbComparison(){
         SrgbViewPolicy.requireModel(sha256,asset.normalMap()!=null,drawMode==DrawMode.INDIVIDUAL,ormUploadPolicy.requested,pbrFastMathRequested,staticBackgroundNodes.length!=0);
-        if(tangentComparison!=null||disposed||srgbOutputRequested||srgbComparison!=null||pbrComparison!=null||ormComparison!=null||specializedBatch||poseWorker!=null)
+        if(tangentRuntime!=null||tangentComparison!=null||disposed||srgbOutputRequested||srgbComparison!=null||pbrComparison!=null||ormComparison!=null||specializedBatch||poseWorker!=null)
             throw new IllegalStateException("Exclusive synchronous original-PBR sRGB comparison required");
         SrgbComparison made=new SrgbComparison();
         try{made.single=new Program(false,true,true,false,true);if(multiviewProgram!=null)made.multi=new Program(true,true,true,false,true);srgbComparison=made;return made;}
@@ -677,7 +784,7 @@ final class AvatarGpuScene {
     }
     /** Two shader variants and both draw backends share one synchronous pose, texture set and VBO set. */
     PbrComparison createPbrComparison(){
-        if(tangentComparison!=null||srgbOutputRequested||srgbComparison!=null||specializedBatch||pbrComparison!=null||ormComparison!=null||asset.normalMap()==null||poseWorker!=null
+        if(tangentRuntime!=null||tangentComparison!=null||srgbOutputRequested||srgbComparison!=null||specializedBatch||pbrComparison!=null||ormComparison!=null||asset.normalMap()==null||poseWorker!=null
                 ||drawMode!=DrawMode.VERIFY||program==null||batch==null)
             throw new IllegalStateException("PBR comparison requires a synchronous PBR VERIFY scene without another comparison");
         PbrComparison created=new PbrComparison();
@@ -741,7 +848,7 @@ final class AvatarGpuScene {
      * Retains exactly one extra RGBA ORM map; both draws share all other textures, CPU state and VBOs.
      */
     OrmComparison createOrmComparison(){
-        if(tangentComparison!=null||srgbOutputRequested||srgbComparison!=null||specializedBatch||ormComparison!=null||pbrComparison!=null||!ormUploadPolicy.requested||!ormUploadPolicy.eligible||!ormRg8Uploaded||detailTextures[1]==0)
+        if(tangentRuntime!=null||tangentComparison!=null||srgbOutputRequested||srgbComparison!=null||specializedBatch||ormComparison!=null||pbrComparison!=null||!ormUploadPolicy.requested||!ormUploadPolicy.eligible||!ormRg8Uploaded||detailTextures[1]==0)
             throw new IllegalStateException("ORM comparison requires an actual eligible RG8 scene and no existing comparison");
         int candidate=detailTextures[1],reference=0;
         try{
