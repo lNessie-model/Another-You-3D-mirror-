@@ -149,17 +149,17 @@
     "default_role_restored": "geralt",
     "personal_face_art_accepted": false
   },
-  "versionCode": 48,
-  "versionName": "0.2.17",
-  "source_commit": "d691ec21036290ef760c66b44441abc2b431a5a8",
-  "public_parent": "b2b9e12f969cbbdae96f20acac15c4a6a34bcd51",
-  "created_at_utc": "2026-10-07T00:06:00.014802+00:00",
-  "local_apk_filename": "AvatarRuntime-v48-srgb-view-v2.apk",
-  "apk_sha256": "2533afb16002edfd4ff65b2d6c3ac22624a6600bc4a63d8316698cbe43b265f7",
-  "apk_bytes": 131296018,
+  "versionCode": 49,
+  "versionName": "0.2.18",
+  "source_commit": "76e9d0062ad656baf7c69c03e9e3bbe9afd2ab9f",
+  "public_parent": "f9ba38e00cfb2f08dabf187e58d107c678578b3c",
+  "created_at_utc": "2026-10-07T01:46:43.631121+00:00",
+  "local_apk_filename": "AvatarRuntime-v49-triangle-tangent-v1.apk",
+  "apk_sha256": "deaae834cc98db33ea48e4ccddfcd37251462a786f49edfe2a76212010c621a1",
+  "apk_bytes": 130728031,
   "apk_in_repository": false,
   "qa_passed": true,
-  "qa_scope": "Ordinary app/UI/Back/Java-owner/config regression passed. sRGB candidate image-quality gate failed on V1; V2 fixes runtime eligibility/first-error handling and has no new full-pixel measurement. Performance is diagnostic only.",
+  "qa_scope": "Ordinary UI/Back/Java-owner/config regression passed; synchronous Geralt triangle T/B direct pixel diagnostic passed. No runtime/async/performance qualification.",
   "live_face_qa_passed": false,
   "full_user_goal_complete": false,
   "camera_blocker": "IllegalStateException: android.hardware.camera2.CameraAccessException: CAMERA_ERROR (3): endConfigure:510: Camera 0: Error configuring streams: Function not imp",
@@ -167,15 +167,15 @@
   "camera_capture_passed": false,
   "runtime_opened_this_release": true,
   "gpu_retested_this_release": true,
-  "gpu_acceptance_scope_this_release": "V48 V1 Mali:69poses x16views x2backends=2208 layer pairs plus48 default-framebuffer pairs. maxRGB1/alpha0 but128layers and12finals fail unchanged RMSE0.1. V2 has no new complete image-quality test.",
-  "gpu_pose_suite_rerun_this_release": false,
-  "joint_performance_measured": true,
-  "joint_performance_input_scope": "Same final V2 APK ordinary/sRGB/ordinary;853-frame NV21 replay24.369907fps,noUSB/decode; originalGeralt fullPBR/16x400640/output12001920/persistent4FBO/per-frameVP/CPUpose/RGA/RKNN478/FP32front+mixed52. Sole changed flag srgb_views.",
+  "gpu_acceptance_scope_this_release": "Same V49 APK smoke9/288/48 and full69/2208/48 within serial and OVR4, original ordinary reference versus synchronous triangle lookup; fixed maxRGB1/RMSE0.1/alpha0 passed.",
+  "gpu_pose_suite_rerun_this_release": true,
+  "joint_performance_measured": false,
+  "joint_performance_input_scope": "Not measured in V49; prior measurements retained by previous_release_ref.",
   "joint_30fps_goal_met": false,
   "frame_rate_improvement_demonstrated": false,
   "private_fixtures_in_apk": false,
   "personal_video_in_apk": false,
-  "source_delta_file_count": 29,
+  "source_delta_file_count": 15,
   "frozen_delta_file_hashes_verified": true,
   "production_dependencies_match_v30": true,
   "native_dependencies_match_v35": true,
@@ -266,463 +266,55 @@
     "previous_v35_samples_are_historical": true
   },
   "orm_rg8": {
-    "default_enabled": false,
-    "exact_model_sha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
-    "unknown_or_modified_model_falls_back": "rgba8",
-    "reference_mip_logical_bytes": 22369620,
-    "candidate_mip_logical_bytes": 11184810,
-    "logical_payload_not_measured_gpu_residency": true,
-    "per_frame_packing": false,
-    "poses": 69,
-    "layer_pairs": 2208,
-    "rgb_and_alpha_difference_zero": true,
-    "run_id": "f8894a10-8e45-438f-84b9-dea67f43294c",
-    "device": "Mali-G52",
-    "bindings_checked_per_format": 1380,
-    "pixel_gate_is_not_performance_evidence": true,
-    "historical_pixel_evidence_versionCode": 36,
-    "pixel_suite_rerun_this_release": false,
-    "evidence_retained_from_prior_release": true
+    "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "f9ba38e00cfb2f08dabf187e58d107c678578b3c",
+      "path": "product-release-manifest.json",
+      "sha256": "b1140aab7c51b91594ddeeb6b6ec4531021b2c03979508252bbbd9dbf753c4a5"
+    },
+    "default_enabled": false
   },
   "recorded_face_performance": {
-    "evidence_versionCode": 48,
-    "evidence_variant": "V2",
-    "apk_sha256": "2533afb16002edfd4ff65b2d6c3ac22624a6600bc4a63d8316698cbe43b265f7",
-    "reference_backend": "ordinary shader-encoded PBR",
-    "candidate_backend": "ordinary linear PBR with sRGB view array and SKIP_DECODE",
-    "ordinary_default_individual_compared": true,
-    "sole_changed_flag": "srgb_views",
-    "runs": [
-      {
-        "name": "original-first",
-        "srgb_views": false,
-        "confirmed_active_presentation": {
-          "interactive_presented_fps": 10.533656010106586,
-          "interactive_duration_s": 44.380590126,
-          "sampled_duration_s": 44.144217312,
-          "intervals": [
-            {
-              "start_ns": 168761877414102,
-              "end_ns": 168796161632838,
-              "duration_s": 34.284218736,
-              "presented_frames": 359,
-              "presented_fps": 10.486378003830957,
-              "sampled_duration_s": 34.139528431,
-              "complete_history": true
-            },
-            {
-              "start_ns": 168796412623988,
-              "end_ns": 168806508995378,
-              "duration_s": 10.09637139,
-              "presented_frames": 108,
-              "presented_fps": 10.694985248687216,
-              "sampled_duration_s": 10.004688881,
-              "complete_history": true
-            }
-          ],
-          "complete_active_evidence": true,
-          "meets_30_fps": false,
-          "fps_target": 30,
-          "rate_is_lower_bound": false,
-          "surface_history_gaps": [],
-          "surface_history_gap_seconds": 0.0,
-          "state_history_gaps": [],
-          "status_errors": [],
-          "ambiguous_surface_intervals": [],
-          "confirmed_until_monotonic_ns": 168806508995378,
-          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
-          "unconfirmed_tail_seconds": 4.77101483,
-          "observed_until_monotonic_ns": 168811280010208,
-          "pause_clock_complete": true
-        },
-        "min_complete_interval_fps": 10.486378003830957,
-        "resources": {
-          "samples": 44,
-          "cpu_percent_whole_machine": 57.19200583129216,
-          "mem_available_mib_mean": 965.8645241477273,
-          "mem_available_mib_min": 957.87890625,
-          "temperature_c_min": 58.333,
-          "temperature_c_max": 63.888,
-          "app_pss_mib_samples": 8,
-          "app_pss_mib_mean": 301.128173828125,
-          "app_pss_mib_peak": 409.3115234375,
-          "npu_busy_percent_samples": 44,
-          "npu_busy_percent_mean": 45.86363636363637,
-          "npu_busy_percent_peak": 50.0,
-          "gpu_busy_samples": 44,
-          "gpu_busy_percent_mean": 98.06818181818181,
-          "gpu_busy_percent_peak": 99,
-          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-        },
-        "frequencies": {
-          "cpu0_khz": {
-            "count": 44,
-            "mean": 1800000.0,
-            "min": 1800000,
-            "max": 1800000
-          },
-          "gpu_hz": {
-            "count": 44,
-            "mean": 800000000.0,
-            "min": 800000000,
-            "max": 800000000
-          },
-          "scope": "Confirmed INTERACTIVE sampled CPU0/GPU frequency only; not continuous DVFS or NPU clock."
-        },
-        "snapshot_progress": {
-          "pairs": 7,
-          "snapshot_span_seconds": 35.171532992,
-          "counter_deltas": {
-            "metrics.completed_frames": 564,
-            "metrics.face_frames": 564,
-            "source.consumed_frames": 564,
-            "source.skipped_frames": 297
-          },
-          "analysis_fps": 16.035695689701257,
-          "face_fps": 16.035695689701257,
-          "stage_wall": {
-            "metrics.conversion_mean_ms": {
-              "count": 564,
-              "mean_ms": 2.9701774414893607
-            },
-            "metrics.inference_completion_mean_ms": {
-              "count": 564,
-              "mean_ms": 98.71708327836878
-            },
-            "metrics.received_to_completed_mean_ms": {
-              "count": 564,
-              "mean_ms": 123.16882958156044
-            },
-            "npu.mesh_mean_ms": {
-              "count": 564,
-              "mean_ms": 38.69190348049646
-            },
-            "npu.post_mean_ms": {
-              "count": 564,
-              "mean_ms": 47.075727156028364
-            }
-          },
-          "scope": "Consecutive INTERACTIVE snapshots inside each confirmed interval and same session/context. Gaps are not bridged; this subrange is shorter than SF/resources. Wall-clock means overlap and are not additive GPU duration."
-        },
-        "result_age_ms": {
-          "count": 9,
-          "mean": 175.55555555555554,
-          "min": 146,
-          "max": 289
-        },
-        "applied_pose_age_ms": {
-          "count": 9,
-          "mean": 97.37477377777778,
-          "min": 94.621051,
-          "max": 99.921219
-        }
-      },
-      {
-        "name": "srgb-candidate",
-        "srgb_views": true,
-        "confirmed_active_presentation": {
-          "interactive_presented_fps": 11.31446443006136,
-          "interactive_duration_s": 44.770791165,
-          "sampled_duration_s": 44.544750935,
-          "intervals": [
-            {
-              "start_ns": 168823040310831,
-              "end_ns": 168857636934932,
-              "duration_s": 34.596624101,
-              "presented_frames": 390,
-              "presented_fps": 11.27861266822614,
-              "sampled_duration_s": 34.490057549,
-              "complete_history": true
-            },
-            {
-              "start_ns": 168857906989417,
-              "end_ns": 168868081156481,
-              "duration_s": 10.174167064,
-              "presented_frames": 116,
-              "presented_fps": 11.437444741987282,
-              "sampled_duration_s": 10.054693386,
-              "complete_history": true
-            }
-          ],
-          "complete_active_evidence": true,
-          "meets_30_fps": false,
-          "fps_target": 30,
-          "rate_is_lower_bound": false,
-          "surface_history_gaps": [],
-          "surface_history_gap_seconds": 0.0,
-          "state_history_gaps": [],
-          "status_errors": [],
-          "ambiguous_surface_intervals": [],
-          "confirmed_until_monotonic_ns": 168868081156481,
-          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
-          "unconfirmed_tail_seconds": 4.968847311,
-          "observed_until_monotonic_ns": 168873050003792,
-          "pause_clock_complete": true
-        },
-        "min_complete_interval_fps": 11.27861266822614,
-        "resources": {
-          "samples": 44,
-          "cpu_percent_whole_machine": 61.07578196955252,
-          "mem_available_mib_mean": 966.7990056818181,
-          "mem_available_mib_min": 956.45703125,
-          "temperature_c_min": 64.444,
-          "temperature_c_max": 68.125,
-          "app_pss_mib_samples": 8,
-          "app_pss_mib_mean": 294.64501953125,
-          "app_pss_mib_peak": 397.666015625,
-          "npu_busy_percent_samples": 44,
-          "npu_busy_percent_mean": 49.0,
-          "npu_busy_percent_peak": 54.0,
-          "gpu_busy_samples": 44,
-          "gpu_busy_percent_mean": 98.0,
-          "gpu_busy_percent_peak": 99,
-          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-        },
-        "frequencies": {
-          "cpu0_khz": {
-            "count": 44,
-            "mean": 1800000.0,
-            "min": 1800000,
-            "max": 1800000
-          },
-          "gpu_hz": {
-            "count": 44,
-            "mean": 800000000.0,
-            "min": 800000000,
-            "max": 800000000
-          },
-          "scope": "Confirmed INTERACTIVE sampled CPU0/GPU frequency only; not continuous DVFS or NPU clock."
-        },
-        "snapshot_progress": {
-          "pairs": 7,
-          "snapshot_span_seconds": 35.279363919000005,
-          "counter_deltas": {
-            "metrics.completed_frames": 540,
-            "metrics.face_frames": 540,
-            "source.consumed_frames": 540,
-            "source.skipped_frames": 321
-          },
-          "analysis_fps": 15.306398415793952,
-          "face_fps": 15.306398415793952,
-          "stage_wall": {
-            "metrics.conversion_mean_ms": {
-              "count": 540,
-              "mean_ms": 2.830243966666666
-            },
-            "metrics.inference_completion_mean_ms": {
-              "count": 540,
-              "mean_ms": 115.61029780000004
-            },
-            "metrics.received_to_completed_mean_ms": {
-              "count": 540,
-              "mean_ms": 140.59082369629638
-            },
-            "npu.mesh_mean_ms": {
-              "count": 540,
-              "mean_ms": 42.093749151851846
-            },
-            "npu.post_mean_ms": {
-              "count": 540,
-              "mean_ms": 57.70732466851851
-            }
-          },
-          "scope": "Consecutive INTERACTIVE snapshots inside each confirmed interval and same session/context. Gaps are not bridged; this subrange is shorter than SF/resources. Wall-clock means overlap and are not additive GPU duration."
-        },
-        "result_age_ms": {
-          "count": 9,
-          "mean": 192.44444444444446,
-          "min": 147,
-          "max": 296
-        },
-        "applied_pose_age_ms": {
-          "count": 9,
-          "mean": 91.31977311111112,
-          "min": 86.955758,
-          "max": 92.884759
-        }
-      },
-      {
-        "name": "original-repeat",
-        "srgb_views": false,
-        "confirmed_active_presentation": {
-          "interactive_presented_fps": 10.523343900378931,
-          "interactive_duration_s": 44.636284109,
-          "sampled_duration_s": 44.377529084,
-          "intervals": [
-            {
-              "start_ns": 168884866496751,
-              "end_ns": 168919450736684,
-              "duration_s": 34.584239933,
-              "presented_frames": 362,
-              "presented_fps": 10.487140456000995,
-              "sampled_duration_s": 34.423111001,
-              "complete_history": true
-            },
-            {
-              "start_ns": 168919688806125,
-              "end_ns": 168929740850301,
-              "duration_s": 10.052044176,
-              "presented_frames": 107,
-              "presented_fps": 10.648538077883744,
-              "sampled_duration_s": 9.954418083,
-              "complete_history": true
-            }
-          ],
-          "complete_active_evidence": true,
-          "meets_30_fps": false,
-          "fps_target": 30,
-          "rate_is_lower_bound": false,
-          "surface_history_gaps": [],
-          "surface_history_gap_seconds": 0.0,
-          "state_history_gaps": [],
-          "status_errors": [],
-          "ambiguous_surface_intervals": [],
-          "confirmed_until_monotonic_ns": 168929740850301,
-          "scope": "SurfaceFlinger actual presentation timestamps only within confirmed INTERACTIVE state intervals; HOME intervals and unknown state history excluded; idle/acquiring/GRACE excluded; no claim about the unconfirmed tail after the last status; 34 ms boundary allowance; 30 FPS comparison allows only 0.000001 FPS numerical rounding",
-          "unconfirmed_tail_seconds": 4.88915349,
-          "observed_until_monotonic_ns": 168934630003791,
-          "pause_clock_complete": true
-        },
-        "min_complete_interval_fps": 10.487140456000995,
-        "resources": {
-          "samples": 44,
-          "cpu_percent_whole_machine": 57.33880907536284,
-          "mem_available_mib_mean": 965.3817471590909,
-          "mem_available_mib_min": 956.99609375,
-          "temperature_c_min": 68.125,
-          "temperature_c_max": 71.111,
-          "app_pss_mib_samples": 8,
-          "app_pss_mib_mean": 300.602294921875,
-          "app_pss_mib_peak": 409.2998046875,
-          "npu_busy_percent_samples": 44,
-          "npu_busy_percent_mean": 46.54545454545455,
-          "npu_busy_percent_peak": 51.0,
-          "gpu_busy_samples": 44,
-          "gpu_busy_percent_mean": 98.06818181818181,
-          "gpu_busy_percent_peak": 99,
-          "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-        },
-        "frequencies": {
-          "cpu0_khz": {
-            "count": 44,
-            "mean": 1800000.0,
-            "min": 1800000,
-            "max": 1800000
-          },
-          "gpu_hz": {
-            "count": 44,
-            "mean": 800000000.0,
-            "min": 800000000,
-            "max": 800000000
-          },
-          "scope": "Confirmed INTERACTIVE sampled CPU0/GPU frequency only; not continuous DVFS or NPU clock."
-        },
-        "snapshot_progress": {
-          "pairs": 7,
-          "snapshot_span_seconds": 35.184266286,
-          "counter_deltas": {
-            "metrics.completed_frames": 563,
-            "metrics.face_frames": 563,
-            "source.consumed_frames": 563,
-            "source.skipped_frames": 297
-          },
-          "analysis_fps": 16.00147052729704,
-          "face_fps": 16.00147052729704,
-          "stage_wall": {
-            "metrics.conversion_mean_ms": {
-              "count": 563,
-              "mean_ms": 2.683194779751331
-            },
-            "metrics.inference_completion_mean_ms": {
-              "count": 563,
-              "mean_ms": 100.71789534635883
-            },
-            "metrics.received_to_completed_mean_ms": {
-              "count": 563,
-              "mean_ms": 125.29175766074597
-            },
-            "npu.mesh_mean_ms": {
-              "count": 563,
-              "mean_ms": 39.44596026998223
-            },
-            "npu.post_mean_ms": {
-              "count": 563,
-              "mean_ms": 47.97806386323268
-            }
-          },
-          "scope": "Consecutive INTERACTIVE snapshots inside each confirmed interval and same session/context. Gaps are not bridged; this subrange is shorter than SF/resources. Wall-clock means overlap and are not additive GPU duration."
-        },
-        "result_age_ms": {
-          "count": 9,
-          "mean": 179.22222222222223,
-          "min": 149,
-          "max": 286
-        },
-        "applied_pose_age_ms": {
-          "count": 9,
-          "mean": 95.73667644444446,
-          "min": 92.528343,
-          "max": 98.90476
-        }
-      }
-    ],
-    "candidate_gain_over_original_reference_mean_percent": 7.4651135314601325,
-    "candidate_gain_over_original_first_percent": 7.412511090219964,
-    "candidate_gain_over_original_repeat_percent": 7.517767519257279,
-    "all_confirmed_active": true,
-    "minimum_confirmed_seconds": 40,
-    "unknown_tails_excluded": true,
-    "three_new_v2_runs_only": true,
-    "v1_data_spliced": false,
-    "quality_passed": false,
-    "diagnostic_only": true,
-    "default_enabled": false,
-    "goal30fps": false,
-    "thermal_causality_claimed": false,
-    "freshness_threshold_preregistered": false,
-    "production_default_qualified": false,
-    "production_performance_improved": false,
-    "performance_sample_scope": "SF/resources use all confirmed INTERACTIVE intervals; face uses shorter contained snapshot pairs. CPU wall is not GPU timer. Preserve CPU/face/temperature tradeoffs and unknown tails."
+    "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "f9ba38e00cfb2f08dabf187e58d107c678578b3c",
+      "path": "product-release-manifest.json",
+      "sha256": "b1140aab7c51b91594ddeeb6b6ec4531021b2c03979508252bbbd9dbf753c4a5"
+    },
+    "performance_measured": false
   },
   "host_evidence": {
-    "evidence_versionCode": 48,
-    "policy_checks": 18,
-    "gl_guard_checks": 27,
-    "scene_checks": 122,
-    "actual_runtime_entry_checks": 25,
-    "configuration_checks": 25,
-    "diagnostic_contract_checks": 22,
-    "actual_renderer_boundary_checks": 552,
-    "independent_parent_default_trace_exact": true,
-    "parent_default_trace_sha256": "98e8b5149d63b458411528ae2c924c68091c4e919b955000fced2ea9011cb010",
-    "sdk35_compiled": true,
-    "implementation_peer_no_blockers": true
+    "evidence_versionCode": 49,
+    "math_checks": 34,
+    "diagnostic_contract_checks": 13,
+    "scene_boundary_checks": 124,
+    "independent_suite_recompiled": true,
+    "default_config_checks": 25,
+    "default_entry_checks": 22,
+    "default_renderer_checks": 552,
+    "parent_current_default_trace_exact": true,
+    "sdk35_compiled": true
   },
   "device_evidence": {
-    "evidence_versionCode": 48,
+    "evidence_versionCode": 49,
     "normal_renderer_ready": true,
-    "ordinary_individual_draw_calls": 280,
-    "ordinary_default_srgb": false,
-    "ordinary_default_specialized": false,
-    "ordinary_default_constant_white": false,
-    "ordinary_default_group_reuse": false,
-    "view_fragment_output": "shader_encoded_reference",
+    "ordinary_individual_draw_calls": 301,
+    "all_four_configs_byte_exact": true,
+    "java_runtime_owner_threads_absent_after_normal_back": true,
+    "home_roles_scenes_settings_about_smoked": true,
+    "about_version": "0.2.18",
+    "home_after_full_verified": true,
     "camera_error_3_persists": true,
     "live_face_capture_passed": false,
-    "all_four_configs_byte_exact": true,
-    "config_validation_scope": "Root live reads archived as raw files with command/assertion chain; peer independently compared archives, no peer device reread.",
-    "java_runtime_owner_threads_absent_after_normal_back": true,
-    "thread_scope": "Single JDWP snapshot of GLThread/avatar-pose/MirrorRuntime names, not all native/hardware ownership.",
-    "home_roles_scenes_settings_about_smoked": true,
-    "about_version": "0.2.17",
-    "normal_back_events": 2,
     "all_assets_newly_artist_corrected": false
   },
   "unreviewed_model_pipeline_delta_included": false,
   "new_portal_source_included": false,
   "v1_experiment_source_included": false,
-  "release_document": "docs/production-app-v48-20261007.md",
-  "gpu_pose_suite_scope_this_release": "V1 suite completed and FAILED. Final V2 APK only runtime qualifier/error handling fix, full suite not rerun; do not infer V2 quality acceptance.",
+  "release_document": "docs/production-app-v49-20261007.md",
+  "gpu_pose_suite_scope_this_release": "Synchronous Geralt diagnostic only; full69 current APK. No live camera, NPU, async or FPS evidence.",
   "earlier_ada_pose_suite_rerun": false,
   "native_dependencies_match_v36": true,
   "apk_assets_byte_exact_v36": 78,
@@ -1075,41 +667,16 @@
     "earlier_ada_pose_suite_rerun": false
   },
   "pbr_fast_math": {
-    "default_enabled": false,
-    "variant": "highp_schlick5_smith_combined_v1",
-    "reference_source_preserved": true,
-    "actual_pixel_gate_passed": true,
-    "poses": 9,
-    "layer_pairs": 288,
-    "max_rgb_error": 1,
-    "max_layer_rmse": 0.001141088661469096,
-    "alpha_difference_zero": true,
-    "png_count": 36,
-    "actual_program_bindings": {
-      "reference_variant": "reference",
-      "candidate_variant": "highp_schlick5_smith_combined_v1",
-      "reference_individual_binding_checks": 144,
-      "candidate_individual_binding_checks": 144,
-      "reference_batched_binding_checks": 36,
-      "candidate_batched_binding_checks": 36,
-      "reference_individual_fragment_sha256": "dca45511a583ade5f485f75c08c12300c574da004956e44060d8371bfe0a4d67",
-      "candidate_individual_fragment_sha256": "f244c56a546ec9f841aabf59d4dd761bd9af06913882088b7648b16d32e2acb2",
-      "reference_batched_fragment_sha256": "2e30dd22a754ca01bb6e57dea902bdab3eb0cc1e4ad2b21dd80da3c4819b139c",
-      "candidate_batched_fragment_sha256": "897e9f26baf7c3633cfca2652e4c501cc55aa2bb7c095c4ba506458de3ac2e07",
-      "selected_fast_math": true,
-      "closed": false,
-      "scope": "Actual GL_CURRENT_PROGRAM checked immediately after each selected draw; shared prepared pose, textures and VBOs; not GPU timing"
+    "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "f9ba38e00cfb2f08dabf187e58d107c678578b3c",
+      "path": "product-release-manifest.json",
+      "sha256": "b1140aab7c51b91594ddeeb6b6ec4531021b2c03979508252bbbd9dbf753c4a5"
     },
-    "run_id": "2a118365-df3e-40ed-b87b-10c37d2bb27b",
-    "state_restored": true,
-    "diagnostic_not_performance_evidence": true,
-    "artwork_accepted": false,
-    "optical_validation": false,
-    "historical_pixel_evidence_versionCode": 37,
-    "pixel_suite_rerun_this_release": false,
-    "evidence_retained_from_prior_release": true
+    "default_enabled": false
   },
-  "joint_performance_retested_this_release": true,
+  "joint_performance_retested_this_release": false,
   "native_dependencies_match_v37": true,
   "apk_assets_byte_exact_v37": 78,
   "apk_native_byte_exact_v37": 9,
@@ -3415,7 +2982,7 @@
     "rerun_this_release": false,
     "evidence_retained_from_prior_release": true
   },
-  "final_candidate_variant": "srgb-view-array-skip-decode",
+  "final_candidate_variant": "synchronous-ordinary-triangle-tangent-diagnostic",
   "debug_lower_resolution_benefit_scope": "Historical V39 only, not measured in V43.",
   "native_dependencies_match_v39": true,
   "apk_assets_byte_exact_v39": 78,
@@ -6956,19 +6523,16 @@
     "evidence_retained_from_prior_release": true
   },
   "candidate_history": {
-    "versionCode": 48,
-    "v1_full_pixel_quality_failed_preserved": true,
-    "v1_runtime_candidate_rejection_preserved": true,
-    "v2_runtime_qualifier_and_first_error_fix": true,
-    "v2_full_pixel_gate_rerun": false,
-    "v2_three_new_diagnostic_runs_only": true,
-    "v1_performance_samples_not_spliced": true,
-    "wrong_ui_title_assertion_preserved": true,
-    "normal_ui_script_corrected_without_apk_change_or_rebuild": true,
-    "compiled_source_inputs": 27,
-    "selected_source_and_prose_paths": 29
+    "versionCode": 49,
+    "first_observer_timeout_preserved": true,
+    "fresh_uuid_complete_smoke": true,
+    "fresh_uuid_complete_full": true,
+    "root_statistics_assumption_failure_preserved": true,
+    "ui_guard_wrapper_race_failure_preserved": true,
+    "ui_guard_unfinished_cases_verified_without_device_calls": true,
+    "numeric_limits_relaxed": false
   },
-  "review_scope": "Exact29source/docs/tests, no new assets/dependencies. V1 quality failure and final V2 diagnostic performance/ordinary UI limits explicit. No private face recording, QA, APK, vendor copy or prototype published.",
+  "review_scope": "Exact15source/docs/tests; no new assets/dependencies. Private Ada candidate remains unintegrated; original histories preserved. No private face video, raw QA, APK or vendor copy published.",
   "native_dependencies_match_v40": true,
   "apk_assets_byte_exact_v40": 78,
   "apk_native_byte_exact_v40": 9,
@@ -28242,40 +27806,14 @@
     }
   },
   "empty_interlace": {
-    "evidence_versionCode": 42,
-    "debug_only": true,
-    "default_enabled": false,
-    "reference_background_unchanged": true,
-    "actual_uploaded_vertex_stride_floats": 6,
-    "all_active_nodes_and_views": true,
-    "near_w_unknown_full_fallback": true,
-    "view_count_reduced": false,
-    "pixel_roles": [
-      "geralt",
-      "builtin-guide",
-      "ada-wong"
-    ],
-    "fixtures_per_role": 95,
-    "final_rgba_comparisons": 285,
-    "rgb_byte_mismatches": 0,
-    "alpha_mismatches": 0,
-    "effective_bounds_fixtures": [
-      93,
-      92,
-      94
-    ],
-    "actual_program_uniform_checked": true,
-    "outside_clear_checked_fixtures": [
-      "neutral",
-      "all-controls"
-    ],
-    "outside_clear_layers_per_fixture": 16,
-    "raw_rgba_buffers_retained": false,
-    "universal_imported_asset_or_gpu_safety_claimed": false,
-    "performance_gain_proven": false,
-    "candidate_last_snapshot_not_average": true,
-    "pixel_suite_rerun_this_release": false,
-    "evidence_retained_from_prior_release": true
+    "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "f9ba38e00cfb2f08dabf187e58d107c678578b3c",
+      "path": "product-release-manifest.json",
+      "sha256": "b1140aab7c51b91594ddeeb6b6ec4531021b2c03979508252bbbd9dbf753c4a5"
+    },
+    "default_enabled": false
   },
   "material_cache_implemented": false,
   "native_dependencies_match_v42": true,
@@ -56363,7 +55901,7 @@
     "observed_rgb_mismatches": 0,
     "observed_alpha_mismatches": 0
   },
-  "frame_rate_improvement_scope": "New V2 recorded ABA10.533656/11.314464/10.523344FPS, +7.4651135percent vsordinary endpoint mean; diagnostic only with failed image quality, higher CPU and slower face subset. No production/default/thermal causality qualification.",
+  "frame_rate_improvement_scope": "No V49 frame-rate measurement or improvement claim.",
   "native_dependencies_match_v43": true,
   "apk_assets_byte_exact_v43": 78,
   "apk_native_byte_exact_v43": 9,
@@ -112429,17 +111967,14 @@
     }
   },
   "specialized_batch": {
-    "debug_only": true,
-    "default_enabled": false,
-    "constant_white_primary_default_enabled": false,
-    "reuse_group_uniforms_default_enabled": false,
-    "rerun_this_release": false,
     "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "b2b9e12f969cbbdae96f20acac15c4a6a34bcd51",
+      "commit": "f9ba38e00cfb2f08dabf187e58d107c678578b3c",
       "path": "product-release-manifest.json",
-      "sha256": "d5645e9f3ca59ad45910c8bd6c88526ecaa2d9f02ade0395d1ddfb50b30073c9"
-    }
+      "sha256": "b1140aab7c51b91594ddeeb6b6ec4531021b2c03979508252bbbd9dbf753c4a5"
+    },
+    "default_enabled": false
   },
   "role_browser": {
     "browsing_read_only": true,
@@ -112473,15 +112008,15 @@
     "full_blink_qualified": false,
     "files_published": false
   },
-  "joint_performance_apk_versionCode": 48,
-  "joint_performance_apk_sha256": "2533afb16002edfd4ff65b2d6c3ac22624a6600bc4a63d8316698cbe43b265f7",
+  "joint_performance_apk_versionCode": null,
+  "joint_performance_apk_sha256": null,
   "native_dependencies_match_v44": true,
   "apk_assets_byte_exact_v44": 78,
   "apk_native_byte_exact_v44": 9,
   "previous_release_ref": {
-    "commit": "b2b9e12f969cbbdae96f20acac15c4a6a34bcd51",
+    "commit": "f9ba38e00cfb2f08dabf187e58d107c678578b3c",
     "path": "product-release-manifest.json",
-    "sha256": "d5645e9f3ca59ad45910c8bd6c88526ecaa2d9f02ade0395d1ddfb50b30073c9"
+    "sha256": "b1140aab7c51b91594ddeeb6b6ec4531021b2c03979508252bbbd9dbf753c4a5"
   },
   "native_dependencies_match_v45": true,
   "apk_assets_byte_exact_v45": 78,
@@ -112489,50 +112024,63 @@
   "native_dependencies_match_v46": true,
   "apk_assets_byte_exact_v46": 78,
   "apk_native_byte_exact_v46": 9,
-  "diagnostic_frame_rate_improvement_observed": true,
+  "diagnostic_frame_rate_improvement_observed": false,
   "native_dependencies_match_v47": true,
   "apk_assets_byte_exact_v47": 78,
   "apk_native_byte_exact_v47": 9,
   "srgb_views": {
-    "debug_only": true,
-    "default_enabled": false,
+    "evidence_retained_from_prior_release": true,
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "f9ba38e00cfb2f08dabf187e58d107c678578b3c",
+      "path": "product-release-manifest.json",
+      "sha256": "b1140aab7c51b91594ddeeb6b6ec4531021b2c03979508252bbbd9dbf753c4a5"
+    },
+    "default_enabled": false
+  },
+  "triangle_tangent": {
+    "diagnostic_only": true,
+    "runtime_enabled": false,
+    "async_deployed": false,
+    "performance_measured": false,
+    "production_default_qualified": false,
     "exact_model_sha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
-    "ordinary_draw_only": true,
-    "original_mesh_textures_and_pbr": true,
-    "view_count": 16,
-    "view_width": 400,
-    "view_height": 640,
-    "output_width": 1200,
-    "output_height": 1920,
-    "color_contract": "Linear PBR output into sRGB array; SKIP_DECODE filtering in encoded domain; restore incoming write state before final framebuffer. Encoded initial clears treated separately.",
-    "quality_evidence_versionCode": 48,
-    "quality_evidence_variant": "V1",
-    "quality_apk_sha256": "8ef5675c71602480709e12159207e1e28ed31bfd6115f7788a95761f5b1a51eb",
-    "quality_gate_passed": false,
-    "actual_driver_pixel_gate_passed": false,
-    "fixtures": 69,
-    "layer_comparisons": 2208,
-    "final_framebuffer_comparisons": 48,
-    "failed_layer_rmse_pairs": 128,
-    "failed_final_rmse_pairs": 12,
-    "max_rgb_error": 1,
-    "max_layer_rmse": 0.11523865634702041,
-    "max_final_rmse": 0.10260495981080923,
-    "alpha_mismatches": 0,
-    "unchanged_limits": {
+    "smoke": {
+      "runId": "ca4a6927-ff89-4c51-bbb5-17733705dafb",
+      "qualityPassed": true,
+      "fixtureCount": 9,
+      "layerComparisons": 288,
+      "finalComparisons": 48,
+      "maxLayerRGB": 1,
+      "maxLayerRMSE": 0.004114253678777395,
+      "maxFinalRGB": 1,
+      "maxFinalRMSE": 0.0022502571869471738,
+      "alphaMismatches": 0
+    },
+    "full": {
+      "runId": "529b6afa-0188-4bb0-a155-0732dbfd7489",
+      "qualityPassed": true,
+      "fixtureCount": 69,
+      "layerComparisons": 2208,
+      "finalComparisons": 48,
+      "maxLayerRGB": 1,
+      "maxLayerRMSE": 0.006038073644245599,
+      "maxFinalRGB": 1,
+      "maxFinalRMSE": 0.0032940392293420617,
+      "alphaMismatches": 0
+    },
+    "logical_table_bytes": 294912,
+    "gpu_residency_measured": false,
+    "artwork_accepted": false,
+    "optical_validation": false,
+    "numeric_limits": {
       "max_rgb": 1,
       "rmse": 0.1,
       "alpha_mismatches": 0
-    },
-    "serial_and_ovr_rows_equal": true,
-    "performance_evidence_variant": "V2",
-    "performance_apk_sha256": "2533afb16002edfd4ff65b2d6c3ac22624a6600bc4a63d8316698cbe43b265f7",
-    "new_full_v2_pixel_measurement_claimed": false,
-    "runtime_explicit_lod_eligibility_fix": true,
-    "preserve_first_error_fix": true,
-    "shader_math_changed_by_v2": false,
-    "production_default_qualified": false,
-    "all_possible_poses_validated": false,
-    "optical_alignment_validated": false
-  }
+    }
+  },
+  "new_3d_backgrounds_accepted": false,
+  "native_dependencies_match_v48": true,
+  "apk_assets_byte_exact_v48": 78,
+  "apk_native_byte_exact_v48": 9
 }
