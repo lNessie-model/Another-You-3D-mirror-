@@ -8,6 +8,7 @@ public final class NeutralCalibrationCollectorTest {
         stableCollectionAndOwnership();independentSamplesAndBound();invalidAndUnrelaxedFrames();
         gapsMotionAndTimestampOrder();cancelTimeoutAndSessions();timestampEdgesAndClockOwnership();
         subSampleQualityAndRotationBranches();
+        personalBrowNeutral();
         System.out.println("NeutralCalibrationCollectorTest: "+checks+" assertions passed");
     }
     private static void stableCollectionAndOwnership(){
@@ -146,6 +147,47 @@ public final class NeutralCalibrationCollectorTest {
         near(reference,update.result().neutralPose(),1e-6,"noncommuting compound rotations average in rotation space");
     }
     private static float[] multiply(float[] a,float[] b){float[] out=new float[16];for(int col=0;col<4;col++)for(int row=0;row<4;row++){double value=0;for(int k=0;k<4;k++)value+=(double)a[k*4+row]*b[col*4+k];out[col*4+row]=(float)value;}return out;}
+    private static void personalBrowNeutral(){
+        var collector=new NeutralCalibrationCollector(true);var owner=collector.begin(START);
+        float[] resting=relaxed();resting[1]=.22f;resting[2]=.31f;
+        var ready=feed(collector,owner,START,0,41,50,resting,rotation(0,0,0));
+        check(ready.status()==NeutralCalibrationCollector.Status.READY,"explicit stable resting-brow sample is ready");
+        var calibration=new FaceControlCalibration(52,false,ready.result().neutralPose(),ready.result().personalBaseline());
+        float[] mapped=FaceControlMapper.mapActive(resting,rotation(0,0,0),calibration).blendshapes52();
+        near(new float[]{0,0},new float[]{mapped[1],mapped[2]},1e-7,"sampled resting brow bias must not continue pressing either brow down");
+        close(.22,ready.result().personalBaseline().browDownLeft(),1e-7,"left brow uses the same complete stable source interval");
+        close(.31,ready.result().personalBaseline().browDownRight(),1e-7,"right brow has its own stable mean");
+        float[] frown=resting.clone();frown[1]=frown[2]=1;
+        mapped=FaceControlMapper.mapActive(frown,rotation(0,0,0),calibration).blendshapes52();
+        check(mapped[1]==1&&mapped[2]==1,"neutral collection does not suppress intentional frown endpoints");
+        var firstResult=ready.result();collector.cancel(owner);
+        check(!collector.isCurrentReady(owner,firstResult),"cancel revokes brow correction draft with the other baseline channels");
+        var nextOwner=collector.begin(START+3000*MS);float[] other=relaxed();other[1]=.11f;other[2]=.17f;
+        check(collector.offer(owner,frame(999,START+3000*MS,resting,rotation(0,0,0)),START+3020*MS).status()==NeutralCalibrationCollector.Status.STALE_SESSION,"obsolete owner cannot inject former person's brow observations");
+        ready=feed(collector,nextOwner,START+3000*MS,0,41,50,other,rotation(0,0,0));
+        close(.11,ready.result().personalBaseline().browDownLeft(),1e-7,"new session has no old brow mean");
+        close(.17,ready.result().personalBaseline().browDownRight(),1e-7,"new session has no old asymmetric brow mean");
+        for(int side:new int[]{1,2}){
+            collector=new NeutralCalibrationCollector(true);owner=collector.begin(START);
+            collector.offer(owner,frame(0,START,resting,rotation(0,0,0)),START+20*MS);
+            float[] moved=resting.clone();moved[side]+=.09f;
+            var update=collector.offer(owner,frame(1,START+10*MS,moved,rotation(0,0,0)),START+30*MS);
+            check(update.reason()==NeutralCalibrationCollector.Reason.COEFFICIENT_CHANGED&&update.samples()==1&&update.result()==null,"brow change between statistical samples breaks the full personal window on side "+side);
+            ready=feed(collector,owner,START+60*MS,2,40,50,moved,rotation(0,0,0));
+            check(ready.status()==NeutralCalibrationCollector.Status.READY&&ready.result().firstSequence()==1&&ready.result().lastSequence()==41,"only the new continuous resting-brow interval produces READY");
+            close(moved[side],side==1?ready.result().personalBaseline().browDownLeft():ready.result().personalBaseline().browDownRight(),1e-7,"discarded brow observations do not contaminate new baseline");
+            float[] unsafe=moved.clone();unsafe[side]=.50001f;
+            collector=new NeutralCalibrationCollector(true);owner=collector.begin(START);
+            var rejected=collector.offer(owner,frame(0,START,unsafe,rotation(0,0,0)),START+20*MS);
+            check(rejected.reason()==NeutralCalibrationCollector.Reason.BROWS_NOT_RELAXED&&rejected.samples()==0&&rejected.result()==null,"gain-unsafe brow neutral is refused on side "+side);
+        }
+        collector=new NeutralCalibrationCollector(false);owner=collector.begin(START);
+        for(int i=0;i<=40;i++){
+            float[] varied=relaxed();varied[1]=i%2;varied[2]=1-varied[1];
+            ready=collector.offer(owner,frame(i,START+i*50*MS,varied,rotation(0,0,0)),START+i*50*MS+20*MS);
+        }
+        check(ready.status()==NeutralCalibrationCollector.Status.READY&&ready.result().personalBaseline()==null,"head-only collection keeps prior acceptance and never learns brows automatically");
+    }
     private static void expectReset(FaceFrame frame,long now,NeutralCalibrationCollector.Reason reason){
         var c=new NeutralCalibrationCollector(true);var token=c.begin(START);feed(c,token,START,0,10,50,relaxed(),rotation(0,0,0));
         var out=c.offer(token,frame,now);check(out.status()==NeutralCalibrationCollector.Status.COLLECTING&&out.samples()==0&&out.reason()==reason,"rejected frame resets: "+reason+" actual="+out.reason());

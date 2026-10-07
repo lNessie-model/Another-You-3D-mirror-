@@ -27,23 +27,33 @@ public final class FaceControlCalibration {
     /**
      * Explicit, already accepted neutral-sampling result, in canonical anatomical coordinates.
      * This class checks numerical safety only, not whether samples actually depict a neutral person.
-     * All seven values are session-scoped. A new person/session must use null until sampled again.
+     * All values are session-scoped. A new person/session must use null until sampled again.
      */
     public static final class PersonalBaseline {
         // Bounds cap the optional endpoint-preserving gain at 2. They are engineering bounds,
         // not validated criteria for neutral collection; the collector must also check fresh/stable input.
         public static final float MAX_BASELINE=.5f;
         private final float blinkLeft,blinkRight,jawOpen,leftOut,rightOut,leftUp,rightUp;
+        private final float browDownLeft,browDownRight;
+        /** Legacy eye/mouth/gaze baseline leaves both brow channels unchanged. */
         public PersonalBaseline(float blinkLeft,float blinkRight,float jawOpen,
                                 float leftOut,float rightOut,float leftUp,float rightUp) {
+            this(blinkLeft,blinkRight,jawOpen,leftOut,rightOut,leftUp,rightUp,0,0);
+        }
+        public PersonalBaseline(float blinkLeft,float blinkRight,float jawOpen,
+                                float leftOut,float rightOut,float leftUp,float rightUp,
+                                float browDownLeft,float browDownRight) {
             check(blinkLeft,0,MAX_BASELINE,"left blink");check(blinkRight,0,MAX_BASELINE,"right blink");
             check(jawOpen,0,MAX_BASELINE,"jaw open");
             check(leftOut,-MAX_BASELINE,MAX_BASELINE,"left outward gaze");
             check(rightOut,-MAX_BASELINE,MAX_BASELINE,"right outward gaze");
             check(leftUp,-MAX_BASELINE,MAX_BASELINE,"left upward gaze");
             check(rightUp,-MAX_BASELINE,MAX_BASELINE,"right upward gaze");
+            check(browDownLeft,0,MAX_BASELINE,"left brow down");
+            check(browDownRight,0,MAX_BASELINE,"right brow down");
             this.blinkLeft=blinkLeft;this.blinkRight=blinkRight;this.jawOpen=jawOpen;
             this.leftOut=leftOut;this.rightOut=rightOut;this.leftUp=leftUp;this.rightUp=rightUp;
+            this.browDownLeft=browDownLeft;this.browDownRight=browDownRight;
         }
         public float blinkLeft(){return blinkLeft;}
         public float blinkRight(){return blinkRight;}
@@ -54,6 +64,8 @@ public final class FaceControlCalibration {
         /** Per-eye upward-positive difference: eyeLookUp-eyeLookDown. */
         public float leftUp(){return leftUp;}
         public float rightUp(){return rightUp;}
+        public float browDownLeft(){return browDownLeft;}
+        public float browDownRight(){return browDownRight;}
         private static void check(float value,float min,float max,String label){
             if(!Float.isFinite(value)||value<min||value>max)
                 throw new IllegalArgumentException(label+" baseline must be finite within ["+min+","+max+"]");
