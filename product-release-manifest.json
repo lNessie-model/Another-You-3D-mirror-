@@ -79,19 +79,19 @@
   "default_role_id": "geralt",
   "asset_library": {
     "catalog": "app/src/main/assets/library/catalog.json",
-    "catalog_sha256": "dee1d6129d310e79dc323c0492e029c26aa69c705aad90ccc14bc612fd218fe9",
-    "entries": 34,
-    "files": 69,
-    "bytes": 165204588,
+    "catalog_sha256": "73a4f60a7133f5247e6b87317a71cc7fff437dad1c1d452da9daddddf721acee",
+    "entries": 36,
+    "files": 73,
+    "bytes": 186572215,
     "types": {
-      "head": 22,
+      "head": 24,
       "scene": 4,
       "image": 8
     },
     "statuses": {
       "runtime_ready": 4,
-      "archive": 13,
-      "static_preview": 17
+      "archive": 14,
+      "static_preview": 18
     },
     "total_ip_identities": null,
     "other_ip_identities_pending": null,
@@ -106,12 +106,12 @@
     "listing_decodes_models": false,
     "previews_load_only_selected": true,
     "ready_state_means_selectable_not_personal_face_accepted": true,
-    "static_preview_head_entries": 11,
+    "static_preview_head_entries": 12,
     "historical_v52_identity_counts": {
       "total_ip_identities": 10,
       "other_ip_identities_pending": 7
     },
-    "identity_count_scope": "Not recomputed for V53; static preview head entries may contain duplicate identities.",
+    "identity_count_scope": "Not recomputed for V54; static preview head entries may contain duplicate identities.",
     "total_ip_identities_recomputed_this_release": false
   },
   "ada_trial": {
@@ -170,17 +170,17 @@
     "default_role_restored": "geralt",
     "personal_face_art_accepted": false
   },
-  "versionCode": 53,
-  "versionName": "0.2.22",
-  "source_commit": "380388c16460491a1ca428fb3ffb97ca22fbbda3",
-  "public_parent": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
-  "created_at_utc": "2026-10-07T19:25:35.878316+00:00",
-  "local_apk_filename": "AvatarRuntime-v53-premium-source-gallery-v1.apk",
-  "apk_sha256": "82cefba457ec74e87db72a24dba5ce6a2de4ec1639fcc24638177212b8b31fa0",
-  "apk_bytes": 220462381,
+  "versionCode": 54,
+  "versionName": "0.2.23",
+  "source_commit": "ea4ac8375ea5a65bb350c18864d90f274a409fed",
+  "public_parent": "aa8a3ea7666738c96643837059d2344f00818932",
+  "created_at_utc": "2026-10-07T22:17:32.033854+00:00",
+  "local_apk_filename": "AvatarRuntime-v54-premium-library-v1.apk",
+  "apk_sha256": "f149feca0833f3bf852a63aa7af54d25ac400130d950e039b4790195491e4aef",
+  "apk_bytes": 241473633,
   "apk_in_repository": false,
   "qa_passed": true,
-  "qa_scope": "Actual Home/role entry/library and three static PNG previews; settings byte exact. No new live rigs, runtime GL frame, USB capture or performance acceptance.",
+  "qa_scope": "Real Home -> role -> catalog PNG previews and return; no new 3D head/face runtime or camera/GPU/FPS acceptance.",
   "live_face_qa_passed": false,
   "full_user_goal_complete": false,
   "camera_blocker": null,
@@ -188,15 +188,15 @@
   "camera_capture_passed": false,
   "runtime_opened_this_release": false,
   "gpu_retested_this_release": false,
-  "gpu_acceptance_scope_this_release": "No runtime model GL/GPU acceptance this release; actual static PNG library UI only.",
+  "gpu_acceptance_scope_this_release": "Actual static/archive PNG library UI only; no runtime model GL/GPU acceptance.",
   "gpu_pose_suite_rerun_this_release": false,
   "joint_performance_measured": false,
-  "joint_performance_input_scope": "Not measured in V53; historical V52 evidence retained separately.",
+  "joint_performance_input_scope": "Not measured in V54; previous evidence remains historical.",
   "joint_30fps_goal_met": false,
   "frame_rate_improvement_demonstrated": false,
   "private_fixtures_in_apk": false,
   "personal_video_in_apk": false,
-  "source_delta_file_count": 10,
+  "source_delta_file_count": 8,
   "frozen_delta_file_hashes_verified": true,
   "production_dependencies_match_v30": true,
   "native_dependencies_match_v35": true,
@@ -290,9 +290,9 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     },
     "default_enabled": false
   },
@@ -307,53 +307,52 @@
     },
     "historical_interactive_presented_fps": 9.558747478542973,
     "counts_toward_full_goal": false,
-    "production_default_qualified": false
+    "production_default_qualified": false,
+    "historical_source": "V52 evidence retained through previous_v53_recorded_face_performance; not V54 measurement"
   },
   "host_evidence": {
-    "actual_apk_library_checks": 212,
-    "source_assets_library_entries": 34,
-    "new_asset_files": 6,
-    "all_other_v52_apk_assets_byte_exact": true,
+    "actual_apk_library_checks": 218,
+    "source_assets_library_entries": 36,
+    "new_asset_files": 4,
+    "all_other_v53_apk_assets_byte_exact": true,
     "native_libraries_byte_exact": 9,
     "old_render_suites_rerun": false,
-    "new_static_sources_face_rig_accepted": false
+    "new_sources_face_rig_accepted": false,
+    "unchanged_production_test_sources": true
   },
   "device_evidence": {
     "passed": true,
-    "versionCode": 53,
-    "apk_sha256": "82cefba457ec74e87db72a24dba5ce6a2de4ec1639fcc24638177212b8b31fa0",
+    "versionCode": 54,
+    "apk_sha256": "f149feca0833f3bf852a63aa7af54d25ac400130d950e039b4790195491e4aef",
+    "same_signer": true,
     "home_restored": true,
     "live_role_count": 4,
-    "library_count": 34,
+    "library_count": 36,
     "configs_byte_exact_after_browsing": true,
-    "static_previews": [
+    "previews": [
       {
-        "role": "tifa",
-        "screenshot_sha256": "c92957bf57b864c720c240b653e0fcb1df4023ee2e1a90c5cde9d68b7e9648ac",
+        "role": "astarion",
+        "screenshot_sha256": "ec1aaeb8f32eccff26b285a8b460664f1bdb209294d93dfe1d6aae9f20dc9a56",
         "preview_loaded": true,
-        "runtime_ready": false
+        "runtime_ready": false,
+        "status": "static_preview"
       },
       {
-        "role": "leon",
-        "screenshot_sha256": "f11f07b77633c86c9bdbd0cfc3d072c3206dd50b2d71609da83db6e9ec9915dc",
+        "role": "arwen",
+        "screenshot_sha256": "b0d608184a86478ec6a845d133b0eba3e1c238d38e4969fb8ec6d2061b88d22f",
         "preview_loaded": true,
-        "runtime_ready": false
-      },
-      {
-        "role": "storm",
-        "screenshot_sha256": "aba89ecdd9c466120033ed8621d0c87fc4c7036c32e38b7f8e7e59f885783d95",
-        "preview_loaded": true,
-        "runtime_ready": false
+        "runtime_ready": false,
+        "status": "archive"
       }
     ],
-    "scope": "Actual device Home/roles/library and all three static PNG previews. Does not prove new face rigs, camera capture, Mali model rendering or 30FPS.",
+    "scope": "Real Home -> role -> catalog PNG previews and return; no new 3D head/face runtime or camera/GPU/FPS acceptance.",
     "personal_config_content_published": false
   },
   "unreviewed_model_pipeline_delta_included": false,
   "new_portal_source_included": false,
   "v1_experiment_source_included": false,
-  "release_document": "docs/production-app-v53-20261008.md",
-  "gpu_pose_suite_scope_this_release": "Private host PN diagnostics; no new Mali pose comparison.",
+  "release_document": "docs/production-app-v54-20261008.md",
+  "gpu_pose_suite_scope_this_release": "Private host PN diagnostics only; no new Mali pose comparison.",
   "earlier_ada_pose_suite_rerun": false,
   "native_dependencies_match_v36": true,
   "apk_assets_byte_exact_v36": 76,
@@ -709,9 +708,9 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     },
     "default_enabled": false
   },
@@ -1478,9 +1477,9 @@
     "rerun_this_release": false,
     "evidence_retained_from_prior_release": true,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     }
   },
   "production_performance_improved": false,
@@ -3026,7 +3025,7 @@
     "rerun_this_release": false,
     "evidence_retained_from_prior_release": true
   },
-  "final_candidate_variant": "ordinary-PBR-unchanged-runtime-with-premium-static-sources",
+  "final_candidate_variant": "ordinary-PBR-unchanged-runtime-with-curated-static-and-archive-sources",
   "debug_lower_resolution_benefit_scope": "Historical V39 only, not measured in V43.",
   "native_dependencies_match_v39": true,
   "apk_assets_byte_exact_v39": 76,
@@ -6572,7 +6571,7 @@
     "prior_sync_evidence_preserved": true,
     "sephiroth_closure": "Private rejected trial; 3 new orientation/1 normal counterexample and up to13 leakage rays; no formal asset replaced"
   },
-  "review_scope": "10 selected source/asset/prose paths, 13 public paths; preserve all historical trees/LICENSE and180 unrelated source WIP files.",
+  "review_scope": "Eight source paths, eleven public paths; all historical trees/LICENSE and180 unrelated WIP preserved.",
   "native_dependencies_match_v40": true,
   "apk_assets_byte_exact_v40": 76,
   "apk_native_byte_exact_v40": 9,
@@ -13669,9 +13668,9 @@
     "rerun_this_release": false,
     "evidence_retained_from_prior_release": true,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     }
   },
   "native_dependencies_match_v41": true,
@@ -27854,9 +27853,9 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     },
     "default_enabled": false
   },
@@ -55946,7 +55945,7 @@
     "observed_rgb_mismatches": 0,
     "observed_alpha_mismatches": 0
   },
-  "frame_rate_improvement_scope": "No rendering change or V53 performance measurement; V52 results are historical.",
+  "frame_rate_improvement_scope": "No rendering change or V54 performance measurement.",
   "native_dependencies_match_v43": true,
   "apk_assets_byte_exact_v43": 76,
   "apk_native_byte_exact_v43": 9,
@@ -112015,9 +112014,9 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     },
     "default_enabled": false
   },
@@ -112029,15 +112028,15 @@
     "from_runtime_result_preserved": true,
     "configs_restored_exact": true,
     "ui_screenshots": [
-      "v53-roles.png"
+      "v54-roles.png"
     ],
     "rerun_this_release": true,
     "evidence_retained_from_prior_release": true,
-    "evidence_versionCode": 53,
+    "evidence_versionCode": 54,
     "roles_count": 4,
     "selection_changed_this_release": false,
     "explicit_use_retested_this_release": false,
-    "scope_this_release": "Read-only role entry and library navigation; explicit role activation not retested."
+    "scope_this_release": "Read-only role entry and library navigation; no runtime activation retest."
   },
   "private_npu_deformation": {
     "host_only": true,
@@ -112057,9 +112056,9 @@
   "apk_assets_byte_exact_v44": 76,
   "apk_native_byte_exact_v44": 9,
   "previous_release_ref": {
-    "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+    "commit": "aa8a3ea7666738c96643837059d2344f00818932",
     "path": "product-release-manifest.json",
-    "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+    "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
   },
   "native_dependencies_match_v45": true,
   "apk_assets_byte_exact_v45": 76,
@@ -112075,9 +112074,9 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     },
     "default_enabled": false
   },
@@ -112085,9 +112084,9 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     },
     "default_enabled": false
   },
@@ -112096,16 +112095,16 @@
   "apk_assets_byte_exact_v48": 76,
   "apk_native_byte_exact_v48": 9,
   "native_dependencies_match_parent": true,
-  "apk_assets_byte_exact_parent": 88,
+  "apk_assets_byte_exact_parent": 94,
   "apk_native_byte_exact_parent": 9,
   "production_candidate_enabled": false,
   "gpu_triangle_tangent": {
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     },
     "default_enabled": false
   },
@@ -112113,14 +112112,14 @@
     "evidence_retained_from_prior_release": true,
     "rerun_this_release": false,
     "prior_evidence_ref": {
-      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
       "path": "product-release-manifest.json",
-      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
     },
     "default_enabled": false
   },
-  "apk_asset_count": 95,
-  "apk_added_asset_count": 6,
+  "apk_asset_count": 99,
+  "apk_added_asset_count": 4,
   "apk_modified_asset_count": 1,
   "personal_brow_calibration": {
     "rest_brow_channels": 2,
@@ -112131,7 +112130,12 @@
     "max_rest": 0.5,
     "real_person_accepted": false,
     "evidence_versionCode": 52,
-    "rerun_this_release": false
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
+      "path": "product-release-manifest.json",
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
+    }
   },
   "sukuna_trial": {
     "model_sha256": "04f1ffbbe44a8287261e5fa1d5c57531f682b564a77a4775404bfb8b3698842e",
@@ -112146,40 +112150,42 @@
     "personal_face_accepted": false,
     "artist_fully_accepted": false,
     "evidence_versionCode": 52,
-    "rerun_this_release": false
+    "rerun_this_release": false,
+    "prior_evidence_ref": {
+      "commit": "aa8a3ea7666738c96643837059d2344f00818932",
+      "path": "product-release-manifest.json",
+      "sha256": "40bcce65fc9125be0c1ab511b3fc75568ca37c51b3044eaabaa5edf9e7cfebf1"
+    }
   },
   "new_head_sources": {
-    "tripo_billed_credits": 360,
-    "balance_after": 8730,
-    "new_library_entries": 3,
+    "tripo_billed_credits": 240,
+    "balance_after": 8490,
+    "frozen_credits_after": 0,
+    "new_library_entries": 2,
     "sources": [
       {
-        "name": "tifa",
-        "task_id": "9d934182-8312-4674-8e67-d6fecddca594",
-        "source_sha256": "b98204dd6d4a499640c6d1df064d27bde3b99f5078822b189420a50b8cc555bc",
+        "name": "astarion",
+        "task_id": "4e12ba9b-bf48-4ab2-9506-7daacec12053",
+        "source_sha256": "9cff10ca66a323660e2c25d9a77ba5bee3bb0769ce4c96372394c9ab626e83a3",
         "billed_credits": 120,
-        "static_preview_in_apk": true,
+        "source_in_apk": true,
+        "status": "static_preview",
+        "actual_preview_in_apk": true,
         "face_binding_accepted": false
       },
       {
-        "name": "leon",
-        "task_id": "1d648c53-9e41-422d-ad30-571ccaf94670",
-        "source_sha256": "10c45a892b15001a021d16a2a964c97c78cf30201ad8544222a2caf91380f6ef",
+        "name": "arwen",
+        "task_id": "f8943b8f-d5c3-4b5c-8067-d97c60c44853",
+        "source_sha256": "a6b6b3d81dc36c11105d8e494ead8e61852789893394c61d46d6d79803b69739",
         "billed_credits": 120,
-        "static_preview_in_apk": true,
-        "face_binding_accepted": false
-      },
-      {
-        "name": "storm",
-        "task_id": "1e988a3d-346c-4473-9f86-9a3652c298fb",
-        "source_sha256": "9a15a2f5f1e0023e738623718ddf28553d2bfeebc698f7df9f8665e003885d69",
-        "billed_credits": 120,
-        "static_preview_in_apk": true,
+        "source_in_apk": true,
+        "status": "archive",
+        "actual_preview_in_apk": true,
         "face_binding_accepted": false
       }
     ],
     "all_previews_from_actual_glb": true,
-    "new_sources_static_only": true,
+    "new_sources_non_live_only": true,
     "new_face_rigs_in_apk": false
   },
   "previous_v52_device_evidence": {
@@ -112357,8 +112363,110 @@
   },
   "camera_blocker_last_observed_versionCode": 52,
   "camera_blocker_last_observed": "IllegalStateException: android.hardware.camera2.CameraAccessException: CAMERA_ERROR (3): endConfigure:510: Camera 0: Error configuring streams: Function not imp",
-  "historical_asset_counters_scope": "apk_assets_byte_exact_v35..v48 are retained older-release counters; use apk_assets_byte_exact_parent for V53.",
+  "historical_asset_counters_scope": "Older apk_assets_byte_exact_v* fields are historical; use apk_assets_byte_exact_parent for V54.",
   "natural_face_research": {
+    "formal_apk_integrated": false,
+    "new_artist_accepted_rigs": 0,
+    "leon_brow_real_skin_controls": 5,
+    "leon_brow_actual_java_finite_poses": 13,
+    "leon_brow_natural_endpoint_accepted": false,
+    "leon_brow_fullface_accepted": false,
+    "leon_eye_accepted": false,
+    "leon_mouth_accepted": false,
+    "leon_mouth_original_unresolved_flip_instances": 327,
+    "leon_mouth_original_unresolved_normal_opposition_instances": 41,
+    "mouth_v2_diagnostic_only_no_new_glb": true,
+    "new_sources_face_rigs_accepted": false,
+    "partial_diagnostics_do_not_prove_complete_51": true
+  },
+  "previous_v53_device_evidence": {
+    "passed": true,
+    "versionCode": 53,
+    "apk_sha256": "82cefba457ec74e87db72a24dba5ce6a2de4ec1639fcc24638177212b8b31fa0",
+    "home_restored": true,
+    "live_role_count": 4,
+    "library_count": 34,
+    "configs_byte_exact_after_browsing": true,
+    "static_previews": [
+      {
+        "role": "tifa",
+        "screenshot_sha256": "c92957bf57b864c720c240b653e0fcb1df4023ee2e1a90c5cde9d68b7e9648ac",
+        "preview_loaded": true,
+        "runtime_ready": false
+      },
+      {
+        "role": "leon",
+        "screenshot_sha256": "f11f07b77633c86c9bdbd0cfc3d072c3206dd50b2d71609da83db6e9ec9915dc",
+        "preview_loaded": true,
+        "runtime_ready": false
+      },
+      {
+        "role": "storm",
+        "screenshot_sha256": "aba89ecdd9c466120033ed8621d0c87fc4c7036c32e38b7f8e7e59f885783d95",
+        "preview_loaded": true,
+        "runtime_ready": false
+      }
+    ],
+    "scope": "Actual device Home/roles/library and all three static PNG previews. Does not prove new face rigs, camera capture, Mali model rendering or 30FPS.",
+    "personal_config_content_published": false
+  },
+  "previous_v53_host_evidence": {
+    "actual_apk_library_checks": 212,
+    "source_assets_library_entries": 34,
+    "new_asset_files": 6,
+    "all_other_v52_apk_assets_byte_exact": true,
+    "native_libraries_byte_exact": 9,
+    "old_render_suites_rerun": false,
+    "new_static_sources_face_rig_accepted": false
+  },
+  "previous_v53_recorded_face_performance": {
+    "performance_measured": false,
+    "rerun_this_release": false,
+    "historical_versionCode": 52,
+    "historical_ref": {
+      "commit": "0a19f9ba2d80ede956ddea151ad16447497dcafc",
+      "path": "product-release-manifest.json",
+      "sha256": "507394426ef7aa9fa2745df8e36527a3dedb879a3a185c4b9ff98a72774f5745"
+    },
+    "historical_interactive_presented_fps": 9.558747478542973,
+    "counts_toward_full_goal": false,
+    "production_default_qualified": false
+  },
+  "previous_v53_new_head_sources": {
+    "tripo_billed_credits": 360,
+    "balance_after": 8730,
+    "new_library_entries": 3,
+    "sources": [
+      {
+        "name": "tifa",
+        "task_id": "9d934182-8312-4674-8e67-d6fecddca594",
+        "source_sha256": "b98204dd6d4a499640c6d1df064d27bde3b99f5078822b189420a50b8cc555bc",
+        "billed_credits": 120,
+        "static_preview_in_apk": true,
+        "face_binding_accepted": false
+      },
+      {
+        "name": "leon",
+        "task_id": "1d648c53-9e41-422d-ad30-571ccaf94670",
+        "source_sha256": "10c45a892b15001a021d16a2a964c97c78cf30201ad8544222a2caf91380f6ef",
+        "billed_credits": 120,
+        "static_preview_in_apk": true,
+        "face_binding_accepted": false
+      },
+      {
+        "name": "storm",
+        "task_id": "1e988a3d-346c-4473-9f86-9a3652c298fb",
+        "source_sha256": "9a15a2f5f1e0023e738623718ddf28553d2bfeebc698f7df9f8665e003885d69",
+        "billed_credits": 120,
+        "static_preview_in_apk": true,
+        "face_binding_accepted": false
+      }
+    ],
+    "all_previews_from_actual_glb": true,
+    "new_sources_static_only": true,
+    "new_face_rigs_in_apk": false
+  },
+  "previous_v53_natural_face_research": {
     "formal_apk_integrated": false,
     "new_artist_accepted_rigs": 0,
     "gothic_combined_finite_closure_passed": true,
@@ -112371,5 +112479,60 @@
     ],
     "tifa_native_eye_boundary_preparation_only": true,
     "leon_static_lod_preparation_only": true
+  },
+  "previous_v53_role_browser": {
+    "browsing_read_only": true,
+    "explicit_use_persists": true,
+    "one_bounded_thumbnail": true,
+    "process_restart_selection_verified": false,
+    "from_runtime_result_preserved": true,
+    "configs_restored_exact": true,
+    "ui_screenshots": [
+      "v53-roles.png"
+    ],
+    "rerun_this_release": true,
+    "evidence_retained_from_prior_release": true,
+    "evidence_versionCode": 53,
+    "roles_count": 4,
+    "selection_changed_this_release": false,
+    "explicit_use_retested_this_release": false,
+    "scope_this_release": "Read-only role entry and library navigation; explicit role activation not retested."
+  },
+  "previous_v53_asset_library": {
+    "catalog": "app/src/main/assets/library/catalog.json",
+    "catalog_sha256": "dee1d6129d310e79dc323c0492e029c26aa69c705aad90ccc14bc612fd218fe9",
+    "entries": 34,
+    "files": 69,
+    "bytes": 165204588,
+    "types": {
+      "head": 22,
+      "scene": 4,
+      "image": 8
+    },
+    "statuses": {
+      "runtime_ready": 4,
+      "archive": 13,
+      "static_preview": 17
+    },
+    "total_ip_identities": null,
+    "other_ip_identities_pending": null,
+    "ready_role_ids": [
+      "geralt",
+      "builtin-guide",
+      "ada-wong",
+      "sukuna"
+    ],
+    "source_and_authored_runtime_hashes_separate": true,
+    "all_library_bytes_match_final_apk": true,
+    "listing_decodes_models": false,
+    "previews_load_only_selected": true,
+    "ready_state_means_selectable_not_personal_face_accepted": true,
+    "static_preview_head_entries": 11,
+    "historical_v52_identity_counts": {
+      "total_ip_identities": 10,
+      "other_ip_identities_pending": 7
+    },
+    "identity_count_scope": "Not recomputed for V53; static preview head entries may contain duplicate identities.",
+    "total_ip_identities_recomputed_this_release": false
   }
 }
