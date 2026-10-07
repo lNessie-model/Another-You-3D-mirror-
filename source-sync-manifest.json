@@ -1,8 +1,8 @@
 {
-  "source_commit": "76e9d0062ad656baf7c69c03e9e3bbe9afd2ab9f",
+  "source_commit": "79e71178f58604a18e5d24187e19f7c115083989",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 821,
+  "file_count": 832,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,28 +35,28 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 50580,
-      "source_sha256": "1ff10b91303e8bfe94be261731d24a7ab35a116238a805414e578a8af584d875",
-      "repository_bytes": 50580,
-      "repository_sha256": "1ff10b91303e8bfe94be261731d24a7ab35a116238a805414e578a8af584d875",
+      "source_bytes": 51811,
+      "source_sha256": "26f642cad7cc420683f84c923567fdbe66676a9f58b5c9d7d3d992a10e6f76e2",
+      "repository_bytes": 51811,
+      "repository_sha256": "26f642cad7cc420683f84c923567fdbe66676a9f58b5c9d7d3d992a10e6f76e2",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 886,
-      "source_sha256": "da2583388e079fc7108a8dd7bdcd197a31d3b8304f017bafb76a13511467f49d",
+      "source_sha256": "cd9e0a44051f725c4fc8180de9680f343a57205bed889db3135c996f70e472df",
       "repository_bytes": 886,
-      "repository_sha256": "da2583388e079fc7108a8dd7bdcd197a31d3b8304f017bafb76a13511467f49d",
+      "repository_sha256": "cd9e0a44051f725c4fc8180de9680f343a57205bed889db3135c996f70e472df",
       "publication_transformation": null
     },
     {
       "source_path": "app/src/main/AndroidManifest.xml",
       "repository_path": "app/src/main/AndroidManifest.xml",
-      "source_bytes": 4401,
-      "source_sha256": "cb82637884090e8b30c7631e541438f57d8b080f6264efa298a0050a7f3f3181",
-      "repository_bytes": 4401,
-      "repository_sha256": "cb82637884090e8b30c7631e541438f57d8b080f6264efa298a0050a7f3f3181",
+      "source_bytes": 4536,
+      "source_sha256": "ded504ba6a4af154b6bcd847c99e8272a01bc8849bc382936010df74fcc25b90",
+      "repository_bytes": 4536,
+      "repository_sha256": "ded504ba6a4af154b6bcd847c99e8272a01bc8849bc382936010df74fcc25b90",
       "publication_transformation": null
     },
     {
@@ -843,10 +843,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/AvatarGpuScene.java",
       "repository_path": "app/src/main/java/com/mirror/bench/AvatarGpuScene.java",
-      "source_bytes": 76710,
-      "source_sha256": "46f8d19a1d326b29e5ff6b23da47292f8271195f8adeb2fa65943dffcbb737f3",
-      "repository_bytes": 76710,
-      "repository_sha256": "46f8d19a1d326b29e5ff6b23da47292f8271195f8adeb2fa65943dffcbb737f3",
+      "source_bytes": 87029,
+      "source_sha256": "03fc1db6de2854fcb412da43cc21e47600f0304dc75823a113d767c161e8033d",
+      "repository_bytes": 87029,
+      "repository_sha256": "03fc1db6de2854fcb412da43cc21e47600f0304dc75823a113d767c161e8033d",
       "publication_transformation": null
     },
     {
@@ -1370,10 +1370,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/InterlaceRenderer.java",
       "repository_path": "app/src/main/java/com/mirror/bench/InterlaceRenderer.java",
-      "source_bytes": 128102,
-      "source_sha256": "f2838c947fff087fdbfc180fdee7398fdcaeff562de46492174005dc691c9556",
-      "repository_bytes": 128102,
-      "repository_sha256": "f2838c947fff087fdbfc180fdee7398fdcaeff562de46492174005dc691c9556",
+      "source_bytes": 129384,
+      "source_sha256": "8557a6910cf9d721f5fa4df2169c5b0be6dbebcedb781ddc50c9268883ff3de6",
+      "repository_bytes": 129384,
+      "repository_sha256": "8557a6910cf9d721f5fa4df2169c5b0be6dbebcedb781ddc50c9268883ff3de6",
       "publication_transformation": null
     },
     {
@@ -1388,10 +1388,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
-      "source_bytes": 87104,
-      "source_sha256": "8ac3056145b2707bf8421b878848aecec5738f3be93b1c0b85640dfcc77bc641",
-      "repository_bytes": 87104,
-      "repository_sha256": "8ac3056145b2707bf8421b878848aecec5738f3be93b1c0b85640dfcc77bc641",
+      "source_bytes": 88098,
+      "source_sha256": "38b673f5c353d142420e26c3ee42044e1c88283ae745f61febd35664fbc901f8",
+      "repository_bytes": 88098,
+      "repository_sha256": "38b673f5c353d142420e26c3ee42044e1c88283ae745f61febd35664fbc901f8",
       "publication_transformation": null
     },
     {
@@ -1820,6 +1820,42 @@
       "source_sha256": "1a1fb724e864f62feeeee8251bf27495170b6d0952729979cbd2cd65c45aa46b",
       "repository_bytes": 5624,
       "repository_sha256": "1a1fb724e864f62feeeee8251bf27495170b6d0952729979cbd2cd65c45aa46b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/TriangleTangentRuntimeCheck.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/TriangleTangentRuntimeCheck.java",
+      "source_bytes": 31029,
+      "source_sha256": "325d2d01f7de7644a89c8e057d9d9a83743702fba7a2d5bbbd94a2e00237bb07",
+      "repository_bytes": 31029,
+      "repository_sha256": "325d2d01f7de7644a89c8e057d9d9a83743702fba7a2d5bbbd94a2e00237bb07",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/TriangleTangentRuntimeCheckActivity.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/TriangleTangentRuntimeCheckActivity.java",
+      "source_bytes": 4272,
+      "source_sha256": "2ff8367b8af699f7cf8aca628f2364d9d594074b331147fafc333009b5153070",
+      "repository_bytes": 4272,
+      "repository_sha256": "2ff8367b8af699f7cf8aca628f2364d9d594074b331147fafc333009b5153070",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/TriangleTangentRuntimeGl.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/TriangleTangentRuntimeGl.java",
+      "source_bytes": 10676,
+      "source_sha256": "26f59e6e162afc99a6c71224c1688f619dd54a49f9e748916d03bc6086044981",
+      "repository_bytes": 10676,
+      "repository_sha256": "26f59e6e162afc99a6c71224c1688f619dd54a49f9e748916d03bc6086044981",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/TriangleTangentRuntimePolicy.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/TriangleTangentRuntimePolicy.java",
+      "source_bytes": 989,
+      "source_sha256": "0142f665c6b0dc8102413b16621ba5a4731e8b3ffc49b2d3b1a40842be61e53c",
+      "repository_bytes": 989,
+      "repository_sha256": "0142f665c6b0dc8102413b16621ba5a4731e8b3ffc49b2d3b1a40842be61e53c",
       "publication_transformation": null
     },
     {
@@ -2670,6 +2706,15 @@
       "source_sha256": "42ca48438c79a3bd9888b5da8d182dc49a67f464178c3e0de1c02819d500ccf2",
       "repository_bytes": 4247,
       "repository_sha256": "42ca48438c79a3bd9888b5da8d182dc49a67f464178c3e0de1c02819d500ccf2",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v50-20261007.md",
+      "repository_path": "docs/production-app-v50-20261007.md",
+      "source_bytes": 3213,
+      "source_sha256": "9801b5a59ddeba07a3e255235b8bc5bba05f979d7cc5618f73e7a874d8831110",
+      "repository_bytes": 3213,
+      "repository_sha256": "9801b5a59ddeba07a3e255235b8bc5bba05f979d7cc5618f73e7a874d8831110",
       "publication_transformation": null
     },
     {
@@ -4255,10 +4300,10 @@
     {
       "source_path": "scripts/run_runtime_check.py",
       "repository_path": "scripts/run_runtime_check.py",
-      "source_bytes": 52481,
-      "source_sha256": "0e2be3f7c1d7f02b0f4107b382cf69b1a1539f1a4555ef81569e73f31bfb54e3",
-      "repository_bytes": 52481,
-      "repository_sha256": "0e2be3f7c1d7f02b0f4107b382cf69b1a1539f1a4555ef81569e73f31bfb54e3",
+      "source_bytes": 53433,
+      "source_sha256": "3388c23cea970da9cbe51c5d97f4ce7badb8fe6db1243e9bdce2ed49ecb8680c",
+      "repository_bytes": 53433,
+      "repository_sha256": "3388c23cea970da9cbe51c5d97f4ce7badb8fe6db1243e9bdce2ed49ecb8680c",
       "publication_transformation": null
     },
     {
@@ -5591,6 +5636,33 @@
       "source_sha256": "1a2bf4e390faa4e1f397b9b3b0b30276906c469c91877543e1d3307b3f0c6ac2",
       "repository_bytes": 2114,
       "repository_sha256": "1a2bf4e390faa4e1f397b9b3b0b30276906c469c91877543e1d3307b3f0c6ac2",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/TriangleTangentRuntimeConfigTest.java",
+      "repository_path": "tests/TriangleTangentRuntimeConfigTest.java",
+      "source_bytes": 2496,
+      "source_sha256": "5734747ab5b243d504eced6215803efd1d50fd947068cbbc7b384d93b417f8bf",
+      "repository_bytes": 2496,
+      "repository_sha256": "5734747ab5b243d504eced6215803efd1d50fd947068cbbc7b384d93b417f8bf",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/TriangleTangentRuntimeEntryTest.java",
+      "repository_path": "tests/TriangleTangentRuntimeEntryTest.java",
+      "source_bytes": 4069,
+      "source_sha256": "a96454f2866837f550c1ed1864d2c0ed5dfea5b14f5d084dbc1887fafdab8b55",
+      "repository_bytes": 4069,
+      "repository_sha256": "a96454f2866837f550c1ed1864d2c0ed5dfea5b14f5d084dbc1887fafdab8b55",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/TriangleTangentRuntimeSceneTest.java",
+      "repository_path": "tests/TriangleTangentRuntimeSceneTest.java",
+      "source_bytes": 9786,
+      "source_sha256": "a6b57f5d9652c7d3d489d8affc1b3d637ae4943b14697a41066bcc0764beda90",
+      "repository_bytes": 9786,
+      "repository_sha256": "a6b57f5d9652c7d3d489d8affc1b3d637ae4943b14697a41066bcc0764beda90",
       "publication_transformation": null
     },
     {
@@ -6957,6 +7029,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/run_triangle_tangent_runtime_tests.ps1",
+      "repository_path": "tests/run_triangle_tangent_runtime_tests.ps1",
+      "source_bytes": 3909,
+      "source_sha256": "75d1b6a92e46b95d6432350e7ad0fe217a6c6695c5599b9e1b734da9deafe613",
+      "repository_bytes": 3909,
+      "repository_sha256": "75d1b6a92e46b95d6432350e7ad0fe217a6c6695c5599b9e1b734da9deafe613",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/run_triangle_tangent_tests.ps1",
       "repository_path": "tests/run_triangle_tangent_tests.ps1",
       "source_bytes": 3322,
@@ -7334,12 +7415,30 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/test_triangle_tangent_cli.py",
+      "repository_path": "tests/test_triangle_tangent_cli.py",
+      "source_bytes": 5657,
+      "source_sha256": "c22e745a8d5fd4af9fa7ca0feebb29f2ff66a74298da6e695889d684f7356793",
+      "repository_bytes": 5657,
+      "repository_sha256": "c22e745a8d5fd4af9fa7ca0feebb29f2ff66a74298da6e695889d684f7356793",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/test_tripo_head_adapter.py",
       "repository_path": "tests/test_tripo_head_adapter.py",
       "source_bytes": 4603,
       "source_sha256": "471bd56929be9e57b57011f279a1ed1aa7107a3fd044f97d9397b10a74ef65e2",
       "repository_bytes": 4603,
       "repository_sha256": "471bd56929be9e57b57011f279a1ed1aa7107a3fd044f97d9397b10a74ef65e2",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/triangle-runtime-stubs/android/opengl/GLES30.java",
+      "repository_path": "tests/triangle-runtime-stubs/android/opengl/GLES30.java",
+      "source_bytes": 13261,
+      "source_sha256": "935ca86301e6de36c82ca4761b373e41e1272d1e0939b575fa40d37097cdc54f",
+      "repository_bytes": 13261,
+      "repository_sha256": "935ca86301e6de36c82ca4761b373e41e1272d1e0939b575fa40d37097cdc54f",
       "publication_transformation": null
     },
     {
@@ -7370,17 +7469,16 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "d691ec21036290ef760c66b44441abc2b431a5a8",
-  "public_parent_commit": "f9ba38e00cfb2f08dabf187e58d107c678578b3c",
-  "versionCode": 49,
-  "versionName": "0.2.18",
-  "release_apk_sha256": "deaae834cc98db33ea48e4ccddfcd37251462a786f49edfe2a76212010c621a1",
+  "previous_source_commit": "76e9d0062ad656baf7c69c03e9e3bbe9afd2ab9f",
+  "public_parent_commit": "89c1745d3e1a896c9a7de4635347604ac1ef1b38",
+  "versionCode": 50,
+  "versionName": "0.2.19",
+  "release_apk_sha256": "750dd3e19e64f03f6aed2c1341592fc221a0bfee4e3019a8a616afdb139ed5b7",
   "last_iteration": {
-    "versionCode": 49,
-    "versionName": "0.2.18",
-    "approved_source_delta_files": 15,
+    "versionCode": 50,
+    "versionName": "0.2.19",
+    "approved_source_delta_files": 18,
     "production_performance_improved": false,
-    "diagnostic_only": true,
     "ordinary_qa_passed": true,
     "all_historical_assets_preserved": true,
     "full_goal_complete": false
