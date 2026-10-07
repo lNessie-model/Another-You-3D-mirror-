@@ -1,8 +1,8 @@
 {
-  "source_commit": "79e71178f58604a18e5d24187e19f7c115083989",
+  "source_commit": "90163af349c7757b118ca7586d7be7f608a8f0b4",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 832,
+  "file_count": 845,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,28 +35,28 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 51811,
-      "source_sha256": "26f642cad7cc420683f84c923567fdbe66676a9f58b5c9d7d3d992a10e6f76e2",
-      "repository_bytes": 51811,
-      "repository_sha256": "26f642cad7cc420683f84c923567fdbe66676a9f58b5c9d7d3d992a10e6f76e2",
+      "source_bytes": 52452,
+      "source_sha256": "6166fdec925b4a30831eeac414f954d4ec19af4955e2a731310238c2734232bb",
+      "repository_bytes": 52452,
+      "repository_sha256": "6166fdec925b4a30831eeac414f954d4ec19af4955e2a731310238c2734232bb",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 886,
-      "source_sha256": "cd9e0a44051f725c4fc8180de9680f343a57205bed889db3135c996f70e472df",
+      "source_sha256": "e2779486adf153318b0d25a9d3f7e6d722b425082365f4e0bad1060ce33e9d6b",
       "repository_bytes": 886,
-      "repository_sha256": "cd9e0a44051f725c4fc8180de9680f343a57205bed889db3135c996f70e472df",
+      "repository_sha256": "e2779486adf153318b0d25a9d3f7e6d722b425082365f4e0bad1060ce33e9d6b",
       "publication_transformation": null
     },
     {
       "source_path": "app/src/main/AndroidManifest.xml",
       "repository_path": "app/src/main/AndroidManifest.xml",
-      "source_bytes": 4536,
-      "source_sha256": "ded504ba6a4af154b6bcd847c99e8272a01bc8849bc382936010df74fcc25b90",
-      "repository_bytes": 4536,
-      "repository_sha256": "ded504ba6a4af154b6bcd847c99e8272a01bc8849bc382936010df74fcc25b90",
+      "source_bytes": 4674,
+      "source_sha256": "a5ef51c615efa082ac40577a1a6a6b0cbc140a0e71cdaf117644e96da0e1e666",
+      "repository_bytes": 4674,
+      "repository_sha256": "a5ef51c615efa082ac40577a1a6a6b0cbc140a0e71cdaf117644e96da0e1e666",
       "publication_transformation": null
     },
     {
@@ -843,10 +843,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/AvatarGpuScene.java",
       "repository_path": "app/src/main/java/com/mirror/bench/AvatarGpuScene.java",
-      "source_bytes": 87029,
-      "source_sha256": "03fc1db6de2854fcb412da43cc21e47600f0304dc75823a113d767c161e8033d",
-      "repository_bytes": 87029,
-      "repository_sha256": "03fc1db6de2854fcb412da43cc21e47600f0304dc75823a113d767c161e8033d",
+      "source_bytes": 99219,
+      "source_sha256": "cd3efdf9385672bd348b921ffa88f3b5d4ac2063947f038f49c8aad26b3f2e63",
+      "repository_bytes": 99219,
+      "repository_sha256": "cd3efdf9385672bd348b921ffa88f3b5d4ac2063947f038f49c8aad26b3f2e63",
       "publication_transformation": null
     },
     {
@@ -1359,6 +1359,42 @@
       "publication_transformation": null
     },
     {
+      "source_path": "app/src/main/java/com/mirror/bench/GpuTriangleTangentPolicy.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/GpuTriangleTangentPolicy.java",
+      "source_bytes": 899,
+      "source_sha256": "60ff92edf31f8ed258a810bd1df3903f10980d650e39355fa0a8cc5ebc41efb4",
+      "repository_bytes": 899,
+      "repository_sha256": "60ff92edf31f8ed258a810bd1df3903f10980d650e39355fa0a8cc5ebc41efb4",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/GpuTriangleTangentRuntimeCheck.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/GpuTriangleTangentRuntimeCheck.java",
+      "source_bytes": 31311,
+      "source_sha256": "6a5311e0dab47424ccac1c20df1bc3dce2d4dbfee146aacc253dacbc908fa11d",
+      "repository_bytes": 31311,
+      "repository_sha256": "6a5311e0dab47424ccac1c20df1bc3dce2d4dbfee146aacc253dacbc908fa11d",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/GpuTriangleTangentRuntimeCheckActivity.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/GpuTriangleTangentRuntimeCheckActivity.java",
+      "source_bytes": 4225,
+      "source_sha256": "0ceab10713134214388ba9352eeee570e905f145283db9edf7dbaccdb2389e5e",
+      "repository_bytes": 4225,
+      "repository_sha256": "0ceab10713134214388ba9352eeee570e905f145283db9edf7dbaccdb2389e5e",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "app/src/main/java/com/mirror/bench/GpuTriangleTangentTable.java",
+      "repository_path": "app/src/main/java/com/mirror/bench/GpuTriangleTangentTable.java",
+      "source_bytes": 17726,
+      "source_sha256": "e50a6f77f5d3b93d437503282c7aac67b5749466f3de64ae6b0aa2fa11e8e379",
+      "repository_bytes": 17726,
+      "repository_sha256": "e50a6f77f5d3b93d437503282c7aac67b5749466f3de64ae6b0aa2fa11e8e379",
+      "publication_transformation": null
+    },
+    {
       "source_path": "app/src/main/java/com/mirror/bench/InteractionController.java",
       "repository_path": "app/src/main/java/com/mirror/bench/InteractionController.java",
       "source_bytes": 12915,
@@ -1370,10 +1406,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/InterlaceRenderer.java",
       "repository_path": "app/src/main/java/com/mirror/bench/InterlaceRenderer.java",
-      "source_bytes": 129384,
-      "source_sha256": "8557a6910cf9d721f5fa4df2169c5b0be6dbebcedb781ddc50c9268883ff3de6",
-      "repository_bytes": 129384,
-      "repository_sha256": "8557a6910cf9d721f5fa4df2169c5b0be6dbebcedb781ddc50c9268883ff3de6",
+      "source_bytes": 131615,
+      "source_sha256": "538cfa3568493aee0085b34589c921beb27430e2340ee9ca7244a3412bf66e41",
+      "repository_bytes": 131615,
+      "repository_sha256": "538cfa3568493aee0085b34589c921beb27430e2340ee9ca7244a3412bf66e41",
       "publication_transformation": null
     },
     {
@@ -1388,10 +1424,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
       "repository_path": "app/src/main/java/com/mirror/bench/MirrorActivity.java",
-      "source_bytes": 88098,
-      "source_sha256": "38b673f5c353d142420e26c3ee42044e1c88283ae745f61febd35664fbc901f8",
-      "repository_bytes": 88098,
-      "repository_sha256": "38b673f5c353d142420e26c3ee42044e1c88283ae745f61febd35664fbc901f8",
+      "source_bytes": 89948,
+      "source_sha256": "9a36f7e012debed8c8a284049d36096b65781f2b955111a28a1ab552cdc6f058",
+      "repository_bytes": 89948,
+      "repository_sha256": "9a36f7e012debed8c8a284049d36096b65781f2b955111a28a1ab552cdc6f058",
       "publication_transformation": null
     },
     {
@@ -2715,6 +2751,15 @@
       "source_sha256": "9801b5a59ddeba07a3e255235b8bc5bba05f979d7cc5618f73e7a874d8831110",
       "repository_bytes": 3213,
       "repository_sha256": "9801b5a59ddeba07a3e255235b8bc5bba05f979d7cc5618f73e7a874d8831110",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v51-20261007.md",
+      "repository_path": "docs/production-app-v51-20261007.md",
+      "source_bytes": 5396,
+      "source_sha256": "c8cb46bdbb34f90521e83ba17b9151ee15be3a0277c7f4e61a5035b3057e2fa6",
+      "repository_bytes": 5396,
+      "repository_sha256": "c8cb46bdbb34f90521e83ba17b9151ee15be3a0277c7f4e61a5035b3057e2fa6",
       "publication_transformation": null
     },
     {
@@ -4300,10 +4345,10 @@
     {
       "source_path": "scripts/run_runtime_check.py",
       "repository_path": "scripts/run_runtime_check.py",
-      "source_bytes": 53433,
-      "source_sha256": "3388c23cea970da9cbe51c5d97f4ce7badb8fe6db1243e9bdce2ed49ecb8680c",
-      "repository_bytes": 53433,
-      "repository_sha256": "3388c23cea970da9cbe51c5d97f4ce7badb8fe6db1243e9bdce2ed49ecb8680c",
+      "source_bytes": 55251,
+      "source_sha256": "fc67ec8eb9711bad8206408f632097544795cc671029864909c82126e6fbc41e",
+      "repository_bytes": 55251,
+      "repository_sha256": "fc67ec8eb9711bad8206408f632097544795cc671029864909c82126e6fbc41e",
       "publication_transformation": null
     },
     {
@@ -5229,6 +5274,33 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/GpuTriangleTangentConfigTest.java",
+      "repository_path": "tests/GpuTriangleTangentConfigTest.java",
+      "source_bytes": 2657,
+      "source_sha256": "f5ac2502a2bc999d6ece3ca9616c70b3908772a1c0cf7761a7e22ab179ee370b",
+      "repository_bytes": 2657,
+      "repository_sha256": "f5ac2502a2bc999d6ece3ca9616c70b3908772a1c0cf7761a7e22ab179ee370b",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/GpuTriangleTangentEntryTest.java",
+      "repository_path": "tests/GpuTriangleTangentEntryTest.java",
+      "source_bytes": 4696,
+      "source_sha256": "d88ff005bf2f0c3d3397f12a1cc726e7bb427abe48eed267747ba010525726a6",
+      "repository_bytes": 4696,
+      "repository_sha256": "d88ff005bf2f0c3d3397f12a1cc726e7bb427abe48eed267747ba010525726a6",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/GpuTriangleTangentSceneTest.java",
+      "repository_path": "tests/GpuTriangleTangentSceneTest.java",
+      "source_bytes": 13893,
+      "source_sha256": "d0e2ddeead1b3fb71808fc8b1a6e5aacf50f25fcd9a593646e1b10b234c55647",
+      "repository_bytes": 13893,
+      "repository_sha256": "d0e2ddeead1b3fb71808fc8b1a6e5aacf50f25fcd9a593646e1b10b234c55647",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/InteractionControllerTest.java",
       "repository_path": "tests/InteractionControllerTest.java",
       "source_bytes": 11998,
@@ -6122,6 +6194,24 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/gpu-triangle-stubs/android/opengl/GLES30.java",
+      "repository_path": "tests/gpu-triangle-stubs/android/opengl/GLES30.java",
+      "source_bytes": 14045,
+      "source_sha256": "3e2d60b5ef903cacfd23a3d9e27b553d74214697893cc7c9effb9d456ee27221",
+      "repository_bytes": 14045,
+      "repository_sha256": "3e2d60b5ef903cacfd23a3d9e27b553d74214697893cc7c9effb9d456ee27221",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/gpu-triangle-stubs/android/opengl/GLES31.java",
+      "repository_path": "tests/gpu-triangle-stubs/android/opengl/GLES31.java",
+      "source_bytes": 3561,
+      "source_sha256": "9b15ea7cffa99198d9010183a248d69b1a27a599c987f9ee97a0d9b6be450950",
+      "repository_bytes": 3561,
+      "repository_sha256": "9b15ea7cffa99198d9010183a248d69b1a27a599c987f9ee97a0d9b6be450950",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/group-submission-stubs/android/opengl/GLES30.java",
       "repository_path": "tests/group-submission-stubs/android/opengl/GLES30.java",
       "source_bytes": 8704,
@@ -6732,6 +6822,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/run_gpu_triangle_tests.ps1",
+      "repository_path": "tests/run_gpu_triangle_tests.ps1",
+      "source_bytes": 4025,
+      "source_sha256": "352f8538643f23ad39e45abb234e6b23dcc247af12fe16949042b4c71b59117c",
+      "repository_bytes": 4025,
+      "repository_sha256": "352f8538643f23ad39e45abb234e6b23dcc247af12fe16949042b4c71b59117c",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/run_neutral_calibration_tests.ps1",
       "repository_path": "tests/run_neutral_calibration_tests.ps1",
       "source_bytes": 1223,
@@ -7325,6 +7424,15 @@
       "publication_transformation": null
     },
     {
+      "source_path": "tests/test_gpu_triangle_tangent_cli.py",
+      "repository_path": "tests/test_gpu_triangle_tangent_cli.py",
+      "source_bytes": 5913,
+      "source_sha256": "b5349dad064d9c2328b5fcd01279f6752cb64c2fb080ec2d48ccdf80990a478f",
+      "repository_bytes": 5913,
+      "repository_sha256": "b5349dad064d9c2328b5fcd01279f6752cb64c2fb080ec2d48ccdf80990a478f",
+      "publication_transformation": null
+    },
+    {
       "source_path": "tests/test_head_surface_topology.py",
       "repository_path": "tests/test_head_surface_topology.py",
       "source_bytes": 3001,
@@ -7385,6 +7493,15 @@
       "source_sha256": "58c5b9bc4447c3f21b1aae246788c3480fd318c60a035d494bd15e02e5e18130",
       "repository_bytes": 8670,
       "repository_sha256": "58c5b9bc4447c3f21b1aae246788c3480fd318c60a035d494bd15e02e5e18130",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "tests/test_primary_unlit_ablation_cli.py",
+      "repository_path": "tests/test_primary_unlit_ablation_cli.py",
+      "source_bytes": 6229,
+      "source_sha256": "d1b387a924a5594ac5f6ee3f60d06d2efd0867619c73fb7a14ccd91d7c51078f",
+      "repository_bytes": 6229,
+      "repository_sha256": "d1b387a924a5594ac5f6ee3f60d06d2efd0867619c73fb7a14ccd91d7c51078f",
       "publication_transformation": null
     },
     {
@@ -7469,15 +7586,15 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "76e9d0062ad656baf7c69c03e9e3bbe9afd2ab9f",
-  "public_parent_commit": "89c1745d3e1a896c9a7de4635347604ac1ef1b38",
-  "versionCode": 50,
-  "versionName": "0.2.19",
-  "release_apk_sha256": "750dd3e19e64f03f6aed2c1341592fc221a0bfee4e3019a8a616afdb139ed5b7",
+  "previous_source_commit": "79e71178f58604a18e5d24187e19f7c115083989",
+  "public_parent_commit": "6dd7304ae2927c9b90ef749d90c42f427c2aebde",
+  "versionCode": 51,
+  "versionName": "0.2.20",
+  "release_apk_sha256": "52e9e6eea0ac7ddb58a06f574048f0e97909ce1d5ce732d38261b4db4dc6a931",
   "last_iteration": {
-    "versionCode": 50,
-    "versionName": "0.2.19",
-    "approved_source_delta_files": 18,
+    "versionCode": 51,
+    "versionName": "0.2.20",
+    "approved_source_delta_files": 20,
     "production_performance_improved": false,
     "ordinary_qa_passed": true,
     "all_historical_assets_preserved": true,

@@ -19,6 +19,7 @@
         <activity android:name=".SpecializedBatchCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".TriangleTangentCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".TriangleTangentRuntimeCheckActivity" android:exported="true" android:screenOrientation="portrait" />
+        <activity android:name=".GpuTriangleTangentRuntimeCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".MaterialCoverageCheckActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".AvatarPreviewActivity" android:exported="true" android:screenOrientation="portrait" />
         <activity android:name=".CalibrationActivity" android:exported="false" android:screenOrientation="portrait" />
