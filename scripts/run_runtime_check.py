@@ -425,6 +425,7 @@ def arguments():
     parser.add_argument("--specialized-batch", action="store_true", help="Debug-only per-material shader candidate, original Geralt and reference PBR; defaults off")
     parser.add_argument("--constant-white-primary", action="store_true", help="Debug-only bit-verified constant-white primary shader; requires avatar-batched and specialized-batch; defaults off")
     parser.add_argument("--reuse-group-uniforms", action="store_true", help="Debug-only per-draw-group program/VP/sampler reuse; requires constant-white-primary, specialized-batch and avatar-batched; defaults off")
+    parser.add_argument("--srgb-views", action="store_true", help="Debug-only exact Geralt ordinary PBR linear-output/sRGB view targets; defaults off; requires 16 views and no other material experiment")
     parser.add_argument("--empty-interlace", action="store_true", help="Debug-only conservative empty-region texture sampling candidate; defaults off")
     parser.add_argument("--pbr-fast-math", action="store_true", help="Debug-only highp PBR arithmetic candidate; defaults off; retains full material and geometry")
     parser.add_argument("--npu-blendshapes", action="store_true", help="Debug-only explicit normalized mixed CPU/NPU expression suffix; omission uses the app default (currently enabled)")
@@ -433,6 +434,10 @@ def arguments():
     parser.add_argument("--view-count", type=int, choices=(16, 20), help="Debug-only count override; omission uses the saved application count, never saves preferences")
     parser.add_argument("--active-target-fps", type=int, choices=(31, 35), help="Debug-only frame pacing control; leaves idle rate and preferences unchanged")
     args = parser.parse_args()
+    if args.srgb_views and (args.view_count not in (None,16) or args.avatar_batched or args.orm_rg8 or args.pbr_fast_math
+                           or args.empty_interlace or args.specialized_batch or args.constant_white_primary
+                           or args.reuse_group_uniforms or args.private_head):
+        parser.error("--srgb-views requires ordinary original PBR, 16 views and no other material experiment")
     if args.reuse_group_uniforms and not args.constant_white_primary:
         parser.error("--reuse-group-uniforms requires --constant-white-primary")
     if args.constant_white_primary and not (args.avatar_batched and args.specialized_batch):
@@ -649,6 +654,8 @@ def run(args):
         extras += " --ez test_constant_white_primary true"
     if getattr(args,"reuse_group_uniforms",False):
         extras += " --ez test_reuse_group_uniforms true"
+    if getattr(args,"srgb_views",False):
+        extras += " --ez test_srgb_views true"
     if getattr(args,"empty_interlace",False):
         extras += " --ez test_empty_interlace true"
     if getattr(args,"pbr_fast_math",False):

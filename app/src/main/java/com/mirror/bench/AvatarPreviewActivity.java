@@ -44,6 +44,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     private boolean verifyPrivateHead;
     private boolean verifyBackgroundCache;
     private boolean verifyOrmRg8,ormVerificationComplete,verifyPbrFastMath,pbrVerificationComplete;
+    private boolean verifySrgbViews,srgbVerificationComplete;
     private int backgroundVerificationViews=20;
     private int verificationViewCount=20;
     private int verificationViewHeight=720;
@@ -76,7 +77,7 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     @Override protected void onPause(){cancelled=true;surface.onPause();super.onPause();}
     @Override public void onSurfaceCreated(GL10 gl,EGLConfig config) {
         // Old GL names belong to the destroyed context; do not dispose them in this new context.
-        scene=null;error="";ormVerificationComplete=false;pbrVerificationComplete=false;runId=UUID.randomUUID().toString();startedNs=SystemClock.elapsedRealtimeNanos();contextGeneration++;
+        scene=null;error="";ormVerificationComplete=false;pbrVerificationComplete=false;srgbVerificationComplete=false;runId=UUID.randomUUID().toString();startedNs=SystemClock.elapsedRealtimeNanos();contextGeneration++;
         try {
             readVerificationConfiguration(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
             verifyBackgroundCache=readBackgroundVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,privateHead);
@@ -84,6 +85,12 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
                     privateHead||verifyPrivateHead||verifyBackgroundCache||verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16);
             verifyOrmRg8=readOrmVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,
                     privateHead||verifyPrivateHead||verifyBackgroundCache||verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16||verifyPbrFastMath);
+            verifySrgbViews=readSrgbVerification(getIntent().getExtras(),(getApplicationInfo().flags&android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0,
+                    privateHead||verifyPrivateHead||verifyBackgroundCache||verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16||verifyPbrFastMath||verifyOrmRg8);
+            if(verifySrgbViews){
+                writeArtifact("avatar-srgb-view-check.json",new JSONObject().put("running",true).put("passed",false).put("completed",false).put("performance_evidence",false).put("completed_fixtures",0));
+                show("正在核对原始材质与 sRGB 视图、最终交织画面；此检查不测帧率");return;
+            }
             if(verifyPbrFastMath){
                 writeArtifact("avatar-pbr-fast-math-check.json",new JSONObject().put("running",true).put("passed",false).put("performance_evidence",false));
                 show("正在比较完整角色的着色计算；帧率另行实测，可退出取消");
@@ -112,6 +119,17 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
     }
     @Override public void onSurfaceChanged(GL10 gl,int width,int height) {
         this.width=width;this.height=height;
+        if(verifySrgbViews){
+            if(srgbVerificationComplete||!error.isEmpty()||cancelled)return;
+            try{
+                MirrorSettings panel=MirrorSettings.load(this);SceneViewPreferences.Loaded current=SceneViewPreferences.load(this);
+                if(!panel.warning.isEmpty()||!current.warning.isEmpty())throw new IllegalStateException("Current scene/panel settings require correction before verification");
+                JSONObject report=AvatarSrgbCheck.run(getAssets(),getFilesDir(),width,height,panel.panel,current.value,()->cancelled,
+                        progress->writeArtifact("avatar-srgb-view-check.json",progress));
+                writeArtifact("avatar-srgb-view-check.json",report.put("running",false));srgbVerificationComplete=true;
+                show(report.optBoolean("passed")?"sRGB 画面对照初筛通过；人工画质和性能仍待验收":"sRGB 画面对照未通过，请查看原始报告");
+            }catch(Throwable failure){reportFailure(failure);}return;
+        }
         if(verifyPbrFastMath){
             if(pbrVerificationComplete||!error.isEmpty()||cancelled)return;
             try {
@@ -224,6 +242,8 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
                 writeArtifact("avatar-pbr-fast-math-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error).put("performance_evidence",false));
             if(getIntent().getExtras()!=null&&getIntent().getExtras().containsKey("verify_orm_rg8"))
                 writeArtifact("avatar-orm-rg8-check.json",new JSONObject().put("running",false).put("passed",false).put("error",error).put("performance_evidence",false));
+            if(getIntent().getExtras()!=null&&getIntent().getExtras().containsKey("verify_srgb_views"))
+                writeArtifact("avatar-srgb-view-check.json",new JSONObject().put("running",false).put("passed",false).put("completed",false).put("error",error).put("performance_evidence",false));
             if(verifyMultiview||verifyBatch||verifyPersistentFbos||verifyCachedCameraVp||verifyMultiview16)writeArtifact(verificationFile(),new JSONObject().put("running",false).put("passed",false).put("error",error));
         }
         catch(Exception writeError){android.util.Log.e("AvatarPreview","Could not publish failure; do not use an older report",writeError);show("失败报告写入失败；不可使用旧报告："+writeError);}
@@ -236,6 +256,19 @@ public final class AvatarPreviewActivity extends Activity implements GLSurfaceVi
         Object value=extras.get(key);
         if(!debug||!(value instanceof Boolean))throw new IllegalArgumentException("PBR verification requires an explicit debug Boolean");
         if(Boolean.TRUE.equals(value)&&otherMode)throw new IllegalArgumentException("Select only the PBR verification");
+        return Boolean.TRUE.equals(value);
+    }
+    @SuppressWarnings("deprecation") static boolean readSrgbVerification(Bundle extras,boolean debug,boolean otherMode){
+        if(extras==null||!extras.containsKey("verify_srgb_views"))return false;
+        Object value=extras.get("verify_srgb_views");
+        if(!debug||!(value instanceof Boolean))throw new IllegalArgumentException("sRGB verification requires explicit debug Boolean");
+        if(Boolean.TRUE.equals(value)&&otherMode)throw new IllegalArgumentException("Select only the sRGB verification");
+        if(Boolean.TRUE.equals(value)){
+            if(extras.containsKey("test_view_count")&&(!(extras.get("test_view_count") instanceof Integer count)||count!=16))
+                throw new IllegalArgumentException("sRGB verification uses exactly sixteen views");
+            if(extras.containsKey("test_view_preset")&&!"400x640".equals(extras.get("test_view_preset")))
+                throw new IllegalArgumentException("sRGB verification uses exactly 400x640 views");
+        }
         return Boolean.TRUE.equals(value);
     }
     @SuppressWarnings("deprecation") static boolean readOrmVerification(Bundle extras,boolean debug,boolean otherMode){

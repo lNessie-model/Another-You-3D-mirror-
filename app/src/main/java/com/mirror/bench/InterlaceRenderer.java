@@ -84,6 +84,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private PersistentMultiviewFbos persistentFbos;
     private long glContextGeneration;
     private boolean gpuProfileRequested;
+    private boolean srgbViewsRequested;
+    private volatile SrgbViewGl srgbViewGl;
     private boolean ormRg8Requested,pbrFastMathRequested,specializedBatchRequested,constantWhitePrimaryRequested,reuseGroupUniformsRequested;
     private volatile RuntimeGpuProfile gpuProfile;
     private long gpuCallbackId,gpuFramePacingEpoch;
@@ -173,7 +175,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         AvatarGpuScene.DrawMode mode=avatarBatched?AvatarGpuScene.DrawMode.BATCHED:AvatarGpuScene.DrawMode.INDIVIDUAL;
         try {
             AvatarGpuScene loaded=AvatarGpuScene.bundled(avatarAssets,bundledAvatarDirectory,bundledModelDigest,
-                    bundledManifestDigest,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested);
+                    bundledManifestDigest,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested,srgbViewsRequested);
             avatarSourceKind="bundled";avatarPackageId=bundledAvatarId;return loaded;
         } catch(Exception failure) {
             avatarLoadWarning="所选角色无法读取，请返回角色库重新选择。";
@@ -195,7 +197,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         avatarPackageId="";avatarSourceKind="pending";
         if(privateHeadFiles!=null) {
             AvatarGpuScene.DrawMode mode=avatarBatched?AvatarGpuScene.DrawMode.BATCHED:AvatarGpuScene.DrawMode.INDIVIDUAL;
-            AvatarGpuScene scene=AvatarGpuScene.privateHeadCheck(privateHeadFiles,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested);
+            AvatarGpuScene scene=AvatarGpuScene.privateHeadCheck(privateHeadFiles,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested,srgbViewsRequested);
             avatarSourceKind="private_head_test";return scene;
         }
         if(bundledAvatarDirectory!=null&&bundledSelectionExplicit)return loadBundledRuntimeAvatar();
@@ -206,6 +208,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 store.recover();selected=store.readCurrent();
             }
             catch(Exception failure) {
+                if(srgbViewsRequested)throw failure; // Never hide failed candidate asset qualification with a fallback.
                 String detail=failure.getClass().getSimpleName()+": "+failure.getMessage();
                 if(detail.length()>240)detail=detail.substring(0,240);
                 avatarLoadWarning="已选角色读取失败，暂用内置角色；原角色包保留。"+detail;
@@ -217,11 +220,11 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         // Never turn a failed experimental renderer into an apparently successful control.
         if(selected!=null) {
             AvatarGpuScene scene=AvatarGpuScene.fromAsset(selected.asset,selected.manifestJson,
-                    selected.ticket.modelSha256,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested);
+                    selected.ticket.modelSha256,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested,srgbViewsRequested);
             avatarPackageId=selected.ticket.packageId;avatarSourceKind="imported";return scene;
         }
         if(bundledAvatarDirectory!=null)return loadBundledRuntimeAvatar();
-        AvatarGpuScene scene=AvatarGpuScene.builtin(avatarAssets,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested);
+        AvatarGpuScene scene=AvatarGpuScene.builtin(avatarAssets,multiview||verifyMultiview,avatarAsynchronous,mode,ormRg8Requested,pbrFastMathRequested,srgbViewsRequested);
         avatarSourceKind="builtin";return scene;
     }
     synchronized void setAvatarAsynchronous(boolean value) {
@@ -267,6 +270,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     synchronized void setGpuProfile(boolean enabled) {
         if(surfaceInitialized)throw new IllegalStateException("GPU sampling must be configured before GL initialization");
         gpuProfileRequested=enabled;
+    }
+    synchronized void setSrgbViews(boolean enabled) {
+        if(surfaceInitialized)throw new IllegalStateException("sRGB views must be configured before GL initialization");
+        srgbViewsRequested=enabled;
     }
     synchronized void setOrmRg8(boolean enabled) {
         if(surfaceInitialized)throw new IllegalStateException("ORM upload mode must be configured before GL initialization");
@@ -341,11 +348,17 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         calibrationPattern=enabled;
     }
     private String calibrationShader(String source) {
+        return calibratedSource(source,panelCalibration);
+    }
+    private static String calibratedSource(String source,PanelCalibration panel) {
         // ES 3.20 precise is required to prevent reciprocal-multiply + phase from becoming one FMA.
         // Keep both stages at the same language version. The legacy bench remains byte-for-byte ES 3.00.
-        return panelCalibration==null?source:source.replace("#version 300 es","#version 320 es")
+        return panel==null?source:source.replace("#version 300 es","#version 320 es")
                 .replace(LEGACY_VIEW_FUNCTION,PANEL_VIEW_FUNCTION);
     }
+    /** Diagnostic source access: exactly the production arithmetic/background shader, not a rewritten oracle. */
+    static String runtimeInterlaceVertex(PanelCalibration panel){return calibratedSource(SCREEN_VERTEX,java.util.Objects.requireNonNull(panel));}
+    static String runtimeInterlaceFragment(PanelCalibration panel){return calibratedSource(SceneBackground.fragment(INTERLACE_FRAGMENT),java.util.Objects.requireNonNull(panel));}
     boolean supportsSharedPhase() {
         return views==20&&Math.abs(pitch-10)<=1e-6f&&(panelCalibration==null
                 ||(panelCalibration.phaseCycles()==0&&panelCalibration.subpixelOrder()==PanelCalibration.SubpixelOrder.RGB
@@ -366,6 +379,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         synchronized(this){emptyBoundsValid=false;emptyUvBounds[0]=emptyUvBounds[1]=0;emptyUvBounds[2]=emptyUvBounds[3]=1;}
         RuntimeGpuProfile previousGpuProfile=gpuProfile;
         gpuProfile=null;
+        srgbViewGl=null; // Old context owns destruction; this guard owns no GL names.
         // EGL owns destruction of the lost context: never delete/reuse its numeric framebuffer names.
         persistentFbos=null;persistentFboCount=0;multiviewFboActual="uninitialized";
         cameraVpCache.invalidate();cameraVpActual="uninitialized";
@@ -381,6 +395,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         renderThread=Thread.currentThread();
         runtimePoseTime=0;
         try {
+            if(srgbViewsRequested&&(!runtimeMode||avatarAssets==null||!scene||views!=16||avatarBatched
+                    ||ormRg8Requested||pbrFastMathRequested||specializedBatchRequested||constantWhitePrimaryRequested
+                    ||reuseGroupUniformsRequested||staticBackgroundCacheRequested||emptyInterlaceRequested||privateHeadFiles!=null
+                    ||atlas||atlasCopy||lookup||sharedPhase||calibrationPattern||verifyLookup||verifyAtlas||verifyMultiview
+                    ||verifyCull||verifyPreblend||verifyCombined||verifyDiscardDepth||verifySharedPhase))
+                throw new IllegalArgumentException("sRGB view experiment requires exact ordinary runtime 16-view PBR array rendering");
             if(staticBackgroundCacheRequested&&(!runtimeMode||privateHeadFiles==null||avatarBatched||atlas||verifyMultiview||verifyCombined))
                 throw new IllegalArgumentException("Background cache experiment requires private-head runtime individual array rendering");
             if(cachedCameraVpRequested&&(!runtimeMode||avatarAssets==null))
@@ -397,6 +417,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             AvatarGpuScene previous=avatarScene;if(previous!=null)previous.stopCpu();avatarScene=null;
             gpu=GLES30.glGetString(GLES30.GL_RENDERER)+" / "+GLES30.glGetString(GLES30.GL_VERSION);
             extensions=GLES30.glGetString(GLES30.GL_EXTENSIONS);
+            if(srgbViewsRequested)srgbViewGl=new SrgbViewGl(glContextGeneration,views,extensions);
             int[] limit=new int[1];
             GLES30.glGetIntegerv(GLES30.GL_DEPTH_BITS,limit,0); windowDepthBits=limit[0];
             GLES30.glGetIntegerv(GLES30.GL_MAX_ARRAY_TEXTURE_LAYERS,limit,0); maxArrayLayers=limit[0];
@@ -458,6 +479,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         } catch(Throwable problem) { fail(problem); }
     }
     @Override public void onSurfaceChanged(GL10 ignored,int width,int height) {
+        // A failed candidate initialization has no qualified targets to resize. Preserve
+        // its original actionable error instead of replacing it with missing-context fallout.
+        if(srgbViewsRequested&&!error.isEmpty())return;
         runtimeGlLifecycle.invalidate();
         cameraVpCache.invalidate();cameraVpActual="uninitialized";
         synchronized(this) {pacingEpoch++;}
@@ -466,6 +490,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         viewWidth=requestedViewWidth>0?requestedViewWidth:Math.max(1,Math.round(width*widthScale));
         viewHeight=requestedViewHeight>0?requestedViewHeight:Math.max(1,Math.round(height*scale));
         try {
+            if(srgbViewsRequested){if(srgbViewGl==null)throw new IllegalStateException("sRGB context qualification missing");srgbViewGl.invalidate(glContextGeneration);}
             if(cachedCameraVpRequested)cameraVpCache.prepare(views,width,height);
             cameraVpActual=cachedCameraVpRequested?"cached":"per_frame";
             releaseBackgroundCache();backgroundCacheActual=staticBackgroundCacheRequested?"uninitialized":"disabled";backgroundCacheWarning="";
@@ -475,7 +500,8 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             GLES30.glGenTextures(1,ids,0); texture=ids[0];
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D_ARRAY,texture);
             // https://developer.android.com/reference/android/opengl/GLES30#glTexStorage3D(int,int,int,int,int,int)
-            GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,GLES30.GL_RGBA8,viewWidth,viewHeight,views);
+            GLES30.glTexStorage3D(GLES30.GL_TEXTURE_2D_ARRAY,1,srgbViewsRequested?GLES30.GL_SRGB8_ALPHA8:GLES30.GL_RGBA8,viewWidth,viewHeight,views);
+            if(srgbViewsRequested)srgbViewGl.configureBoundArray(texture,glContextGeneration);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D_ARRAY,GLES30.GL_TEXTURE_MIN_FILTER,GLES30.GL_LINEAR);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D_ARRAY,GLES30.GL_TEXTURE_MAG_FILTER,GLES30.GL_LINEAR);
             GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D_ARRAY,GLES30.GL_TEXTURE_WRAP_S,GLES30.GL_CLAMP_TO_EDGE);
@@ -487,17 +513,37 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             GLES30.glRenderbufferStorage(GLES30.GL_RENDERBUFFER,GLES30.GL_DEPTH_COMPONENT16,viewWidth,viewHeight);
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo);
             GLES30.glFramebufferRenderbuffer(GLES30.GL_FRAMEBUFFER,GLES30.GL_DEPTH_ATTACHMENT,GLES30.GL_RENDERBUFFER,depth);
+            Throwable initialClearFailure=null;
+            if(srgbViewsRequested)srgbViewGl.beginWrite(false,glContextGeneration); // Initialization colors are already encoded values.
+            try {
             for(int v=0;v<views;v++) {
                 GLES30.glFramebufferTextureLayer(GLES30.GL_FRAMEBUFFER,GLES30.GL_COLOR_ATTACHMENT0,texture,0,v);
+                if(srgbViewsRequested)srgbViewGl.verifyBoundAttachment(texture,v,1,false,glContextGeneration);
                 if(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)!=GLES30.GL_FRAMEBUFFER_COMPLETE)
                     throw new IllegalStateException("Framebuffer incomplete");
                 GLES30.glViewport(0,0,viewWidth,viewHeight);
                 GLES30.glClearColor((v%3+1)/4f,((v+1)%3+1)/4f,((v+2)%3+1)/4f,1);
                 GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT|GLES30.GL_DEPTH_BUFFER_BIT);
             }
+            } catch(RuntimeException|Error failure){initialClearFailure=failure;throw failure;}
+            finally{restoreSrgbWrite(initialClearFailure);}
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
             if(atlas||verifyAtlas) makeAtlas();
             if(multiview||verifyMultiview) makeMultiviewDepth();
+            if(srgbViewsRequested) {
+                if(multiview)for(int base=0;base<views;base+=4){
+                    if(persistentFbosRequested)persistentFbos.bind(base,glContextGeneration);
+                    else {
+                        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,multiviewFbo);
+                        MultiviewGl.attach(GLES30.GL_COLOR_ATTACHMENT0,texture,base,4);
+                        MultiviewGl.attach(GLES30.GL_DEPTH_ATTACHMENT,multiviewDepth,base,4);
+                    }
+                    srgbViewGl.verifyBoundAttachment(texture,base,4,true,glContextGeneration);
+                }
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
+                GLES30.glActiveTexture(GLES30.GL_TEXTURE0);srgbViewGl.requireSampling(glContextGeneration);
+                srgbViewGl.complete(multiview,glContextGeneration);
+            }
             if(verifyCull&&scene) verifyCullingPixels();
             if(verifyAtlas&&scene) verifyAtlasPixels();
             if(verifyMultiview&&scene) verifyMultiviewPixels();
@@ -635,6 +681,9 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("empty_interlace_skipped_fraction",emptyBoundsValid?1-(emptyUvBounds[2]-emptyUvBounds[0])*(emptyUvBounds[3]-emptyUvBounds[1]):0)
                 .put("empty_interlace_bounds_mean_ms",emptyBoundsMeanMs).put("empty_interlace_bounds_frames",emptyBoundsFrames)
                 .put("empty_interlace_scope","conservative all-view union of uploaded positions; geometric screen fraction, not measured texel traffic or GPU time; bounds mean is projection only; uploaded-position scan is included in avatar prepare/upload wall; default off")
+                .put("srgb_views_requested",srgbViewsRequested)
+                .put("srgb_views_actual",!srgbViewsRequested?"disabled":!error.isEmpty()?"failed":srgbViewGl==null?"uninitialized":srgbViewGl.state())
+                .put("srgb_views_scope","linear original PBR to sRGB8-alpha8 view array, encoded SKIP_DECODE filtering; final window shader unchanged; experimental/unqualified")
                 .put("orm_rg8_requested",ormRg8Requested).put("pbr_fast_math_requested",pbrFastMathRequested)
                 .put("specialized_batch_requested",specializedBatchRequested).put("constant_white_primary_requested",constantWhitePrimaryRequested).put("reuse_group_uniforms_requested",reuseGroupUniformsRequested)
                 .put("multiview_fbo_requested",persistentFbosRequested?"persistent_groups":"legacy")
@@ -798,6 +847,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         if(sharedPhase&&(atlas||cached)) throw new IllegalArgumentException("Shared phase uses arithmetic array interlacing");
         int program=atlas?atlasProgram:(cached?lookupProgram:(sharedPhase?sharedPhaseProgram:(explicitLod?explicitLodProgram:interlaceProgram)));
         if(runtimeMode&&avatarScene!=null&&!atlas&&!cached&&!sharedPhase)program=emptyInterlaceSelected?emptyInterlaceProgram:runtimeBackgroundProgram;
+        // Ordinary runtime retains explicitLod=true for legacy benchmarks, but the avatar
+        // branch above selects this unchanged background program (already textureLod-based).
+        if(srgbViewsRequested&&(!runtimeMode||avatarScene==null||program==0||program!=runtimeBackgroundProgram))
+            throw new IllegalStateException("sRGB views require the actual runtime background composition program");
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0);
         GLES30.glViewport(0,0,width,height); GLES30.glDisable(GLES30.GL_DEPTH_TEST);
         GLES30.glDisable(GLES30.GL_CULL_FACE);
@@ -1091,6 +1144,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
         }
         if(gpuCallbackActive&&gpuProfile!=null)gpuProfile.captureFrameScope(gpuCallbackId,gpuFramePacingEpoch,gpuFrameTarget,runtimeFaceActive,
                 frameSceneView,width,height,viewWidth,viewHeight,views);
+        if(srgbViewsRequested){
+            if(srgbViewGl==null||!srgbViewGl.ready())throw new IllegalStateException("sRGB view targets not qualified");
+            srgbViewGl.beginWrite(true,glContextGeneration);
+        }
+        Throwable viewFailure=null;
+        try {
         boolean drawAtlas=atlas&&!atlasCopy;
         boolean useBackgroundCache=staticBackgroundCacheRequested&&prepareStaticBackgroundCache();
         if(persistentFbosRequested) {
@@ -1158,6 +1217,13 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             for(int v=0;v<views;v++)GLES32.glCopyImageSubData(texture,GLES30.GL_TEXTURE_2D_ARRAY,0,0,0,v,
                     atlasTexture,GLES30.GL_TEXTURE_2D,0,v%atlasColumns*viewWidth,v/atlasColumns*viewHeight,0,viewWidth,viewHeight,1);
         }
+        }catch(RuntimeException|Error failure){viewFailure=failure;throw failure;}
+        finally{restoreSrgbWrite(viewFailure);}
+    }
+    /** Restore before the caller can bind/draw FBO0; preserve the original draw failure. */
+    private void restoreSrgbWrite(Throwable primary){
+        if(!srgbViewsRequested||srgbViewGl==null)return;
+        try{srgbViewGl.endWrite();}catch(RuntimeException|Error cleanup){if(primary!=null)primary.addSuppressed(cleanup);else throw cleanup;}
     }
     /** GL-owner only. Failure disables this experiment until resize/context recreation, with an explicit warning. */
     private boolean prepareStaticBackgroundCache(){
@@ -1545,10 +1611,22 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     }
     private void fail(Throwable problem) {
         synchronized(this){emptyBoundsValid=false;emptyUvBounds[0]=emptyUvBounds[1]=0;emptyUvBounds[2]=emptyUvBounds[3]=1;}
+        if(srgbViewsRequested&&srgbViewGl!=null){
+            restoreSrgbWrite(problem);
+            if(srgbViewGl!=null)srgbViewGl.fail();
+            ResourceCleanup cleanup=new ResourceCleanup(problem);
+            cleanup.close("sRGB FBO groups",this::releasePersistentFbos);
+            cleanup.close("sRGB view texture",()->{if(texture!=0){int old=texture;texture=0;GLES30.glDeleteTextures(1,new int[]{old},0);}});
+            cleanup.close("sRGB multiview depth",()->{if(multiviewDepth!=0){int old=multiviewDepth;multiviewDepth=0;GLES30.glDeleteTextures(1,new int[]{old},0);}});
+            cleanup.close("sRGB framebuffer",()->{if(fbo!=0){int old=fbo;fbo=0;GLES30.glDeleteFramebuffers(1,new int[]{old},0);}});
+            cleanup.close("sRGB multiview framebuffer",()->{if(multiviewFbo!=0){int old=multiviewFbo;multiviewFbo=0;GLES30.glDeleteFramebuffers(1,new int[]{old},0);}});
+            cleanup.close("sRGB depth",()->{if(depth!=0){int old=depth;depth=0;GLES30.glDeleteRenderbuffers(1,new int[]{old},0);}});
+        }
         if(gpuProfile!=null)try{gpuProfile.close();}catch(Throwable cleanup){if(cleanup!=problem)problem.addSuppressed(cleanup);}
         if(cachedCameraVpRequested)cameraVpActual="failed";
         if(persistentFbosRequested){multiviewFboActual="failed";try{releasePersistentFbos();}catch(Throwable cleanup){problem.addSuppressed(cleanup);}}
-        error=problem.toString(); Log.e("MirrorBench","GL failure",problem);
+        if(!srgbViewsRequested||error.isEmpty())error=problem.toString();
+        Log.e("MirrorBench","GL failure",problem);
     }
     private static void checkGl() { int e=GLES30.glGetError(); if(e!=0) throw new IllegalStateException("GL error "+e); }
     private static int program(String vertex,String fragment) {

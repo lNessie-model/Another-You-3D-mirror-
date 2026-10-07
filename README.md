@@ -6,15 +6,15 @@
 
 ## 当前版本
 
-当前安装版 **V47 / 0.2.16**（versionCode47），源工程冻结点 `11349f752573fae1d5fe816a35fd9aa3510e19a3`。仅调试的组内program/VP/sampler复用保持原Geralt网格、PBR、纹理与16个独立视点；world/normal/draw顺序不变。普通路径保持，specialized/constant-white/reuse三候选均默认OFF。
+当前安装版 **V48 / 0.2.17**（versionCode48），源冻结点 `d691ec21036290ef760c66b44441abc2b431a5a8`。本轮新增默认关闭的 sRGB 视图诊断，并修复真实入口资格误拒绝和首错保留。原 Geralt 网格、贴图、完整 PBR、16 个独立 400×640 视点与 1200×1920 交织保持；普通路径和全部材质实验默认值保持。
 
-- 实际Mali直接普通INDIVIDUAL→新候选 **69×16=1104对**：各1932draw/276组及绑定检查；最大RGB差1、RMSE0.0019764、351个RGB字节差、alpha零差。同步终态program/VP各1380、sampler1656、world/normal/draw各1932，证明减少提交次数，不是GPU完成或时间。有限姿态不证明任意表情、光学或美术。
-- 同最终V47 APK全新恒白基线/复用/恒白基线ABA为 **12.1453 / 12.1451 / 12.1274 FPS**。候选相对两端均值 **+0.0718%**，与首次基线几乎相同，不能证明可重复提升；本轮没有普通FPS端点。三组全部确认INTERACTIVE且≥40秒，未知尾约4.81–4.90秒保留排除。
-- 首次私有wrapper将异步字段误当原子组边界而失败，第三组未启动；原证据保留。v2事前规则只移除错误跨字段倍数断言，保留同步像素精确门/原FPS门、全部原计数。全新三次未拼接旧数据，无生产代码/APK改动。
-- 固定853帧NV21录像，无USB或解码；原完整PBR、16×400×640/1200×1920交织、RGA/RKNN478/CPU归一化+混合CPU/NPU52。面捕较短快照范围15.886/15.674/15.884FPS，received→completed127.70/133.02/127.07ms；温度依次升高，不能从稀疏age/PSS或CPU墙钟声称长期因果、显存节省或每帧新鲜度。没有日常默认资格，**30FPS仍未达到**。
-- 新普通会话原Geralt/PBR首帧/308draw、Back、角色页smoke与实际Java runtime owners为0通过，四配置保持。**78资产/9原生库对V46逐字节相同**，无新模型或截图资产发布。USB仍Camera ERROR3，完整目标继续。
+- **画质门失败，未放宽**：V1 实际 Mali 完成 69 姿态、serial/OVR 共 2208 层对和 48 最终画面对。maxRGB≤1、alpha 零差，但 128 层及 12 最终画面超过原 RMSE 0.1 门（最大 0.115239 / 0.102605）。V2 只修运行入口/错误保留，未重新执行完整像素门，不声称质量通过。
+- 全新同最终 V2 APK 普通→sRGB→普通短测 **10.5337 / 11.3145 / 10.5233 实际呈现 FPS**；候选对两端普通均值 **+7.4651%**。这是质量失败后的诊断调查，非生产性能验收。三组全部确认 INTERACTIVE≥40 秒；未知尾 4.7710 / 4.9688 / 4.8892 秒保留排除。旧 V1 结果未拼接。
+- 整机 CPU 57.19 / 61.08 / 57.34%，面捕较短快照范围 16.0357 / 15.3064 / 16.0015 FPS，received→complete 123.17 / 140.59 / 125.29 ms。温度按顺序上升，阶段墙钟不是 GPU 时间；不声称热态因果、显存收益、每帧新鲜或长期稳定。
+- 输入为固定 853 帧 NV21 录像，名义 24.369907 FPS，无 USB 采集或解码；RGA、RKNN478 与 CPU归一化/混合CPU-NPU52，原完整PBR、4持久FBO、逐帧VP。sRGB 候选继续 **默认 OFF**，30 FPS 未达到。
+- 普通首页/角色/场景取消/设置/关于0.2.17/Back 通过，原 Geralt ordinary 首帧280 draw；最终 Home 的 JDI Java runtime owners=0，四配置归档原字节保持。78资产/9原生库对V47逐字节一致，无新模型或截图资产发布。USB仍 Camera ERROR3，完整头部校正及完整目标未完成。
 
-详见[V47实现、失败保留与三组实测](docs/production-app-v47-20261007.md)、[V46恒白参考](docs/production-app-v46-20261007.md)和[完整目标](docs/production-app-spec-20261005.md)。源README历史全文保留在[设备工程历史](docs/device-lab-history.md)。所有既有previous历史深JSON不变，完整V46 manifest使用Git commit/路径/SHA引用，不新增previous_v46树；私人录像/NPU/眼部原型/APK/原始QA不发布。
+详见[V48实验与边界](docs/production-app-v48-20261007.md)及[完整目标](docs/production-app-spec-20261005.md)。源README全部历史保留在[设备工程历史](docs/device-lab-history.md)；已有previous历史深JSON不变，完整V47 manifest使用Git commit/路径/SHA引用，不新增previous_v47树。私人录像、QA、APK、vendor副本与NPU/眼部原型不发布。
 
 ## 目录
 
