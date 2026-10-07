@@ -27,6 +27,8 @@ public final class FaceControlMapper {
         double[] rotation=rotation3x3Owned(rawPose);
         FaceControlCalibration.PersonalBaseline baseline=calibration.personalBaseline();
         if(baseline!=null){
+            weights[1]=unipolar(weights[1],baseline.browDownLeft());
+            weights[2]=unipolar(weights[2],baseline.browDownRight());
             weights[9]=unipolar(weights[9],baseline.blinkLeft());
             weights[10]=unipolar(weights[10],baseline.blinkRight());
             weights[25]=unipolar(weights[25],baseline.jawOpen());

@@ -12,7 +12,7 @@ public final class NeutralCalibrationCollector {
     public enum Status { IDLE,COLLECTING,READY,CANCELLED,TIMED_OUT,STALE_SESSION }
     public enum Reason { NONE,DUPLICATE_OR_OLD_SEQUENCE,NO_FACE,INVALID_FRAME,INVALID_WEIGHTS,INVALID_POSE,
         BEFORE_COLLECTION,FUTURE_FRAME,STALE_FRAME,NON_MONOTONIC_FRAME,NON_MONOTONIC_CLOCK,
-        FRAME_GAP,HEAD_MOVING,COEFFICIENT_CHANGED,EYES_NOT_RELAXED,MOUTH_NOT_RELAXED,GAZE_NOT_CENTERED,
+        FRAME_GAP,HEAD_MOVING,COEFFICIENT_CHANGED,EYES_NOT_RELAXED,MOUTH_NOT_RELAXED,GAZE_NOT_CENTERED,BROWS_NOT_RELAXED,
         SAMPLE_LIMIT,USER_CANCELLED,TIME_LIMIT,SESSION_MISMATCH }
     public static final class Session { private Session(){} }
 
@@ -65,7 +65,7 @@ public final class NeutralCalibrationCollector {
     private long startNs,lastNowNs,lastSeenSequence,lastSeenReceivedNs,lastSeenCompletedNs;
     private long firstSequence,lastSampleSequence,firstReceivedNs,lastSampleReceivedNs,lastGoodReceivedNs;
     private int samples,resets;
-    private final double[] sums=new double[7],minima=new double[7],maxima=new double[7];
+    private final double[] sums=new double[9],minima=new double[9],maxima=new double[9];
     private double maxAnchorAngleDegrees,maxBaselineSpan;
     private RotationMean rotations=new RotationMean();
     private Result result;
@@ -105,10 +105,12 @@ public final class NeutralCalibrationCollector {
         double[] quaternion;
         try{quaternion=quaternion(FaceControlMapper.rotationPose(frame.pose()));}
         catch(IllegalArgumentException invalid){reset(Reason.INVALID_POSE,invalid.getMessage());return snapshot();}
-        Reason notRelaxed=relaxedCheck(weights);
-        if(notRelaxed!=Reason.NONE){reset(notRelaxed,"Engineering neutral threshold not met; keep eyes open, mouth relaxed and gaze forward");return snapshot();}
+        Reason notRelaxed=relaxedCheck(weights,collectPersonalBaseline);
+        if(notRelaxed!=Reason.NONE){reset(notRelaxed,"Engineering neutral threshold not met; keep eyes open, brows and mouth relaxed, gaze forward");return snapshot();}
         double[] values={weights[9],weights[10],weights[25],(double)weights[15]-weights[13],
-                (double)weights[16]-weights[14],(double)weights[17]-weights[11],(double)weights[18]-weights[12]};
+                (double)weights[16]-weights[14],(double)weights[17]-weights[11],(double)weights[18]-weights[12],weights[1],weights[2]};
+        // Head-only calibration keeps its existing seven-channel acceptance window.
+        int valueCount=collectPersonalBaseline?values.length:7;
         setReason(Reason.NONE,"");
         if(samples>0&&frame.receivedNs()-lastGoodReceivedNs>MAX_FRAME_GAP_NS)reset(Reason.FRAME_GAP,"Gap breaks continuous collection");
         if(samples>0){
@@ -117,25 +119,26 @@ public final class NeutralCalibrationCollector {
             else maxAnchorAngleDegrees=Math.max(maxAnchorAngleDegrees,angle);
         }
         if(samples>0){
-            for(int i=0;i<7;i++)if(Math.max(maxima[i],values[i])-Math.min(minima[i],values[i])>MAX_BASELINE_SPAN+1e-7){
-                reset(Reason.COEFFICIENT_CHANGED,"Eye, mouth or gaze baseline is not stable");break;
+            for(int i=0;i<valueCount;i++)if(Math.max(maxima[i],values[i])-Math.min(minima[i],values[i])>MAX_BASELINE_SPAN+1e-7){
+                reset(Reason.COEFFICIENT_CHANGED,"Collected personal coefficients are not stable");break;
             }
         }
         if(samples==0){firstSequence=frame.sequence();firstReceivedNs=frame.receivedNs();}
         lastGoodReceivedNs=frame.receivedNs();
         // Every unique valid frame contributes quality bounds, even if it is not a statistical sample.
-        for(int i=0;i<7;i++){
+        for(int i=0;i<valueCount;i++){
             minima[i]=Math.min(minima[i],values[i]);maxima[i]=Math.max(maxima[i],values[i]);
             maxBaselineSpan=Math.max(maxBaselineSpan,maxima[i]-minima[i]);
         }
         if(samples>0&&frame.receivedNs()-lastSampleReceivedNs<SAMPLE_SPACING_NS)return snapshot();
         if(samples>=MAX_SAMPLES){reset(Reason.SAMPLE_LIMIT,"Bounded sample capacity reached");return snapshot();}
-        rotations.add(quaternion);for(int i=0;i<7;i++)sums[i]+=values[i];samples++;
+        rotations.add(quaternion);for(int i=0;i<valueCount;i++)sums[i]+=values[i];samples++;
         lastSampleSequence=frame.sequence();lastSampleReceivedNs=frame.receivedNs();
         if(samples>=MIN_SAMPLES&&lastSampleReceivedNs-firstReceivedNs>=STABLE_WINDOW_NS){
             FaceControlCalibration.PersonalBaseline personal=collectPersonalBaseline?
                     new FaceControlCalibration.PersonalBaseline((float)(sums[0]/samples),(float)(sums[1]/samples),(float)(sums[2]/samples),
-                            (float)(sums[3]/samples),(float)(sums[4]/samples),(float)(sums[5]/samples),(float)(sums[6]/samples)):null;
+                            (float)(sums[3]/samples),(float)(sums[4]/samples),(float)(sums[5]/samples),(float)(sums[6]/samples),
+                            (float)(sums[7]/samples),(float)(sums[8]/samples)):null;
             result=new Result(rotations.pose(),personal,samples,firstSequence,lastSampleSequence,firstReceivedNs,lastSampleReceivedNs,maxAnchorAngleDegrees,maxBaselineSpan);
             status=Status.READY;setReason(Reason.NONE,"");
         }
@@ -178,7 +181,10 @@ public final class NeutralCalibrationCollector {
         return new Update(status,reason,detail,samples,resets,stable,remaining,result);
     }
     private static Update stale(){return new Update(Status.STALE_SESSION,Reason.SESSION_MISMATCH,"Obsolete or missing collection owner",0,0,0,0,null);}
-    private static Reason relaxedCheck(float[] w){
+    private static Reason relaxedCheck(float[] w,boolean personal){
+        // This is only the existing baseline gain bound, not proof that a held frown is neutral.
+        if(personal&&(w[1]>FaceControlCalibration.PersonalBaseline.MAX_BASELINE||w[2]>FaceControlCalibration.PersonalBaseline.MAX_BASELINE))
+            return Reason.BROWS_NOT_RELAXED;
         if(w[9]>.25f||w[10]>.25f)return Reason.EYES_NOT_RELAXED;
         if(w[25]>.20f||w[32]>.30f||w[38]>.30f||w[44]>.30f||w[45]>.30f)return Reason.MOUTH_NOT_RELAXED;
         for(int i=11;i<=18;i++)if(w[i]>.5f)return Reason.GAZE_NOT_CENTERED;

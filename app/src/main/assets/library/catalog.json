@@ -55,13 +55,15 @@
       "id": "head-sukuna",
       "displayName": "宿傩",
       "type": "head",
-      "status": "static_preview",
+      "status": "runtime_ready",
       "sourceLabel": "角色原件 · 2026.10.03",
-      "notes": "原模型和静态预览已保存。面部动作仍在校正，暂不用于实时魔镜。",
+      "notes": "已初步校正，可试用；眼周、嘴唇、口角与牙列仍待进一步优化。原件静态预览供回看，可用角色以角色页为准。",
       "sourcePath": "library/head-sukuna/source.glb",
       "sourceSha256": "aa59c8ea758fdab9bdc78c64d0510079ef0467ecae54f65d7afb12b553c907a2",
       "previewPath": "library/head-sukuna/preview.png",
-      "previewSha256": "1d6cf05e64864f6fd9a1c3196365ffee7f810f862de1e04bd82b847eb23eafd6"
+      "previewSha256": "1d6cf05e64864f6fd9a1c3196365ffee7f810f862de1e04bd82b847eb23eafd6",
+      "liveRoleId": "sukuna",
+      "liveModelSha256": "04f1ffbbe44a8287261e5fa1d5c57531f682b564a77a4775404bfb8b3698842e"
     },
     {
       "id": "head-maul",
@@ -330,6 +332,54 @@
       "sourceSha256": "d03c09785180532066d8bb4b3e0187b7d8e75433f63d11faa8a9e51641996de4",
       "previewPath": "library/image-violet-stardust-oval/preview.png",
       "previewSha256": "e373e6fb55560c2c4e6816cbf8cc4685464a5f0cdce2bc1ad285463c46ccfb1d"
+    },
+    {
+      "id": "head-gothic-sorceress",
+      "displayName": "哥特女巫",
+      "type": "head",
+      "status": "static_preview",
+      "sourceLabel": "新角色原件 · 2026.10.07",
+      "notes": "已修复首版贴图。面部动作与资源校正仍在进行，当前仅提供静态外观预览。",
+      "sourcePath": "library/head-gothic-sorceress/source.glb",
+      "sourceSha256": "9268a486e379e1fbf8c855d6d1963c748bb40d6ccfc4eda1a69b99dbfb1e85de",
+      "previewPath": "library/head-gothic-sorceress/preview.png",
+      "previewSha256": "8034f62f3818e8e3cb6b1025a628df5b12770e9ffcf9cafe10c0aeae97385ceb"
+    },
+    {
+      "id": "head-gothic-sorceress-early",
+      "displayName": "哥特女巫 · 首版",
+      "type": "head",
+      "status": "archive",
+      "sourceLabel": "新角色原件 · 2026.10.07",
+      "notes": "首版存在额头重复眼睛贴图，保留原件供回看。后续材质修复采用同一头部。",
+      "sourcePath": "library/head-gothic-sorceress-early/source.glb",
+      "sourceSha256": "3808b51bbd332cf90e48faec10d1e7891d8635e42b1ecce78adb77eed59772d5",
+      "previewPath": "library/head-gothic-sorceress-early/preview.png",
+      "previewSha256": "d03fd4780d021395e9830801d3fd9ba1f84d392518c87bea64fe64e7c254cc94"
+    },
+    {
+      "id": "head-silver-elf",
+      "displayName": "银发精灵 · 首版",
+      "type": "head",
+      "status": "archive",
+      "sourceLabel": "新角色原件 · 2026.10.07",
+      "notes": "原件存在发顶缺损和衣领残留，正在修复；当前不能进入实时魔镜。",
+      "sourcePath": "library/head-silver-elf/source.glb",
+      "sourceSha256": "62294ae725aa3582d17cd8aa355055c7811209678b414f75e97966c3ffef0c13",
+      "previewPath": "library/head-silver-elf/preview.png",
+      "previewSha256": "3ef0e7c689f775c8a394fe6b8d51df3bfd12cadf55617341c1d3f697981914ca"
+    },
+    {
+      "id": "head-android",
+      "displayName": "仿生人 · 首版",
+      "type": "head",
+      "status": "archive",
+      "sourceLabel": "新角色原件 · 2026.10.07",
+      "notes": "原件存在发顶缺损，保留用于后续修复；当前不能进入实时魔镜。",
+      "sourcePath": "library/head-android/source.glb",
+      "sourceSha256": "c9557960faba4758e3370879413ad32469b2f1c174892ba9ca4f49f5a0959dd5",
+      "previewPath": "library/head-android/preview.png",
+      "previewSha256": "4fb8f2be144a03ecf71de21bd0be414272eab32b95d440fa2353674f5f1fcc8c"
     }
   ]
 }

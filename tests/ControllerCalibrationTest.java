@@ -3,7 +3,7 @@ package com.mirror.bench;
 public final class ControllerCalibrationTest {
     private static int checks;private static final long MS=1_000_000L;
     public static void main(String[] args){
-        defaultEquivalence();mappedAndCacheInvalidation();invalidFramesAndRecovery();nonDriveNeverRecalibrates();
+        defaultEquivalence();mappedAndCacheInvalidation();invalidFramesAndRecovery();nonDriveNeverRecalibrates();browBaselineRevision();
         System.out.println("ControllerCalibrationTest: "+checks+" checks passed");
     }
     private static void defaultEquivalence(){
@@ -71,6 +71,22 @@ public final class ControllerCalibrationTest {
         check(error.calibrationRevision()==7,"non-drive snapshot retains configuration identity");
     }
     private static FaceFrame active(InteractionController c,float[] w,float[] p){var first=FaceFrame.present(0,0,0,w,p);c.accept(first);c.sample(0);var next=FaceFrame.present(1,300*MS,300*MS,w,p);c.accept(next);c.sample(300*MS);return next;}
+    private static void browBaselineRevision(){
+        var controller=new InteractionController();float[] raw=new float[52];raw[1]=.2f;raw[2]=.4f;raw[3]=.25f;raw[44]=.3f;
+        active(controller,raw,FaceFrame.identity());var before=controller.sample(350*MS);
+        check(before.blendshapes52()[1]>.1f&&before.blendshapes52()[2]>.3f,"uncalibrated biased resting brows initially drive downward");
+        var baseline=new FaceControlCalibration.PersonalBaseline(0,0,0,0,0,0,0,.2f,.4f);
+        controller.setCalibration(new FaceControlCalibration(52,false,null,baseline));
+        var after=controller.sample(400*MS);
+        check(after.calibrationRevision()==52&&after.blendshapes52()[1]<before.blendshapes52()[1]&&after.blendshapes52()[2]<before.blendshapes52()[2],"new atomic calibration invalidates cached source mapping without waiting for a new frame");
+        check(after.blendshapes52()[1]>0&&after.blendshapes52()[2]>0,"existing time-based filter smooths compensation rather than abruptly snapping brows");
+        check(after.blendshapes52()[3]>=before.blendshapes52()[3]&&after.blendshapes52()[44]>=before.blendshapes52()[44],"neutral-brow revision preserves upward brow and smile targets");
+        controller.setError();var fault=controller.sample(450*MS);
+        check(fault.state()==InteractionController.State.ERROR&&!fault.facePresent(),"error uses non-drive state with personal correction installed");
+        controller.reset();controller.setCalibration(FaceControlCalibration.defaults());
+        var next=active(controller,raw,FaceFrame.identity());var newSession=controller.sample(350*MS);
+        check(newSession.blendshapes52()[1]>.1f&&newSession.blendshapes52()[2]>.3f&&newSession.calibrationRevision()==0,"caller reset and default snapshot remove prior person's brow correction");
+    }
     private static float[] rotation(double x,double y,double z){double cx=Math.cos(Math.toRadians(x)),sx=Math.sin(Math.toRadians(x)),cy=Math.cos(Math.toRadians(y)),sy=Math.sin(Math.toRadians(y)),cz=Math.cos(Math.toRadians(z)),sz=Math.sin(Math.toRadians(z));return new float[]{(float)(cz*cy),(float)(sz*cy),(float)-sy,0,(float)(cz*sy*sx-sz*cx),(float)(sz*sy*sx+cz*cx),(float)(cy*sx),0,(float)(cz*sy*cx+sz*sx),(float)(sz*sy*cx-cz*sx),(float)(cy*cx),0,0,0,0,1};}
     private static float[] multiply(float[] a,float[] b){float[] out=new float[16];for(int col=0;col<4;col++)for(int row=0;row<4;row++)for(int k=0;k<4;k++)out[col*4+row]+=a[k*4+row]*b[col*4+k];return out;}
     private static void bits(float[] a,float[] b,String m){check(a.length==b.length,m);for(int i=0;i<a.length;i++)check(Float.floatToRawIntBits(a[i])==Float.floatToRawIntBits(b[i]),m+" at "+i);}

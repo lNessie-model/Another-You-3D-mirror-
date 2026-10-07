@@ -74,8 +74,8 @@ final class CameraCalibrationPanel {
         reflect=check(activity,"校正摄像头自带的左右颠倒（旋转后）");body.addView(reflect);
         mirror=check(activity,"镜像互动（只改变角色动作）");body.addView(mirror);
         TextView baselineTitle=text(activity,"02 · 放松，建立基准",18);body.addView(baselineTitle);
-        personal=check(activity,"本次同时校准个人眼口与视线偏置");body.addView(personal);
-        body.addView(text(activity,"正视、放松、自然睁眼并闭口，保持约 2 秒。采集后点击确认，再检查动作。"));
+        personal=check(activity,"本次同时校准个人眉眼、嘴部与视线偏置");personal.setChecked(true);body.addView(personal);
+        body.addView(text(activity,"正视、眉毛放松、自然睁眼并闭口，保持约 2 秒。采集后点击确认，再检查挑眉、皱眉、眨眼和张口。"));
         LinearLayout buttons=new LinearLayout(activity);body.addView(buttons);
         collect=new Button(activity);collect.setText("采集中性");buttons.addView(collect,new LinearLayout.LayoutParams(0,-2,1));
         confirm=new Button(activity);confirm.setText("确认本次中性");confirm.setEnabled(false);buttons.addView(confirm,new LinearLayout.LayoutParams(0,-2,1));
@@ -83,7 +83,7 @@ final class CameraCalibrationPanel {
         progress=text(activity,"头部与个人基准仅用于本次会话，不写入安装设置。");body.addView(progress);
         actions=text(activity,"等待动作数据");body.addView(actions);
         TextView checkTitle=text(activity,"03 · 检查并保存",18);body.addView(checkTitle);
-        checked=check(activity,"已核对文字方向、左右眨眼、张口、视线与转头");body.addView(checked);
+        checked=check(activity,"已核对文字方向、挑眉与皱眉、左右眨眼、张口、视线与转头");body.addView(checked);
         ScrollView scroll=new ScrollView(activity);scroll.addView(body);
         dialog=new AlertDialog.Builder(activity).setTitle("相机与动作校准").setView(scroll)
                 .setPositiveButton("保存安装设置",null).setNegativeButton("取消",null).setNeutralButton("默认草稿",null).create();
@@ -101,7 +101,7 @@ final class CameraCalibrationPanel {
             FaceControlCalibration proposed=new FaceControlCalibration(nextRevision(),draft.mirrorInteraction,ready.neutralPose(),ready.personalBaseline());
             if(!host.confirmCalibration(this,input,session,ready,proposed)){cancelCollection();progress.setText("输入或采集状态已改变，请重新采集中性。");return;}
             calibration=proposed;
-            cancelCollection();checked.setChecked(false);progress.setText("已用于当前预览。请检查动作；退出或更换输入后个人基准失效。");});
+            cancelCollection();checked.setChecked(false);progress.setText("已用于本次运行。请检查动作；取消退出、离开镜头或更换输入后需重新采集，重启不保留。");});
         clear.setOnClickListener(v->{clearNeutral();progress.setText("已清除本次基准，采集已取消。");});
         checked.setOnCheckedChangeListener((v,b)->refreshEnabled());
         dialog.setOnDismissListener(d->finish());
@@ -186,7 +186,7 @@ final class CameraCalibrationPanel {
             if(mapped.state()==InteractionController.State.WAITING&&(calibration.hasNeutralPose()||calibration.personalBaseline()!=null)){
                 clearNeutral();progress.setText("已离开互动，当前个人基准已清除；可重新采集。");
             }
-            float[] w=mapped.blendshapes52();setTextIfChanged(actions,String.format(Locale.ROOT,"角色输入 · 左眨眼 %.2f / 右眨眼 %.2f / 张口 %.2f\n%s",w[9],w[10],w[25],mapped.calibrationError()));}
+            float[] w=mapped.blendshapes52();setTextIfChanged(actions,String.format(Locale.ROOT,"角色输入 · 左皱眉 %.2f / 右皱眉 %.2f\n左眨眼 %.2f / 右眨眼 %.2f / 张口 %.2f\n%s",w[1],w[2],w[9],w[10],w[25],mapped.calibrationError()));}
         else setTextIfChanged(actions,"尚无有效动作数据；相机恢复后再核对左右眨眼、张口与转头。");
         refreshEnabled();
     }
@@ -212,6 +212,7 @@ final class CameraCalibrationPanel {
         case NO_FACE -> "未看到人脸，请进入镜头范围";
         case EYES_NOT_RELAXED -> "请自然睁眼";
         case MOUTH_NOT_RELAXED -> "请闭口放松，不做表情";
+        case BROWS_NOT_RELAXED -> "请放松眉毛，不挑眉也不皱眉，再采集中性";
         case GAZE_NOT_CENTERED -> "请看向正前方";
         case HEAD_MOVING,COEFFICIENT_CHANGED -> "检测到动作，请保持稳定，重新累计";
         case TIME_LIMIT -> "采集超时，可重新采集";

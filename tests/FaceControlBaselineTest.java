@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class FaceControlBaselineTest {
     private static int checks;
     public static void main(String[] args)throws Exception {
-        unipolarEndpoints();signedGaze();baselineBeforeMirror();invalidBaselines();atomicOwnership();
+        unipolarEndpoints();signedGaze();baselineBeforeMirror();invalidBaselines();atomicOwnership();browBaselines();
         System.out.println("FaceControlBaselineTest: "+checks+" assertions passed");
     }
     private static void unipolarEndpoints(){
@@ -102,6 +102,42 @@ public final class FaceControlBaselineTest {
         var previous=FaceControlMapper.mapActive(raw,pose,a);
         rejects(()->FaceControlMapper.mapActive(raw,invalidPose,b),"pose failure after valid weights");
         check(equalBits(raw,before)&&equalBits(previous.blendshapes52(),before)&&equalBits(previous.pose(),pose),"failed transaction mutates neither caller nor earlier output");
+    }
+    private static void browBaselines(){
+        var legacy=baseline(.1f,.2f,.05f,.1f,-.1f,.05f,-.08f);
+        check(legacy.browDownLeft()==0&&legacy.browDownRight()==0,"seven-value baseline never enables brow correction");
+        var extended=new FaceControlCalibration.PersonalBaseline(.1f,.2f,.05f,.1f,-.1f,.05f,-.08f,.2f,.4f);
+        float[] raw=new float[52];for(int i=0;i<52;i++)raw[i]=i/51f;raw[0]=-0.0f;raw[1]=.6f;raw[2]=.7f;
+        var oldConfig=new FaceControlCalibration(51,false,null,legacy);
+        var newConfig=new FaceControlCalibration(52,false,null,extended);
+        float[] old=FaceControlMapper.mapActive(raw,id(),oldConfig).blendshapes52();
+        float[] out=FaceControlMapper.mapActive(raw,id(),newConfig).blendshapes52();
+        near(.5,out[1],1e-7,"left brow halfway from its own resting value to frown endpoint");
+        near(.5,out[2],1e-7,"right brow uses separate anatomical resting value");
+        for(int i=0;i<52;i++)if(i!=1&&i!=2)check(bits(old[i])==bits(out[i]),"brow calibration preserves all other eye, mouth and brow-up channels "+i);
+        raw[1]=.2f;raw[2]=.4f;out=FaceControlMapper.mapActive(raw,id(),newConfig).blendshapes52();
+        check(out[1]==0&&out[2]==0,"both sampled resting brows become neutral");
+        raw[1]=.1f;raw[2]=0;out=FaceControlMapper.mapActive(raw,id(),newConfig).blendshapes52();
+        check(out[1]==0&&out[2]==0,"values below sampled rest do not produce negative brow deformation");
+        float previousLeft=-1,previousRight=-1;
+        for(int step=0;step<=100;step++){
+            raw[1]=raw[2]=step/100f;out=FaceControlMapper.mapActive(raw,id(),newConfig).blendshapes52();
+            check(out[1]>=previousLeft&&out[2]>=previousRight&&out[1]>=0&&out[2]>=0&&out[1]<=1&&out[2]<=1,"brow response remains bounded and monotonic "+step);
+            previousLeft=out[1];previousRight=out[2];
+        }
+        check(previousLeft==1&&previousRight==1,"deliberate full frown remains exactly reachable on both sides");
+        raw[1]=.6f;raw[2]=.4f;
+        out=FaceControlMapper.mapActive(raw,id(),new FaceControlCalibration(52,true,null,extended)).blendshapes52();
+        near(.5,out[2],1e-7,"anatomical left rest is removed before left-to-right mirror");near(0,out[1],0,"right rest remains neutral after mirror");
+        check(equalBits(new float[52],FaceControlMapper.neutral(newConfig).blendshapes52()),"no-face neutral never receives brow bias");
+        var zeroBrows=new FaceControlCalibration.PersonalBaseline(.1f,.2f,.05f,.1f,-.1f,.05f,-.08f,0,0);
+        check(equalBits(FaceControlMapper.mapActive(raw,id(),oldConfig).blendshapes52(),FaceControlMapper.mapActive(raw,id(),new FaceControlCalibration(52,false,null,zeroBrows)).blendshapes52()),"legacy and explicit zero-brow baseline have identical complete outputs");
+        for(float invalid:new float[]{Float.NaN,Float.POSITIVE_INFINITY,-.001f,.50001f,1}){
+            rejects(()->new FaceControlCalibration.PersonalBaseline(0,0,0,0,0,0,0,invalid,0),"unsafe left brow baseline");
+            rejects(()->new FaceControlCalibration.PersonalBaseline(0,0,0,0,0,0,0,0,invalid),"unsafe right brow baseline");
+        }
+        var bound=new FaceControlCalibration.PersonalBaseline(0,0,0,0,0,0,0,.5f,.5f);
+        check(bound.browDownLeft()==.5f&&bound.browDownRight()==.5f,"engineering gain cap accepts its exact finite boundary");
     }
     private static FaceControlCalibration.PersonalBaseline baseline(float bl,float br,float jaw,float lo,float ro,float lu,float ru){return new FaceControlCalibration.PersonalBaseline(bl,br,jaw,lo,ro,lu,ru);}
     private static float[] id(){return FaceControlMapperTest.identity();}

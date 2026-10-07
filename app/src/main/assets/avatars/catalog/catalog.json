@@ -40,6 +40,19 @@
       "triangles": 19639,
       "drawCalls": 8,
       "decodedBytes": 41708894
+    },
+    {
+      "id": "sukuna",
+      "displayName": "宿傩",
+      "directory": "avatars/catalog/sukuna",
+      "modelSha256": "04f1ffbbe44a8287261e5fa1d5c57531f682b564a77a4775404bfb8b3698842e",
+      "manifestSha256": "16b3069e2fa6309b1d26a26ad4fabbb120affc0aa10ea28feab5bc45d190bf60",
+      "thumbnail": "avatars/catalog/sukuna/thumbnail.png",
+      "status": "corrected_trial",
+      "vertices": 17303,
+      "triangles": 19515,
+      "drawCalls": 8,
+      "decodedBytes": 44094586
     }
   ]
 }
