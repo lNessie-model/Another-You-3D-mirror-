@@ -10,7 +10,7 @@ public final class FacePlaybackTest {
         input[9]=.4f;input[25]=.3f;input[44]=.2f;input[0]=.44f;input[15]=.8f;
         FacePlayback.apply(input,pose,true,3,out,angles);
         check(out[10]>.5f&&out[10]<.6f,"left blink reflects through its independent gradual response");near(out[9],0,"opposite eye stays open");
-        near(out[25],.657f,"small jaw opening becomes visible without early saturation");near(out[45],.488f,"one-sided smile reflects and has a bounded response");
+        near(out[25],.3f,"jaw opening follows capture independently of expression gain");near(out[45],.488f,"one-sided smile reflects and has a bounded response");
         near(out[0],.44f,"neutral classifier is not an expression");near(out[16],.8f,"gaze reflects without expression gain");
         near(angles[0],17,"mirror preserves pitch");near(angles[1],-31,"mirror reverses yaw");near(angles[2],24,"mirror reverses roll");
         input[19]=.6f;input[21]=.3f;input[27]=.4f;input[7]=.5f;
@@ -18,6 +18,12 @@ public final class FacePlaybackTest {
         near(out[20],.6f,"squint preserves partial closure");check(out[22]>.4f&&out[22]<.5f,"wide has its own bounded response");
         near(out[27],.4f,"mouth-close corrective input preserves original proportions");near(out[8],.5f,"cheek squint is independent of mouth gain");
         float previous=-1;
+        for(float gain:new float[]{.5f,1,1.5f,2.5f,3,4})for(boolean mirror:new boolean[]{false,true}){
+            for(int step=0;step<=100;step++){
+                input[25]=step/100f;FacePlayback.apply(input,pose,mirror,gain,out,angles);
+                near(out[25],input[25],"jaw retains partial openings and both endpoints across gains and reflection");
+            }
+        }
         for(int step=0;step<=100;step++){
             input[25]=step/100f;FacePlayback.apply(input,pose,false,2.5f,out,angles);
             check(out[25]>=previous&&out[25]<=1,"continuous monotone mouth response");

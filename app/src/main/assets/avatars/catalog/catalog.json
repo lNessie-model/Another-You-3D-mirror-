@@ -6,14 +6,14 @@
       "id": "geralt",
       "displayName": "杰洛特",
       "directory": "avatars/catalog/geralt",
-      "modelSha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
-      "manifestSha256": "b4d324f64ea3655fe01615ce97081c275d60d50312fd0d2b066f8a78e668032e",
+      "modelSha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
+      "manifestSha256": "94757eabd2722ba90a31038d236b9f53e661466322d6998fc73a3af1217d5195",
       "thumbnail": "avatars/catalog/geralt/thumbnail.png",
       "status": "device_verified",
-      "vertices": 19907,
+      "vertices": 19915,
       "triangles": 19157,
       "drawCalls": 7,
-      "decodedBytes": 73552494
+      "decodedBytes": 73558574
     },
     {
       "id": "builtin-guide",
