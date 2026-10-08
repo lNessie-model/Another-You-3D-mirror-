@@ -1,0 +1,117 @@
+{
+  "schema": "v56-actual-mouth-range-review-v2",
+  "uniqueInputImageCount": 5,
+  "presentationTileCount": 6,
+  "generativeImageUsed": false,
+  "colorEdited": false,
+  "inputImages": [
+    {
+      "label": "v55",
+      "sourceFile": "jaw-open.png",
+      "bytes": 55044,
+      "sha256": "d845075991783546f552414659e3e293cba88170fd7394a1c645cc0a3c3cfae3",
+      "sourceSize": [
+        480,
+        768
+      ]
+    },
+    {
+      "label": "v56-v1",
+      "sourceFile": "jaw-open.png",
+      "bytes": 55384,
+      "sha256": "056e9bddc42fa857a94eaaa51a9f33e29c79076b2b00dcd2843c6c4cbbbab4c0",
+      "sourceSize": [
+        480,
+        768
+      ]
+    },
+    {
+      "label": "small",
+      "sourceFile": "jaw-open.png",
+      "bytes": 55146,
+      "sha256": "d17c6fef371711c0c49cb94b37cb9fdd2d4be782ef913ab92b3ad4126c510fc6",
+      "sourceSize": [
+        480,
+        768
+      ]
+    },
+    {
+      "label": "medium",
+      "sourceFile": "jaw-open.png",
+      "bytes": 55268,
+      "sha256": "7b13127723c1426e5bbcdfef8a94ff3b545f69e762f2669cd3f11254402bd3b1",
+      "sourceSize": [
+        480,
+        768
+      ]
+    },
+    {
+      "label": "v56-v2",
+      "sourceFile": "jaw-open.png",
+      "bytes": 55398,
+      "sha256": "b2e3dee38097f950a1e5580d2c882d67f397d15033dce1856d4963cb4aab8423",
+      "sourceSize": [
+        480,
+        768
+      ]
+    }
+  ],
+  "figures": [
+    {
+      "file": "device-mouth-before-after.png",
+      "sha256": "16f3bf8932f725c6b5a72a30fabc62fee686693c3547022d6ff0516e027c13cb",
+      "tiles": [
+        "v55",
+        "v56-v1",
+        "v56-v2"
+      ],
+      "crop": [
+        188,
+        345,
+        292,
+        454
+      ],
+      "resize": [
+        288,
+        302
+      ]
+    },
+    {
+      "file": "device-mouth-range.png",
+      "sha256": "4c5fef03e1ae143e7ba536088060e210773ed1ed724f9580d8901eff7ae98eed",
+      "tiles": [
+        "small",
+        "medium",
+        "v56-v2"
+      ],
+      "crop": [
+        188,
+        345,
+        292,
+        454
+      ],
+      "resize": [
+        288,
+        302
+      ]
+    }
+  ],
+  "finalApkSha256": "6643e2b7c6e15a741d5262447592833b827210df6f19da4676e0b0a504ffac56",
+  "modelSha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
+  "finalManifestSha256": "94757eabd2722ba90a31038d236b9f53e661466322d6998fc73a3af1217d5195",
+  "finalRunId": "e59ede0e-30f8-455c-8c66-1171b949176a",
+  "partialRuns": [
+    {
+      "fraction": 0.25,
+      "runId": "882670b3-1377-4cde-ba2f-5c098cb143e6",
+      "privateManifestSha256": "3eeedf1821b9c29b3432a490f4aa6bc7da151322c0bccf702c535655e420214d"
+    },
+    {
+      "fraction": 0.5,
+      "runId": "3496e615-99ac-4ff7-9f7f-7b60e0022ddd",
+      "privateManifestSha256": "3bab70cce9a1d39aa22a9f48e4edd715d51777226c9d883a579214856481f2c1"
+    }
+  ],
+  "partialPoseMethod": "Actual same Android shader/model at jaw-only input1, scaling all3 jaw contributions by .25/.5 is equivalent to final manifest jaw input .25/.5. Private manifests only; final bundled manifest remains .8/.8/12deg.",
+  "scope": "Actual static mouth previews. Final has9x16 draw-path checks; partial runs have ten-PNG terminal checks only, not multiview verification. Not live camera, optical3D, or FPS."
+}

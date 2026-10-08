@@ -6,7 +6,7 @@
   "id": "tripo-geralt-lowpoly-stage2-lip-ring-socket-eyes-oral-matte-pbr-jaw-close-rigid-dentition-ocular-seat-expression-refined-oral-detail-orbital-closure-visible-brow-v3-wide-local-pose-safety-dentition-appearance",
   "displayName": "杰洛特方向 · 平顺咬合与暖白牙齿候选",
   "model": "character.glb",
-  "modelSha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
+  "modelSha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
   "inputSchema": "mediapipe-face-blendshapes-v1",
   "coordinates": {
     "up": "+Y",
@@ -31,7 +31,7 @@
       0,
       0
     ],
-    "jawOpenDegrees": 15,
+    "jawOpenDegrees": 12,
     "jawLateralMeters": 0.004,
     "jawForwardMeters": 0.005,
     "gazeMode": "joint",
@@ -141,7 +141,7 @@
       "source": "jawOpen",
       "mesh": "Face",
       "target": "jawOpen",
-      "gain": 1
+      "gain": 0.8
     },
     {
       "source": "jawRight",
@@ -309,7 +309,7 @@
       ],
       "mesh": "Face",
       "target": "correctiveJawOpenMouthClose",
-      "gain": 1
+      "gain": 0.8
     },
     {
       "operation": "product",

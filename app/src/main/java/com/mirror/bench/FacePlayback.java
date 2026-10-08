@@ -8,8 +8,8 @@ final class FacePlayback {
         for(int i=0;i<REFLECT.length;i++){
             String name=BlendshapeSchema.name(i);
             // Brow depression and the two eye endpoints have separate responses.
-            // Squint/gaze remain independent; mouth/brow lift uses the user gain.
-            AMPLIFY[i]=i!=0&&!name.startsWith("eye")&&!name.startsWith("browDown")&&!name.startsWith("cheekSquint")&&!name.equals("mouthClose");
+            // Jaw aperture and closure retain capture proportions. Smile/brow lift uses the user gain.
+            AMPLIFY[i]=i!=0&&!name.startsWith("eye")&&!name.startsWith("browDown")&&!name.startsWith("cheekSquint")&&!name.equals("mouthClose")&&!name.equals("jawOpen");
         }
     }
     private FacePlayback(){}

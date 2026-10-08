@@ -27,14 +27,14 @@
       "id": "geralt",
       "displayName": "杰洛特",
       "directory": "avatars/catalog/geralt",
-      "modelSha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
-      "manifestSha256": "b4d324f64ea3655fe01615ce97081c275d60d50312fd0d2b066f8a78e668032e",
+      "modelSha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
+      "manifestSha256": "94757eabd2722ba90a31038d236b9f53e661466322d6998fc73a3af1217d5195",
       "thumbnail": "avatars/catalog/geralt/thumbnail.png",
       "status": "device_verified",
-      "vertices": 19907,
+      "vertices": 19915,
       "triangles": 19157,
       "drawCalls": 7,
-      "decodedBytes": 73552494
+      "decodedBytes": 73558574
     },
     {
       "id": "builtin-guide",
@@ -79,7 +79,7 @@
   "default_role_id": "geralt",
   "asset_library": {
     "catalog": "app/src/main/assets/library/catalog.json",
-    "catalog_sha256": "73a4f60a7133f5247e6b87317a71cc7fff437dad1c1d452da9daddddf721acee",
+    "catalog_sha256": "65a167022d09ed4fdc7cbf6dc3f597383a9d2467debe7530bc99e86080e21aad",
     "entries": 36,
     "files": 73,
     "bytes": 186572215,
@@ -170,33 +170,33 @@
     "default_role_restored": "geralt",
     "personal_face_art_accepted": false
   },
-  "versionCode": 55,
-  "versionName": "0.2.24",
-  "source_commit": "58a80e386617f4a2ed6787d3da302ee0d58f38ae",
-  "public_parent": "ef4758f843a74a88f6786a00d8d9d7dc19eb4805",
-  "created_at_utc": "2026-10-08T09:44:12.214400+00:00",
-  "local_apk_filename": "AvatarRuntime-v55-natural-portrait-v2.apk",
-  "apk_sha256": "8330e5c0349574b2982b27dfa2e1535f12cac242239b32d2b4a4b35b640469e1",
-  "apk_bytes": 242153085,
+  "versionCode": 56,
+  "versionName": "0.2.25",
+  "source_commit": "e77d5a5242b36e4393805f305fc8456ca3886030",
+  "public_parent": "f7fde67942facd5418f37882d7cc1b3d81927f64",
+  "created_at_utc": "2026-10-08T11:44:43.648439+00:00",
+  "local_apk_filename": "AvatarRuntime-v56-natural-mouth-v2.apk",
+  "apk_sha256": "6643e2b7c6e15a741d5262447592833b827210df6f19da4676e0b0a504ffac56",
+  "apk_bytes": 241482463,
   "apk_in_repository": false,
   "qa_passed": true,
-  "qa_scope": "Fixed Geralt actual portraits, fresh Mali cross-path pixels, same-signer install, recorded replay short ABA load and exact restoration; no personal USB face acceptance.",
+  "qa_scope": "Jaw gain-independent mapper and Geralt oral/U-shaped lower-lip asset refinement; final .8/.8/12deg role limit, bounded host/geometry checks, actual static Mali cross-path/partial previews and same-signer install/restoration. No final replay FPS, personal USB face, optical3D or full realistic anatomy acceptance.",
   "live_face_qa_passed": false,
   "full_user_goal_complete": false,
   "camera_blocker": null,
   "camera_retested_this_release": false,
   "camera_capture_passed": false,
-  "runtime_opened_this_release": true,
+  "runtime_opened_this_release": false,
   "gpu_retested_this_release": true,
-  "gpu_acceptance_scope_this_release": "Refined V55 actual Mali two cross-path comparisons,9 poses x16 views each (144 RGBA layers),zero differences,317 checks; ten original/refined V55 portraits also RGBA equal; not V54/V55 pixel equality or final-screen interlace/USB/FPS acceptance.",
+  "gpu_acceptance_scope_this_release": "Final V56v2 nine poses x16 views with 317 actual checks; serial/OVR RGBA zero, individual/batch established tolerance. Two partial jaw preview runs have two terminal checks each, not additional multiview suites.",
   "gpu_pose_suite_rerun_this_release": true,
-  "joint_performance_measured": true,
-  "joint_performance_input_scope": "Recorded replay/NPU/Geralt16x400x640: historical original-style V55/V54/V55 three short runs plus one independent refined V55 short run;30s requested including startup, only confirmed INTERACTIVE SF timestamps counted; no USB, isolated GPU cost, or significant speedup.",
+  "joint_performance_measured": false,
+  "joint_performance_input_scope": "No final V56v2 replay/FPS measurement; draft V56v1 smoke is historical only.",
   "joint_30fps_goal_met": false,
   "frame_rate_improvement_demonstrated": false,
   "private_fixtures_in_apk": false,
   "personal_video_in_apk": false,
-  "source_delta_file_count": 4,
+  "source_delta_file_count": 10,
   "frozen_delta_file_hashes_verified": true,
   "production_dependencies_match_v30": true,
   "native_dependencies_match_v35": true,
@@ -284,7 +284,8 @@
     "queries_collected_this_release": false,
     "view_gpu_status": "unsupported_ovr_multiview",
     "view_gpu_duration_ms": null,
-    "previous_v35_samples_are_historical": true
+    "previous_v35_samples_are_historical": true,
+    "evidence_retained_from_public_parent": "f7fde67942facd5418f37882d7cc1b3d81927f64"
   },
   "orm_rg8": {
     "evidence_retained_from_prior_release": true,
@@ -297,128 +298,82 @@
     "default_enabled": false
   },
   "recorded_face_performance": {
-    "performance_measured": true,
-    "rerun_this_release": true,
+    "performance_measured": false,
+    "rerun_this_release": false,
     "counts_toward_full_goal": false,
-    "production_default_qualified": false,
-    "recording_uploaded": false,
-    "short_runs": [
-      {
-        "name": "v55-first",
-        "versionCode": 55,
-        "apkSha256": "6890e14bc6d31112f7988130bd9e39a432b26dceb8de78aeebfc46c0c7cb8c2f",
-        "runtimeSessions": [
-          "9b14eb9a-25da-4618-903f-c858d0929e1b"
-        ],
-        "interactivePresentedFps": 10.164955210861777,
-        "confirmedInteractiveSeconds": 19.786980738,
-        "presentedFrames": 201,
-        "unconfirmedTailSecondsExcluded": 0.208924587,
-        "targetFps": 30,
-        "meets30Fps": false,
-        "collectionComplete": true,
-        "activeEvidenceComplete": true,
-        "scope": "Historical original-style V55/V54/V55 screening; thermal and partial-window limitations."
-      },
-      {
-        "name": "v54-middle",
-        "versionCode": 54,
-        "apkSha256": "f149feca0833f3bf852a63aa7af54d25ac400130d950e039b4790195491e4aef",
-        "runtimeSessions": [
-          "c0460273-0d75-48b3-87b1-7a1b6002c2fa"
-        ],
-        "interactivePresentedFps": 10.621460808667763,
-        "confirmedInteractiveSeconds": 14.852993492,
-        "presentedFrames": 158,
-        "unconfirmedTailSecondsExcluded": 4.397933337,
-        "targetFps": 30,
-        "meets30Fps": false,
-        "collectionComplete": true,
-        "activeEvidenceComplete": true,
-        "scope": "Historical original-style V55/V54/V55 screening; thermal and partial-window limitations."
-      },
-      {
-        "name": "v55-last",
-        "versionCode": 55,
-        "apkSha256": "6890e14bc6d31112f7988130bd9e39a432b26dceb8de78aeebfc46c0c7cb8c2f",
-        "runtimeSessions": [
-          "4f7032fe-9aa0-4523-9231-54137634722f"
-        ],
-        "interactivePresentedFps": 10.24037664767248,
-        "confirmedInteractiveSeconds": 14.758576899,
-        "presentedFrames": 151,
-        "unconfirmedTailSecondsExcluded": 4.298042954,
-        "targetFps": 30,
-        "meets30Fps": false,
-        "collectionComplete": true,
-        "activeEvidenceComplete": true,
-        "scope": "Historical original-style V55/V54/V55 screening; thermal and partial-window limitations."
-      },
-      {
-        "name": "v55-refined",
-        "versionCode": 55,
-        "apkSha256": "8330e5c0349574b2982b27dfa2e1535f12cac242239b32d2b4a4b35b640469e1",
-        "runtimeSessions": [
-          "185e34e5-42c6-44c2-820e-c33007559a39"
-        ],
-        "interactivePresentedFps": 10.33227609882819,
-        "confirmedInteractiveSeconds": 14.731437606,
-        "presentedFrames": 152,
-        "unconfirmedTailSecondsExcluded": 4.854647481,
-        "targetFps": 30,
-        "meets30Fps": false,
-        "collectionComplete": true,
-        "activeEvidenceComplete": true,
-        "scope": "Single refined short run; thermal and partial INTERACTIVE-window limitations; no causal speedup claim."
-      }
-    ],
-    "scope": "Recorded replay/NPU/Geralt16x400x640: historical original-style V55/V54/V55 three short runs plus one independent refined V55 short run;30s requested including startup, only confirmed INTERACTIVE SF timestamps counted; no USB, isolated GPU cost, or significant speedup.",
-    "latest_interactive_resources": {
-      "samples": 14,
-      "cpu_percent_whole_machine": 62.64371821650054,
-      "temperature_c_min": 62.222,
-      "temperature_c_max": 64.444,
-      "app_pss_mib_samples": 2,
-      "app_pss_mib_mean": 190.87109375,
-      "app_pss_mib_peak": 209.6298828125,
-      "npu_busy_percent_samples": 14,
-      "npu_busy_percent_mean": 44.0,
-      "gpu_busy_samples": 14,
-      "gpu_busy_percent_mean": 98.28571428571429,
-      "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
-    },
-    "sustained_30_interactive_seconds": false,
-    "unconfirmed_tail_excluded": true
+    "scope": "No final V56v2 replay/FPS run. Earlier draft V56v1 smoke is historical only, not final6643 performance.",
+    "draftV1Historical": {
+      "apkSha256": "7140ff29579677af0d3b7feac5443cc169aabce06d4a2410d8f14f678b305c9d",
+      "requestedSeconds": 25,
+      "confirmedInteractiveSeconds": 9.6949,
+      "presentedFrames": 101,
+      "fps": 10.394346,
+      "collectorActualExitCode": 0,
+      "wrapperPostcheckActualExitCode": 1,
+      "wrapperFailure": "Startup avatar:null treated as dictionary; failure preserved; subsequent raw audit was read-only.",
+      "notFinalV2Measurement": true
+    }
   },
   "host_evidence": {
-    "existing_fast_math_scalar_checks": 163159,
-    "pbr_contracts": 128,
-    "batch_contracts": 288,
-    "albedo_contracts": 112,
-    "program_ownership_checks": 71,
-    "additional_f32_math_checks": 154571,
-    "f32_peak_domain_max": 10000000.0,
-    "all_finite_equivalence_claimed": false,
-    "actual_apk_assets_exact": 99,
-    "actual_native_exact": 9,
-    "new_assets_or_rigs": 0
+    "executionOwner": "Root and asset authors; publication does not rerun passed tests",
+    "mapperChecks": {
+      "FacePlaybackTest": 1547,
+      "FaceExpressionResponseTest": 463,
+      "total": 2010,
+      "redThenGreen": true
+    },
+    "jawRigParity": {
+      "cases": 32,
+      "maxAbsWorldError": 0,
+      "maxAbsWeightError": 0,
+      "scope": "Actual production CPU loader/AvatarRig; 4 jaw x 4 close x 2 mixed cases; no deformation, closure rays, Android GLSL, camera, or art qualification"
+    },
+    "geometry": {
+      "actualJavaPoses": 11,
+      "finiteClosedToothProbes": 720,
+      "continuousCollisionProof": false
+    }
   },
   "device_evidence": {
-    "versionCode": 55,
-    "apk_sha256": "8330e5c0349574b2982b27dfa2e1535f12cac242239b32d2b4a4b35b640469e1",
-    "same_signer": true,
-    "home_restored": true,
-    "configs_byte_exact": true,
-    "real_portraits": 20,
-    "mali_checks": 317,
-    "camera_tested": false,
-    "personal_configuration_content_published": false
+    "finalApkSha256": "6643e2b7c6e15a741d5262447592833b827210df6f19da4676e0b0a504ffac56",
+    "finalRunId": "e59ede0e-30f8-455c-8c66-1171b949176a",
+    "actualFullChecks": 317,
+    "partialPreviewRuns": [
+      {
+        "runId": "882670b3-1377-4cde-ba2f-5c098cb143e6",
+        "checks": 2,
+        "scope": "tenPNG preview-only terminal/model gate"
+      },
+      {
+        "runId": "3496e615-99ac-4ff7-9f7f-7b60e0022ddd",
+        "checks": 2,
+        "scope": "tenPNG preview-only terminal/model gate"
+      }
+    ],
+    "serialVsOvrRgbaZero": true,
+    "individualVsBatchLimits": {
+      "maxRgb": 1,
+      "rmse": 0.1,
+      "alpha": 0
+    },
+    "actualAssets": 99,
+    "assetsModified": 4,
+    "otherAssetsByteExact": 95,
+    "nativeByteExact": 9,
+    "sameSigner": true,
+    "sameSignerInstallPassed": true,
+    "diagnosticSlotsRestored": 14,
+    "configsRestored": 4,
+    "returnedHome": true,
+    "cameraTested": false,
+    "performanceTested": false,
+    "opticalInterlacingTested": false
   },
   "unreviewed_model_pipeline_delta_included": false,
   "new_portal_source_included": false,
   "v1_experiment_source_included": false,
-  "release_document": "docs/production-app-v55-20261008.md",
-  "gpu_pose_suite_scope_this_release": "Refined V55 actual Mali two cross-path comparisons,9 poses x16 views each (144 RGBA layers),zero differences,317 checks; ten original/refined V55 portraits also RGBA equal; not V54/V55 pixel equality or final-screen interlace/USB/FPS acceptance.",
+  "release_document": "docs/production-app-v56-20261008.md",
+  "gpu_pose_suite_scope_this_release": "Final V56v2 nine poses x16 views with 317 actual checks; serial/OVR RGBA zero, individual/batch established tolerance. Two partial jaw preview runs have two terminal checks each, not additional multiview suites.",
   "earlier_ada_pose_suite_rerun": false,
   "native_dependencies_match_v36": true,
   "apk_assets_byte_exact_v36": 76,
@@ -780,7 +735,7 @@
     },
     "default_enabled": false
   },
-  "joint_performance_retested_this_release": true,
+  "joint_performance_retested_this_release": false,
   "native_dependencies_match_v37": true,
   "apk_assets_byte_exact_v37": 76,
   "apk_native_byte_exact_v37": 9,
@@ -3091,7 +3046,7 @@
     "rerun_this_release": false,
     "evidence_retained_from_prior_release": true
   },
-  "final_candidate_variant": "portrait-neutral-key-and-continuous-highlight-shoulder-v1",
+  "final_candidate_variant": "geralt-mouth-naturalization-v2-reduced-jaw",
   "debug_lower_resolution_benefit_scope": "Historical V39 only, not measured in V43.",
   "native_dependencies_match_v39": true,
   "apk_assets_byte_exact_v39": 76,
@@ -6637,7 +6592,7 @@
     "prior_sync_evidence_preserved": true,
     "sephiroth_closure": "Private rejected trial; 3 new orientation/1 normal counterexample and up to13 leakage rays; no formal asset replaced"
   },
-  "review_scope": "Four explicit source/prose paths, ten public paths; preserve all historical metadata/LICENSE and180 unselected source WIP.",
+  "review_scope": "Ten exact source paths and seventeen public paths; four real-device review files; preserve unrelated working files and history.",
   "native_dependencies_match_v40": true,
   "apk_assets_byte_exact_v40": 76,
   "apk_native_byte_exact_v40": 9,
@@ -56011,7 +55966,7 @@
     "observed_rgb_mismatches": 0,
     "observed_alpha_mismatches": 0
   },
-  "frame_rate_improvement_scope": "Short ABA recorded replay only; no performance improvement or30FPS qualification.",
+  "frame_rate_improvement_scope": "No30FPS or production speedup acceptance; exact final evidence scope in release document.",
   "native_dependencies_match_v43": true,
   "apk_assets_byte_exact_v43": 76,
   "apk_native_byte_exact_v43": 9,
@@ -112096,13 +112051,13 @@
     "ui_screenshots": [
       "v54-roles.png"
     ],
-    "rerun_this_release": true,
+    "rerun_this_release": false,
     "evidence_retained_from_prior_release": true,
     "evidence_versionCode": 54,
     "roles_count": 4,
     "selection_changed_this_release": false,
     "explicit_use_retested_this_release": false,
-    "scope_this_release": "Read-only role entry and library navigation; no runtime activation retest."
+    "scope_this_release": "Prior navigation evidence retained; no role-browser or live runtime activation retest in final V56v2."
   },
   "private_npu_deformation": {
     "host_only": true,
@@ -112116,15 +112071,15 @@
     "full_blink_qualified": false,
     "files_published": false
   },
-  "joint_performance_apk_versionCode": 55,
-  "joint_performance_apk_sha256": "8330e5c0349574b2982b27dfa2e1535f12cac242239b32d2b4a4b35b640469e1",
+  "joint_performance_apk_versionCode": null,
+  "joint_performance_apk_sha256": null,
   "native_dependencies_match_v44": true,
   "apk_assets_byte_exact_v44": 76,
   "apk_native_byte_exact_v44": 9,
   "previous_release_ref": {
-    "commit": "ef4758f843a74a88f6786a00d8d9d7dc19eb4805",
+    "commit": "f7fde67942facd5418f37882d7cc1b3d81927f64",
     "path": "product-release-manifest.json",
-    "sha256": "4b13e93a6c8a5f65fc1064e02525170d34aa8b8338b440aea02556a23a24480c"
+    "sha256": "39cb3b03c71c1792b26e1ee818002d804bb9399e760fab8bd6fd6d9e97b5ee3b"
   },
   "native_dependencies_match_v45": true,
   "apk_assets_byte_exact_v45": 76,
@@ -112161,7 +112116,7 @@
   "apk_assets_byte_exact_v48": 76,
   "apk_native_byte_exact_v48": 9,
   "native_dependencies_match_parent": true,
-  "apk_assets_byte_exact_parent": 99,
+  "apk_assets_byte_exact_parent": 95,
   "apk_native_byte_exact_parent": 9,
   "production_candidate_enabled": true,
   "gpu_triangle_tangent": {
@@ -112186,7 +112141,7 @@
   },
   "apk_asset_count": 99,
   "apk_added_asset_count": 0,
-  "apk_modified_asset_count": 0,
+  "apk_modified_asset_count": 4,
   "personal_brow_calibration": {
     "rest_brow_channels": 2,
     "explicit_capture_and_confirm": true,
@@ -112225,12 +112180,7 @@
   },
   "new_head_sources": {
     "new_sources_this_release": 0,
-    "tripo_billed_credits_this_release": 0,
-    "prior_evidence_ref": {
-      "commit": "ef4758f843a74a88f6786a00d8d9d7dc19eb4805",
-      "path": "product-release-manifest.json",
-      "sha256": "4b13e93a6c8a5f65fc1064e02525170d34aa8b8338b440aea02556a23a24480c"
-    }
+    "tripo_billed_credits_this_release": 0
   },
   "previous_v52_device_evidence": {
     "passed": true,
@@ -112625,6 +112575,287 @@
     "review_image": "review-assets/v55-natural-portrait-v1/actual-device-before-after.png",
     "review_image_sha256": "ff7db9eceb2fb5715c191f4df2069b7f427ceab803ca43100908c1d1014ad1d7",
     "short_cost_scope": "Recorded replay/NPU/Geralt16x400x640: historical original-style V55/V54/V55 three short runs plus one independent refined V55 short run;30s requested including startup, only confirmed INTERACTIVE SF timestamps counted; no USB, isolated GPU cost, or significant speedup.",
+    "further_geometry_normal_candidates_in_apk": false,
+    "evidence_retained_from_versionCode": 55,
+    "evidence_retained_from_public_parent": "f7fde67942facd5418f37882d7cc1b3d81927f64",
+    "rerun_this_release": false
+  },
+  "previous_v55_natural_portrait_style": {
+    "shader_source_sha256": "80f52d31ccd2b6fcf2ef9e0117eeafab16873ed5ff980f3d7b9c72c9298f4c46",
+    "original_model_and_texture_bytes_preserved": true,
+    "real_sss_or_ibl_added": false,
+    "actual_portraits_each_version": 10,
+    "host_math_checks": 154571,
+    "mali_checks": 317,
+    "cross_path_rgba_layers_each": 144,
+    "cross_path_rgba_zero": true,
+    "restored_slots": 18,
+    "personal_face_artist_accepted": false,
+    "complete_realistic_skin_rebuild": false,
+    "review_image": "review-assets/v55-natural-portrait-v1/actual-device-before-after.png",
+    "review_image_sha256": "ff7db9eceb2fb5715c191f4df2069b7f427ceab803ca43100908c1d1014ad1d7",
+    "short_cost_scope": "Recorded replay/NPU/Geralt16x400x640: historical original-style V55/V54/V55 three short runs plus one independent refined V55 short run;30s requested including startup, only confirmed INTERACTIVE SF timestamps counted; no USB, isolated GPU cost, or significant speedup.",
     "further_geometry_normal_candidates_in_apk": false
+  },
+  "previous_v55_recorded_face_performance": {
+    "performance_measured": true,
+    "rerun_this_release": true,
+    "counts_toward_full_goal": false,
+    "production_default_qualified": false,
+    "recording_uploaded": false,
+    "short_runs": [
+      {
+        "name": "v55-first",
+        "versionCode": 55,
+        "apkSha256": "6890e14bc6d31112f7988130bd9e39a432b26dceb8de78aeebfc46c0c7cb8c2f",
+        "runtimeSessions": [
+          "9b14eb9a-25da-4618-903f-c858d0929e1b"
+        ],
+        "interactivePresentedFps": 10.164955210861777,
+        "confirmedInteractiveSeconds": 19.786980738,
+        "presentedFrames": 201,
+        "unconfirmedTailSecondsExcluded": 0.208924587,
+        "targetFps": 30,
+        "meets30Fps": false,
+        "collectionComplete": true,
+        "activeEvidenceComplete": true,
+        "scope": "Historical original-style V55/V54/V55 screening; thermal and partial-window limitations."
+      },
+      {
+        "name": "v54-middle",
+        "versionCode": 54,
+        "apkSha256": "f149feca0833f3bf852a63aa7af54d25ac400130d950e039b4790195491e4aef",
+        "runtimeSessions": [
+          "c0460273-0d75-48b3-87b1-7a1b6002c2fa"
+        ],
+        "interactivePresentedFps": 10.621460808667763,
+        "confirmedInteractiveSeconds": 14.852993492,
+        "presentedFrames": 158,
+        "unconfirmedTailSecondsExcluded": 4.397933337,
+        "targetFps": 30,
+        "meets30Fps": false,
+        "collectionComplete": true,
+        "activeEvidenceComplete": true,
+        "scope": "Historical original-style V55/V54/V55 screening; thermal and partial-window limitations."
+      },
+      {
+        "name": "v55-last",
+        "versionCode": 55,
+        "apkSha256": "6890e14bc6d31112f7988130bd9e39a432b26dceb8de78aeebfc46c0c7cb8c2f",
+        "runtimeSessions": [
+          "4f7032fe-9aa0-4523-9231-54137634722f"
+        ],
+        "interactivePresentedFps": 10.24037664767248,
+        "confirmedInteractiveSeconds": 14.758576899,
+        "presentedFrames": 151,
+        "unconfirmedTailSecondsExcluded": 4.298042954,
+        "targetFps": 30,
+        "meets30Fps": false,
+        "collectionComplete": true,
+        "activeEvidenceComplete": true,
+        "scope": "Historical original-style V55/V54/V55 screening; thermal and partial-window limitations."
+      },
+      {
+        "name": "v55-refined",
+        "versionCode": 55,
+        "apkSha256": "8330e5c0349574b2982b27dfa2e1535f12cac242239b32d2b4a4b35b640469e1",
+        "runtimeSessions": [
+          "185e34e5-42c6-44c2-820e-c33007559a39"
+        ],
+        "interactivePresentedFps": 10.33227609882819,
+        "confirmedInteractiveSeconds": 14.731437606,
+        "presentedFrames": 152,
+        "unconfirmedTailSecondsExcluded": 4.854647481,
+        "targetFps": 30,
+        "meets30Fps": false,
+        "collectionComplete": true,
+        "activeEvidenceComplete": true,
+        "scope": "Single refined short run; thermal and partial INTERACTIVE-window limitations; no causal speedup claim."
+      }
+    ],
+    "scope": "Recorded replay/NPU/Geralt16x400x640: historical original-style V55/V54/V55 three short runs plus one independent refined V55 short run;30s requested including startup, only confirmed INTERACTIVE SF timestamps counted; no USB, isolated GPU cost, or significant speedup.",
+    "latest_interactive_resources": {
+      "samples": 14,
+      "cpu_percent_whole_machine": 62.64371821650054,
+      "temperature_c_min": 62.222,
+      "temperature_c_max": 64.444,
+      "app_pss_mib_samples": 2,
+      "app_pss_mib_mean": 190.87109375,
+      "app_pss_mib_peak": 209.6298828125,
+      "npu_busy_percent_samples": 14,
+      "npu_busy_percent_mean": 44.0,
+      "gpu_busy_samples": 14,
+      "gpu_busy_percent_mean": 98.28571428571429,
+      "scope": "samples inside confirmed INTERACTIVE intervals; CPU deltas never bridge excluded intervals"
+    },
+    "sustained_30_interactive_seconds": false,
+    "unconfirmed_tail_excluded": true
+  },
+  "previous_v55_new_head_sources": {
+    "new_sources_this_release": 0,
+    "tripo_billed_credits_this_release": 0,
+    "prior_evidence_ref": {
+      "commit": "ef4758f843a74a88f6786a00d8d9d7dc19eb4805",
+      "path": "product-release-manifest.json",
+      "sha256": "4b13e93a6c8a5f65fc1064e02525170d34aa8b8338b440aea02556a23a24480c"
+    }
+  },
+  "previous_v55_roles": [
+    {
+      "id": "geralt",
+      "displayName": "杰洛特",
+      "directory": "avatars/catalog/geralt",
+      "modelSha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
+      "manifestSha256": "b4d324f64ea3655fe01615ce97081c275d60d50312fd0d2b066f8a78e668032e",
+      "thumbnail": "avatars/catalog/geralt/thumbnail.png",
+      "status": "device_verified",
+      "vertices": 19907,
+      "triangles": 19157,
+      "drawCalls": 7,
+      "decodedBytes": 73552494
+    },
+    {
+      "id": "builtin-guide",
+      "displayName": "镜中向导",
+      "directory": "avatars/builtin-guide",
+      "modelSha256": "8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407",
+      "manifestSha256": "ddb819fc4f23477f6d7c18efbba82a9356d0eee46145bfb240de3491e51f710b",
+      "thumbnail": "avatars/builtin-guide/thumbnail.png",
+      "status": "legacy_reference",
+      "vertices": 15085,
+      "triangles": 29482,
+      "drawCalls": 7,
+      "decodedBytes": 5890656
+    },
+    {
+      "id": "ada-wong",
+      "displayName": "艾达王",
+      "directory": "avatars/catalog/ada-wong",
+      "modelSha256": "9c5246e343ee52c474470c763ea83801921fed235dbaed1a83a107a709431128",
+      "manifestSha256": "efad7da01f421b0915c7b6b8635fbd5d46eeb1dba0e7a9e87723a519bc3a6dd0",
+      "thumbnail": "avatars/catalog/ada-wong/thumbnail.png",
+      "status": "corrected_trial",
+      "vertices": 19105,
+      "triangles": 19639,
+      "drawCalls": 8,
+      "decodedBytes": 41708894
+    },
+    {
+      "id": "sukuna",
+      "displayName": "宿傩",
+      "directory": "avatars/catalog/sukuna",
+      "modelSha256": "04f1ffbbe44a8287261e5fa1d5c57531f682b564a77a4775404bfb8b3698842e",
+      "manifestSha256": "16b3069e2fa6309b1d26a26ad4fabbb120affc0aa10ea28feab5bc45d190bf60",
+      "thumbnail": "avatars/catalog/sukuna/thumbnail.png",
+      "status": "corrected_trial",
+      "vertices": 17303,
+      "triangles": 19515,
+      "drawCalls": 8,
+      "decodedBytes": 44094586
+    }
+  ],
+  "previous_v55_asset_library": {
+    "catalog": "app/src/main/assets/library/catalog.json",
+    "catalog_sha256": "73a4f60a7133f5247e6b87317a71cc7fff437dad1c1d452da9daddddf721acee",
+    "entries": 36,
+    "files": 73,
+    "bytes": 186572215,
+    "types": {
+      "head": 24,
+      "scene": 4,
+      "image": 8
+    },
+    "statuses": {
+      "runtime_ready": 4,
+      "archive": 14,
+      "static_preview": 18
+    },
+    "total_ip_identities": null,
+    "other_ip_identities_pending": null,
+    "ready_role_ids": [
+      "geralt",
+      "builtin-guide",
+      "ada-wong",
+      "sukuna"
+    ],
+    "source_and_authored_runtime_hashes_separate": true,
+    "all_library_bytes_match_final_apk": true,
+    "listing_decodes_models": false,
+    "previews_load_only_selected": true,
+    "ready_state_means_selectable_not_personal_face_accepted": true,
+    "static_preview_head_entries": 12,
+    "historical_v52_identity_counts": {
+      "total_ip_identities": 10,
+      "other_ip_identities_pending": 7
+    },
+    "identity_count_scope": "Not recomputed for V54; static preview head entries may contain duplicate identities.",
+    "total_ip_identities_recomputed_this_release": false
+  },
+  "previous_v55_role_browser": {
+    "browsing_read_only": true,
+    "explicit_use_persists": true,
+    "one_bounded_thumbnail": true,
+    "process_restart_selection_verified": false,
+    "from_runtime_result_preserved": true,
+    "configs_restored_exact": true,
+    "ui_screenshots": [
+      "v54-roles.png"
+    ],
+    "rerun_this_release": true,
+    "evidence_retained_from_prior_release": true,
+    "evidence_versionCode": 54,
+    "roles_count": 4,
+    "selection_changed_this_release": false,
+    "explicit_use_retested_this_release": false,
+    "scope_this_release": "Read-only role entry and library navigation; no runtime activation retest."
+  },
+  "mouth_naturalization": {
+    "roleId": "geralt",
+    "variant": "final-v2-reduced-jaw",
+    "modelSha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
+    "manifestSha256": "94757eabd2722ba90a31038d236b9f53e661466322d6998fc73a3af1217d5195",
+    "modelBytes": 29147900,
+    "vertices": 19915,
+    "triangles": 19157,
+    "drawCalls": 7,
+    "decodedBytes": 73558574,
+    "jawOpenGeneralGainAmplified": false,
+    "jawOpenBindingGain": 0.8,
+    "jawCloseProductGain": 0.8,
+    "jawAttachmentDegrees": 12,
+    "jawContributionReductionPercent": 20,
+    "mouthApertureAreaReductionProven": false,
+    "lowerLip": "Continuous U-shaped local field, approximately1.35mm centre correction; paired closed-mouth corrective retained.",
+    "oralMaterial": "Existing lit PBR; source material factor0.2 to1, red gradients with rim compensation and roughness0.94 to0.62; no unlit/global-light shortcut.",
+    "teethTongueAnatomy": "Simplified; central crowns shorter/narrower/further back, edge crowns retained for closure; tongue slightly forward/up.",
+    "otherManifestSemanticsExact": true,
+    "smileBrowEyesPreserved": true,
+    "completeRealisticOralAnatomyAccepted": false
+  },
+  "mouth_review_assets": {
+    "file_count": 4,
+    "files": [
+      {
+        "path": "review-assets/v56-mouth-naturalization-v1/device-mouth-before-after.png",
+        "bytes": 182988,
+        "sha256": "16f3bf8932f725c6b5a72a30fabc62fee686693c3547022d6ff0516e027c13cb"
+      },
+      {
+        "path": "review-assets/v56-mouth-naturalization-v1/device-mouth-range.png",
+        "bytes": 197361,
+        "sha256": "4c5fef03e1ae143e7ba536088060e210773ed1ed724f9580d8901eff7ae98eed"
+      },
+      {
+        "path": "review-assets/v56-mouth-naturalization-v1/input-runs.json",
+        "bytes": 3336,
+        "sha256": "9e6ca38def5d48a8167d198410a74a11b9df97818d0ef8076aa85fefad23231e"
+      },
+      {
+        "path": "review-assets/v56-mouth-naturalization-v1/README.md",
+        "bytes": 617,
+        "sha256": "035b6e73c01060d5a0c74d37319b75594f2e8f8144cd22b63dbde842b3ccf889"
+      }
+    ],
+    "scope": "Two crop/resize-only static device sheets with provenance; no personal camera images or performance qualification."
   }
 }
