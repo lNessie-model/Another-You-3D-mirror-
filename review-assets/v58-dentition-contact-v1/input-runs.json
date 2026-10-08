@@ -1,0 +1,64 @@
+{
+  "schema": "v58-actual-device-dentition-contact-comparison-v1",
+  "inputImages": [
+    {
+      "path": "E:\\tripo\\output\\mirror-program\\20261008\\v57-natural-dentition-v1\\device-final-v57-v1\\actual\\tripo-head-preview\\jaw-open.png",
+      "bytes": 55379,
+      "sha256": "f7a24e4e5bb16b0ae097c9ff68fde837d2944882ec0d9987b09f1e7db9c35940",
+      "version": 57,
+      "pose": "jaw-open",
+      "sourceSize": [
+        480,
+        768
+      ],
+      "crop": [
+        214,
+        409,
+        268,
+        438
+      ],
+      "resize": [
+        432,
+        232
+      ]
+    },
+    {
+      "path": "E:\\tripo\\output\\mirror-program\\20261008\\v58-dentition-contact-v1\\device-final-v58-v1\\actual\\tripo-head-preview\\jaw-open.png",
+      "bytes": 55394,
+      "sha256": "08e9fb6db1cbe3490aebc6788c7580703536080774f550db5702be3f9aca6f3d",
+      "version": 58,
+      "pose": "jaw-open",
+      "sourceSize": [
+        480,
+        768
+      ],
+      "crop": [
+        214,
+        409,
+        268,
+        438
+      ],
+      "resize": [
+        432,
+        232
+      ]
+    }
+  ],
+  "beforeModelSha256": "34dabb326158005bacada6a92b0def48028cbfd895c61d8a1c79ccacd43d3f1e",
+  "afterModelSha256": "42a5895c5ada4aae7ce59e1b66919f8b1cb5ecb97d23222af658ba8e37516fc4",
+  "beforeApkSha256": "006eef3933afc37729cda27f87eaaee36f3922b1643c19535dea1ad2f105e4a0",
+  "afterApkSha256": "9e138efc05adbc4870f25a43deefb6f6cb7af5800149d57cef199123863de74a",
+  "afterManifestSha256": "9a3b6e1c26a2f1a7b890f0ef3c047974686afc8eecc0c0b91288a27a6dc491f0",
+  "beforeRunId": "d0caca26-6b69-4eaa-aaec-9f21c47d7f4d",
+  "afterRunId": "347d2721-61a3-440c-8298-83277e705822",
+  "generativeImageUsed": false,
+  "colorEdited": false,
+  "pairedPoses": 1,
+  "jawRangeSameForBoth": {
+    "binding": 0.8,
+    "closeProduct": 0.8,
+    "attachmentDegrees": 12
+  },
+  "comparisonSha256": "8f99e8f801ad12dcaf566578a077eee57bb14c5b4560dad1865f8256f85d2020",
+  "scope": "Actual static Android Mali rendering. Not live camera, optical3D, FPS, clinical dentition or full realism."
+}
