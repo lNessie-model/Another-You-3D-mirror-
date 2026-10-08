@@ -27,8 +27,8 @@
       "id": "geralt",
       "displayName": "杰洛特",
       "directory": "avatars/catalog/geralt",
-      "modelSha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
-      "manifestSha256": "94757eabd2722ba90a31038d236b9f53e661466322d6998fc73a3af1217d5195",
+      "modelSha256": "34dabb326158005bacada6a92b0def48028cbfd895c61d8a1c79ccacd43d3f1e",
+      "manifestSha256": "793306a01bbb268f82658ad529dea7cece5af92e80709c3c1164c04025406316",
       "thumbnail": "avatars/catalog/geralt/thumbnail.png",
       "status": "device_verified",
       "vertices": 19915,
@@ -79,7 +79,7 @@
   "default_role_id": "geralt",
   "asset_library": {
     "catalog": "app/src/main/assets/library/catalog.json",
-    "catalog_sha256": "65a167022d09ed4fdc7cbf6dc3f597383a9d2467debe7530bc99e86080e21aad",
+    "catalog_sha256": "713a8a495e628c30431cf3ed770ff6f21364c9e7fa2b3da4aadf31c575d44549",
     "entries": 36,
     "files": 73,
     "bytes": 186572215,
@@ -170,17 +170,17 @@
     "default_role_restored": "geralt",
     "personal_face_art_accepted": false
   },
-  "versionCode": 56,
-  "versionName": "0.2.25",
-  "source_commit": "e77d5a5242b36e4393805f305fc8456ca3886030",
-  "public_parent": "f7fde67942facd5418f37882d7cc1b3d81927f64",
-  "created_at_utc": "2026-10-08T11:44:43.648439+00:00",
-  "local_apk_filename": "AvatarRuntime-v56-natural-mouth-v2.apk",
-  "apk_sha256": "6643e2b7c6e15a741d5262447592833b827210df6f19da4676e0b0a504ffac56",
-  "apk_bytes": 241482463,
+  "versionCode": 57,
+  "versionName": "0.2.26",
+  "source_commit": "eccf34a0b80660a4b205c9c5dcd6d1e5ba76f98e",
+  "public_parent": "ff0b7903f24ceab269e061eb9fa39607c958cc1d",
+  "created_at_utc": "2026-10-08T12:20:07.803643+00:00",
+  "local_apk_filename": "AvatarRuntime-v57-natural-dentition-v1.apk",
+  "apk_sha256": "006eef3933afc37729cda27f87eaaee36f3922b1643c19535dea1ad2f105e4a0",
+  "apk_bytes": 241481441,
   "apk_in_repository": false,
   "qa_passed": true,
-  "qa_scope": "Jaw gain-independent mapper and Geralt oral/U-shaped lower-lip asset refinement; final .8/.8/12deg role limit, bounded host/geometry checks, actual static Mali cross-path/partial previews and same-signer install/restoration. No final replay FPS, personal USB face, optical3D or full realistic anatomy acceptance.",
+  "qa_scope": "Geralt existing dentition positions and sole WarmWhiteDentition roughness refinement; bounded geometry/closed-tooth sampling, actual static Mali cross-path/portrait comparison, same-signer install and18-slot restoration. No new runtime mapping code, final FPS, live USB face or full anatomical realism acceptance.",
   "live_face_qa_passed": false,
   "full_user_goal_complete": false,
   "camera_blocker": null,
@@ -188,15 +188,15 @@
   "camera_capture_passed": false,
   "runtime_opened_this_release": false,
   "gpu_retested_this_release": true,
-  "gpu_acceptance_scope_this_release": "Final V56v2 nine poses x16 views with 317 actual checks; serial/OVR RGBA zero, individual/batch established tolerance. Two partial jaw preview runs have two terminal checks each, not additional multiview suites.",
+  "gpu_acceptance_scope_this_release": "Final V57 nine poses x16 view layers with317 actual checks and ten fixture PNGs; serial/OVR RGBA exact zero, individual/batch original maxRGB1/RMSE.1/alpha0 limits. No optical interlacing/live face/FPS qualification.",
   "gpu_pose_suite_rerun_this_release": true,
   "joint_performance_measured": false,
-  "joint_performance_input_scope": "No final V56v2 replay/FPS measurement; draft V56v1 smoke is historical only.",
+  "joint_performance_input_scope": "No V57 replay/FPS measurement; earlier V57 smoke remains historical only.",
   "joint_30fps_goal_met": false,
   "frame_rate_improvement_demonstrated": false,
   "private_fixtures_in_apk": false,
   "personal_video_in_apk": false,
-  "source_delta_file_count": 10,
+  "source_delta_file_count": 7,
   "frozen_delta_file_hashes_verified": true,
   "production_dependencies_match_v30": true,
   "native_dependencies_match_v35": true,
@@ -285,7 +285,7 @@
     "view_gpu_status": "unsupported_ovr_multiview",
     "view_gpu_duration_ms": null,
     "previous_v35_samples_are_historical": true,
-    "evidence_retained_from_public_parent": "f7fde67942facd5418f37882d7cc1b3d81927f64"
+    "evidence_retained_from_public_parent": "ff0b7903f24ceab269e061eb9fa39607c958cc1d"
   },
   "orm_rg8": {
     "evidence_retained_from_prior_release": true,
@@ -301,79 +301,51 @@
     "performance_measured": false,
     "rerun_this_release": false,
     "counts_toward_full_goal": false,
-    "scope": "No final V56v2 replay/FPS run. Earlier draft V56v1 smoke is historical only, not final6643 performance.",
-    "draftV1Historical": {
-      "apkSha256": "7140ff29579677af0d3b7feac5443cc169aabce06d4a2410d8f14f678b305c9d",
-      "requestedSeconds": 25,
-      "confirmedInteractiveSeconds": 9.6949,
-      "presentedFrames": 101,
-      "fps": 10.394346,
-      "collectorActualExitCode": 0,
-      "wrapperPostcheckActualExitCode": 1,
-      "wrapperFailure": "Startup avatar:null treated as dictionary; failure preserved; subsequent raw audit was read-only.",
-      "notFinalV2Measurement": true
-    }
+    "scope": "No V57 FPS/replay test; neither historical V56v1 smoke nor V55 cost is attributed to this APK."
   },
   "host_evidence": {
-    "executionOwner": "Root and asset authors; publication does not rerun passed tests",
-    "mapperChecks": {
-      "FacePlaybackTest": 1547,
-      "FaceExpressionResponseTest": 463,
-      "total": 2010,
-      "redThenGreen": true
-    },
-    "jawRigParity": {
-      "cases": 32,
-      "maxAbsWorldError": 0,
-      "maxAbsWeightError": 0,
-      "scope": "Actual production CPU loader/AvatarRig; 4 jaw x 4 close x 2 mixed cases; no deformation, closure rays, Android GLSL, camera, or art qualification"
-    },
-    "geometry": {
-      "actualJavaPoses": 11,
-      "finiteClosedToothProbes": 720,
-      "continuousCollisionProof": false
-    }
+    "scope": "Author/root actual finite geometry checks; unchanged FacePlayback/response tests not rerun in V57.",
+    "actualJavaGeometryPoses": 11,
+    "newFlipsNormalCounterexamplesDegenerateNonfinite": 0,
+    "closedToothDiscreteProbes": 720,
+    "closedToothProbeLeaks": 0,
+    "continuousCollisionProof": false,
+    "inheritedExternalRootSamples": 12,
+    "allRootsEmbeddedOrPhysicallyWeldedAccepted": false,
+    "mappingTestsRerun": false
   },
   "device_evidence": {
-    "finalApkSha256": "6643e2b7c6e15a741d5262447592833b827210df6f19da4676e0b0a504ffac56",
-    "finalRunId": "e59ede0e-30f8-455c-8c66-1171b949176a",
+    "apkSha256": "006eef3933afc37729cda27f87eaaee36f3922b1643c19535dea1ad2f105e4a0",
+    "runId": "d0caca26-6b69-4eaa-aaec-9f21c47d7f4d",
     "actualFullChecks": 317,
-    "partialPreviewRuns": [
-      {
-        "runId": "882670b3-1377-4cde-ba2f-5c098cb143e6",
-        "checks": 2,
-        "scope": "tenPNG preview-only terminal/model gate"
-      },
-      {
-        "runId": "3496e615-99ac-4ff7-9f7f-7b60e0022ddd",
-        "checks": 2,
-        "scope": "tenPNG preview-only terminal/model gate"
-      }
-    ],
+    "fixturePoses": 9,
+    "viewLayersPerPose": 16,
+    "actualFixturePngs": 10,
     "serialVsOvrRgbaZero": true,
     "individualVsBatchLimits": {
       "maxRgb": 1,
       "rmse": 0.1,
       "alpha": 0
     },
-    "actualAssets": 99,
-    "assetsModified": 4,
-    "otherAssetsByteExact": 95,
-    "nativeByteExact": 9,
+    "assetCount": 99,
+    "changedAssets": 4,
+    "unselectedAssetsByteExactV56": 95,
+    "nativeByteExactV56": 9,
     "sameSigner": true,
     "sameSignerInstallPassed": true,
     "diagnosticSlotsRestored": 14,
     "configsRestored": 4,
     "returnedHome": true,
+    "temporaryFilesRemaining": 0,
+    "allAdbChildrenTerminal": true,
     "cameraTested": false,
-    "performanceTested": false,
-    "opticalInterlacingTested": false
+    "performanceTested": false
   },
   "unreviewed_model_pipeline_delta_included": false,
   "new_portal_source_included": false,
   "v1_experiment_source_included": false,
-  "release_document": "docs/production-app-v56-20261008.md",
-  "gpu_pose_suite_scope_this_release": "Final V56v2 nine poses x16 views with 317 actual checks; serial/OVR RGBA zero, individual/batch established tolerance. Two partial jaw preview runs have two terminal checks each, not additional multiview suites.",
+  "release_document": "docs/production-app-v57-20261008.md",
+  "gpu_pose_suite_scope_this_release": "Final V57 nine poses x16 view layers with317 actual checks and ten fixture PNGs; serial/OVR RGBA exact zero, individual/batch original maxRGB1/RMSE.1/alpha0 limits. No optical interlacing/live face/FPS qualification.",
   "earlier_ada_pose_suite_rerun": false,
   "native_dependencies_match_v36": true,
   "apk_assets_byte_exact_v36": 76,
@@ -3046,7 +3018,7 @@
     "rerun_this_release": false,
     "evidence_retained_from_prior_release": true
   },
-  "final_candidate_variant": "geralt-mouth-naturalization-v2-reduced-jaw",
+  "final_candidate_variant": "geralt-natural-dentition-v1",
   "debug_lower_resolution_benefit_scope": "Historical V39 only, not measured in V43.",
   "native_dependencies_match_v39": true,
   "apk_assets_byte_exact_v39": 76,
@@ -6592,7 +6564,7 @@
     "prior_sync_evidence_preserved": true,
     "sephiroth_closure": "Private rejected trial; 3 new orientation/1 normal counterexample and up to13 leakage rays; no formal asset replaced"
   },
-  "review_scope": "Ten exact source paths and seventeen public paths; four real-device review files; preserve unrelated working files and history.",
+  "review_scope": "Seven exact source paths and thirteen public paths; three real-device review files; preserve unrelated working files and history.",
   "native_dependencies_match_v40": true,
   "apk_assets_byte_exact_v40": 76,
   "apk_native_byte_exact_v40": 9,
@@ -112057,7 +112029,7 @@
     "roles_count": 4,
     "selection_changed_this_release": false,
     "explicit_use_retested_this_release": false,
-    "scope_this_release": "Prior navigation evidence retained; no role-browser or live runtime activation retest in final V56v2."
+    "scope_this_release": "Prior navigation evidence retained; no role-browser or live runtime activation retest in V57."
   },
   "private_npu_deformation": {
     "host_only": true,
@@ -112077,9 +112049,9 @@
   "apk_assets_byte_exact_v44": 76,
   "apk_native_byte_exact_v44": 9,
   "previous_release_ref": {
-    "commit": "f7fde67942facd5418f37882d7cc1b3d81927f64",
+    "commit": "ff0b7903f24ceab269e061eb9fa39607c958cc1d",
     "path": "product-release-manifest.json",
-    "sha256": "39cb3b03c71c1792b26e1ee818002d804bb9399e760fab8bd6fd6d9e97b5ee3b"
+    "sha256": "dc7205cc5c09ea2bf8de2ce9a0aaae057bc52ee97723dcced16100a93da16bfd"
   },
   "native_dependencies_match_v45": true,
   "apk_assets_byte_exact_v45": 76,
@@ -112577,7 +112549,7 @@
     "short_cost_scope": "Recorded replay/NPU/Geralt16x400x640: historical original-style V55/V54/V55 three short runs plus one independent refined V55 short run;30s requested including startup, only confirmed INTERACTIVE SF timestamps counted; no USB, isolated GPU cost, or significant speedup.",
     "further_geometry_normal_candidates_in_apk": false,
     "evidence_retained_from_versionCode": 55,
-    "evidence_retained_from_public_parent": "f7fde67942facd5418f37882d7cc1b3d81927f64",
+    "evidence_retained_from_public_parent": "ff0b7903f24ceab269e061eb9fa39607c958cc1d",
     "rerun_this_release": false
   },
   "previous_v55_natural_portrait_style": {
@@ -112830,7 +112802,9 @@
     "teethTongueAnatomy": "Simplified; central crowns shorter/narrower/further back, edge crowns retained for closure; tongue slightly forward/up.",
     "otherManifestSemanticsExact": true,
     "smileBrowEyesPreserved": true,
-    "completeRealisticOralAnatomyAccepted": false
+    "completeRealisticOralAnatomyAccepted": false,
+    "evidence_retained_from_versionCode": 56,
+    "evidence_model_is_historical": true
   },
   "mouth_review_assets": {
     "file_count": 4,
@@ -112856,6 +112830,252 @@
         "sha256": "035b6e73c01060d5a0c74d37319b75594f2e8f8144cd22b63dbde842b3ccf889"
       }
     ],
+    "scope": "Two crop/resize-only static device sheets with provenance; no personal camera images or performance qualification.",
+    "evidence_retained_from_versionCode": 56,
+    "rerun_this_release": false
+  },
+  "previous_v56_natural_portrait_style": {
+    "shader_source_sha256": "80f52d31ccd2b6fcf2ef9e0117eeafab16873ed5ff980f3d7b9c72c9298f4c46",
+    "original_model_and_texture_bytes_preserved": true,
+    "real_sss_or_ibl_added": false,
+    "actual_portraits_each_version": 10,
+    "host_math_checks": 154571,
+    "mali_checks": 317,
+    "cross_path_rgba_layers_each": 144,
+    "cross_path_rgba_zero": true,
+    "restored_slots": 18,
+    "personal_face_artist_accepted": false,
+    "complete_realistic_skin_rebuild": false,
+    "review_image": "review-assets/v55-natural-portrait-v1/actual-device-before-after.png",
+    "review_image_sha256": "ff7db9eceb2fb5715c191f4df2069b7f427ceab803ca43100908c1d1014ad1d7",
+    "short_cost_scope": "Recorded replay/NPU/Geralt16x400x640: historical original-style V55/V54/V55 three short runs plus one independent refined V55 short run;30s requested including startup, only confirmed INTERACTIVE SF timestamps counted; no USB, isolated GPU cost, or significant speedup.",
+    "further_geometry_normal_candidates_in_apk": false,
+    "evidence_retained_from_versionCode": 55,
+    "evidence_retained_from_public_parent": "f7fde67942facd5418f37882d7cc1b3d81927f64",
+    "rerun_this_release": false
+  },
+  "previous_v56_recorded_face_performance": {
+    "performance_measured": false,
+    "rerun_this_release": false,
+    "counts_toward_full_goal": false,
+    "scope": "No final V56v2 replay/FPS run. Earlier draft V56v1 smoke is historical only, not final6643 performance.",
+    "draftV1Historical": {
+      "apkSha256": "7140ff29579677af0d3b7feac5443cc169aabce06d4a2410d8f14f678b305c9d",
+      "requestedSeconds": 25,
+      "confirmedInteractiveSeconds": 9.6949,
+      "presentedFrames": 101,
+      "fps": 10.394346,
+      "collectorActualExitCode": 0,
+      "wrapperPostcheckActualExitCode": 1,
+      "wrapperFailure": "Startup avatar:null treated as dictionary; failure preserved; subsequent raw audit was read-only.",
+      "notFinalV2Measurement": true
+    }
+  },
+  "previous_v56_new_head_sources": {
+    "new_sources_this_release": 0,
+    "tripo_billed_credits_this_release": 0
+  },
+  "previous_v56_roles": [
+    {
+      "id": "geralt",
+      "displayName": "杰洛特",
+      "directory": "avatars/catalog/geralt",
+      "modelSha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
+      "manifestSha256": "94757eabd2722ba90a31038d236b9f53e661466322d6998fc73a3af1217d5195",
+      "thumbnail": "avatars/catalog/geralt/thumbnail.png",
+      "status": "device_verified",
+      "vertices": 19915,
+      "triangles": 19157,
+      "drawCalls": 7,
+      "decodedBytes": 73558574
+    },
+    {
+      "id": "builtin-guide",
+      "displayName": "镜中向导",
+      "directory": "avatars/builtin-guide",
+      "modelSha256": "8349c9b7795a317c7f04cc5cb10d0fc4b2b53171689fe5d2e07965b4a5f1e407",
+      "manifestSha256": "ddb819fc4f23477f6d7c18efbba82a9356d0eee46145bfb240de3491e51f710b",
+      "thumbnail": "avatars/builtin-guide/thumbnail.png",
+      "status": "legacy_reference",
+      "vertices": 15085,
+      "triangles": 29482,
+      "drawCalls": 7,
+      "decodedBytes": 5890656
+    },
+    {
+      "id": "ada-wong",
+      "displayName": "艾达王",
+      "directory": "avatars/catalog/ada-wong",
+      "modelSha256": "9c5246e343ee52c474470c763ea83801921fed235dbaed1a83a107a709431128",
+      "manifestSha256": "efad7da01f421b0915c7b6b8635fbd5d46eeb1dba0e7a9e87723a519bc3a6dd0",
+      "thumbnail": "avatars/catalog/ada-wong/thumbnail.png",
+      "status": "corrected_trial",
+      "vertices": 19105,
+      "triangles": 19639,
+      "drawCalls": 8,
+      "decodedBytes": 41708894
+    },
+    {
+      "id": "sukuna",
+      "displayName": "宿傩",
+      "directory": "avatars/catalog/sukuna",
+      "modelSha256": "04f1ffbbe44a8287261e5fa1d5c57531f682b564a77a4775404bfb8b3698842e",
+      "manifestSha256": "16b3069e2fa6309b1d26a26ad4fabbb120affc0aa10ea28feab5bc45d190bf60",
+      "thumbnail": "avatars/catalog/sukuna/thumbnail.png",
+      "status": "corrected_trial",
+      "vertices": 17303,
+      "triangles": 19515,
+      "drawCalls": 8,
+      "decodedBytes": 44094586
+    }
+  ],
+  "previous_v56_asset_library": {
+    "catalog": "app/src/main/assets/library/catalog.json",
+    "catalog_sha256": "65a167022d09ed4fdc7cbf6dc3f597383a9d2467debe7530bc99e86080e21aad",
+    "entries": 36,
+    "files": 73,
+    "bytes": 186572215,
+    "types": {
+      "head": 24,
+      "scene": 4,
+      "image": 8
+    },
+    "statuses": {
+      "runtime_ready": 4,
+      "archive": 14,
+      "static_preview": 18
+    },
+    "total_ip_identities": null,
+    "other_ip_identities_pending": null,
+    "ready_role_ids": [
+      "geralt",
+      "builtin-guide",
+      "ada-wong",
+      "sukuna"
+    ],
+    "source_and_authored_runtime_hashes_separate": true,
+    "all_library_bytes_match_final_apk": true,
+    "listing_decodes_models": false,
+    "previews_load_only_selected": true,
+    "ready_state_means_selectable_not_personal_face_accepted": true,
+    "static_preview_head_entries": 12,
+    "historical_v52_identity_counts": {
+      "total_ip_identities": 10,
+      "other_ip_identities_pending": 7
+    },
+    "identity_count_scope": "Not recomputed for V54; static preview head entries may contain duplicate identities.",
+    "total_ip_identities_recomputed_this_release": false
+  },
+  "previous_v56_role_browser": {
+    "browsing_read_only": true,
+    "explicit_use_persists": true,
+    "one_bounded_thumbnail": true,
+    "process_restart_selection_verified": false,
+    "from_runtime_result_preserved": true,
+    "configs_restored_exact": true,
+    "ui_screenshots": [
+      "v54-roles.png"
+    ],
+    "rerun_this_release": false,
+    "evidence_retained_from_prior_release": true,
+    "evidence_versionCode": 54,
+    "roles_count": 4,
+    "selection_changed_this_release": false,
+    "explicit_use_retested_this_release": false,
+    "scope_this_release": "Prior navigation evidence retained; no role-browser or live runtime activation retest in final V56v2."
+  },
+  "previous_v56_mouth_naturalization": {
+    "roleId": "geralt",
+    "variant": "final-v2-reduced-jaw",
+    "modelSha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
+    "manifestSha256": "94757eabd2722ba90a31038d236b9f53e661466322d6998fc73a3af1217d5195",
+    "modelBytes": 29147900,
+    "vertices": 19915,
+    "triangles": 19157,
+    "drawCalls": 7,
+    "decodedBytes": 73558574,
+    "jawOpenGeneralGainAmplified": false,
+    "jawOpenBindingGain": 0.8,
+    "jawCloseProductGain": 0.8,
+    "jawAttachmentDegrees": 12,
+    "jawContributionReductionPercent": 20,
+    "mouthApertureAreaReductionProven": false,
+    "lowerLip": "Continuous U-shaped local field, approximately1.35mm centre correction; paired closed-mouth corrective retained.",
+    "oralMaterial": "Existing lit PBR; source material factor0.2 to1, red gradients with rim compensation and roughness0.94 to0.62; no unlit/global-light shortcut.",
+    "teethTongueAnatomy": "Simplified; central crowns shorter/narrower/further back, edge crowns retained for closure; tongue slightly forward/up.",
+    "otherManifestSemanticsExact": true,
+    "smileBrowEyesPreserved": true,
+    "completeRealisticOralAnatomyAccepted": false
+  },
+  "previous_v56_mouth_review_assets": {
+    "file_count": 4,
+    "files": [
+      {
+        "path": "review-assets/v56-mouth-naturalization-v1/device-mouth-before-after.png",
+        "bytes": 182988,
+        "sha256": "16f3bf8932f725c6b5a72a30fabc62fee686693c3547022d6ff0516e027c13cb"
+      },
+      {
+        "path": "review-assets/v56-mouth-naturalization-v1/device-mouth-range.png",
+        "bytes": 197361,
+        "sha256": "4c5fef03e1ae143e7ba536088060e210773ed1ed724f9580d8901eff7ae98eed"
+      },
+      {
+        "path": "review-assets/v56-mouth-naturalization-v1/input-runs.json",
+        "bytes": 3336,
+        "sha256": "9e6ca38def5d48a8167d198410a74a11b9df97818d0ef8076aa85fefad23231e"
+      },
+      {
+        "path": "review-assets/v56-mouth-naturalization-v1/README.md",
+        "bytes": 617,
+        "sha256": "035b6e73c01060d5a0c74d37319b75594f2e8f8144cd22b63dbde842b3ccf889"
+      }
+    ],
     "scope": "Two crop/resize-only static device sheets with provenance; no personal camera images or performance qualification."
+  },
+  "dentition_refinement": {
+    "roleId": "geralt",
+    "variant": "natural-dentition-v1",
+    "modelSha256": "34dabb326158005bacada6a92b0def48028cbfd895c61d8a1c79ccacd43d3f1e",
+    "manifestSha256": "793306a01bbb268f82658ad529dea7cece5af92e80709c3c1164c04025406316",
+    "modelBytes": 29147900,
+    "vertices": 19915,
+    "triangles": 19157,
+    "drawCalls": 7,
+    "decodedBytes": 73558574,
+    "jawOpenBindingGain": 0.8,
+    "jawCloseProductGain": 0.8,
+    "jawAttachmentDegrees": 12,
+    "geometryScope": "Own crown POSITION only within each500-vertex dental mesh; existing80gum vertices/UV/colour/indices/maps/Z/root anchors and all other meshes preserved.",
+    "arch": "Shorter outer crowns, wider central incisors and closer neighbouring crowns; approximately.12mm X-projected gaps, not precise3D surface distance.",
+    "warmWhiteColourUnchanged": true,
+    "roughnessBefore": 0.28,
+    "roughnessAfter": 0.42,
+    "roughnessSharedWithGums": true,
+    "smoothNormalReconstruction": "Actual production smooth-deformed-v1 recomputes normals from new positions; maximum independent angular error approximately2.7e-6deg.",
+    "runtimeCodeUnchanged": true,
+    "jawRangePreserved": true,
+    "completeAnatomicalRealismAccepted": false
+  },
+  "dentition_review_assets": {
+    "file_count": 3,
+    "files": [
+      {
+        "path": "review-assets/v57-natural-dentition-v1/device-teeth-before-after.png",
+        "bytes": 283172,
+        "sha256": "7d8255c0e8cf334634353bfc40aae56468a435b8990dc83862c3fc1bf8039101"
+      },
+      {
+        "path": "review-assets/v57-natural-dentition-v1/input-runs.json",
+        "bytes": 2571,
+        "sha256": "7c5b68d47162d6a42c36f83e0b35aacd4141d01e5c307259e089087b3fc28562"
+      },
+      {
+        "path": "review-assets/v57-natural-dentition-v1/README.md",
+        "bytes": 414,
+        "sha256": "0f86777be01e657fc673d0c1888ebc2f9e8537d4b29758ede826f28cbbfd8d04"
+      }
+    ],
+    "scope": "One crop/resize-only static device sheet with provenance; no personal camera images or performance qualification."
   }
 }

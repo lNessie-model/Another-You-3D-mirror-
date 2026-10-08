@@ -1,0 +1,103 @@
+{
+  "schema": "v57-actual-device-dentition-comparison-v1",
+  "inputImageCount": 4,
+  "pairedPoses": 2,
+  "inputImages": [
+    {
+      "version": 56,
+      "pose": "jaw-open",
+      "bytes": 55398,
+      "sha256": "b2e3dee38097f950a1e5580d2c882d67f397d15033dce1856d4963cb4aab8423",
+      "sourceSize": [
+        480,
+        768
+      ],
+      "crop": [
+        188,
+        345,
+        292,
+        454
+      ],
+      "resize": [
+        352,
+        352
+      ]
+    },
+    {
+      "version": 57,
+      "pose": "jaw-open",
+      "bytes": 55379,
+      "sha256": "f7a24e4e5bb16b0ae097c9ff68fde837d2944882ec0d9987b09f1e7db9c35940",
+      "sourceSize": [
+        480,
+        768
+      ],
+      "crop": [
+        188,
+        345,
+        292,
+        454
+      ],
+      "resize": [
+        352,
+        352
+      ]
+    },
+    {
+      "version": 56,
+      "pose": "smile",
+      "bytes": 55086,
+      "sha256": "8d529b8703408f717f9cf3fee93fbc3dfda88c6d93c744c72e54a8b15648f6a0",
+      "sourceSize": [
+        480,
+        768
+      ],
+      "crop": [
+        188,
+        345,
+        292,
+        454
+      ],
+      "resize": [
+        352,
+        352
+      ]
+    },
+    {
+      "version": 57,
+      "pose": "smile",
+      "bytes": 55074,
+      "sha256": "89a7638b660d475829cbc65ec3dd096abfab590f5846578468a541e69cd7a533",
+      "sourceSize": [
+        480,
+        768
+      ],
+      "crop": [
+        188,
+        345,
+        292,
+        454
+      ],
+      "resize": [
+        352,
+        352
+      ]
+    }
+  ],
+  "beforeModelSha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
+  "afterModelSha256": "34dabb326158005bacada6a92b0def48028cbfd895c61d8a1c79ccacd43d3f1e",
+  "beforeApkSha256": "6643e2b7c6e15a741d5262447592833b827210df6f19da4676e0b0a504ffac56",
+  "afterApkSha256": "006eef3933afc37729cda27f87eaaee36f3922b1643c19535dea1ad2f105e4a0",
+  "afterManifestSha256": "793306a01bbb268f82658ad529dea7cece5af92e80709c3c1164c04025406316",
+  "beforeRunId": "e59ede0e-30f8-455c-8c66-1171b949176a",
+  "afterRunId": "d0caca26-6b69-4eaa-aaec-9f21c47d7f4d",
+  "generativeImageUsed": false,
+  "colorEdited": false,
+  "jawRangeSameForBoth": {
+    "binding": 0.8,
+    "closeProduct": 0.8,
+    "attachmentDegrees": 12
+  },
+  "comparisonSha256": "7d8255c0e8cf334634353bfc40aae56468a435b8990dc83862c3fc1bf8039101",
+  "scope": "Actual Android Mali renderer static jaw and smile pairs; not live camera, optical3D, FPS, or complete anatomical realism."
+}

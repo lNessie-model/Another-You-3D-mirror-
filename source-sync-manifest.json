@@ -1,8 +1,8 @@
 {
-  "source_commit": "e77d5a5242b36e4393805f305fc8456ca3886030",
+  "source_commit": "eccf34a0b80660a4b205c9c5dcd6d1e5ba76f98e",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 872,
+  "file_count": 873,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,19 +35,19 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 56500,
-      "source_sha256": "f82cacfd5e4f90c1ac8382f13b7ada10ec32884085e8f18f02b749f401bcaaaf",
-      "repository_bytes": 56500,
-      "repository_sha256": "f82cacfd5e4f90c1ac8382f13b7ada10ec32884085e8f18f02b749f401bcaaaf",
+      "source_bytes": 57096,
+      "source_sha256": "7fbd1de937eeaa87be1371eda61b4f1b03eb19f3170bb50930e0790bcda10429",
+      "repository_bytes": 57096,
+      "repository_sha256": "7fbd1de937eeaa87be1371eda61b4f1b03eb19f3170bb50930e0790bcda10429",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
       "source_bytes": 911,
-      "source_sha256": "ba60d686ec486e8a87f8fe21ada8a38c6c6eef870caa8acfee6933fbc06303f9",
+      "source_sha256": "0fa623ad10b19b714662ccf127a2d293b4616e304097e3656f3668ea4bb90925",
       "repository_bytes": 911,
-      "repository_sha256": "ba60d686ec486e8a87f8fe21ada8a38c6c6eef870caa8acfee6933fbc06303f9",
+      "repository_sha256": "0fa623ad10b19b714662ccf127a2d293b4616e304097e3656f3668ea4bb90925",
       "publication_transformation": null
     },
     {
@@ -135,27 +135,27 @@
       "source_path": "app/src/main/assets/avatars/catalog/catalog.json",
       "repository_path": "app/src/main/assets/avatars/catalog/catalog.json",
       "source_bytes": 2110,
-      "source_sha256": "a926afd6fa20d9b0961cec094efeb12a4d788b037c25d9cfce1bd85cd2f3f269",
+      "source_sha256": "fa777523a8c93d6e7b1acea6fdc7e6dad728268eb4a9e14f017a71f79e9495c9",
       "repository_bytes": 2110,
-      "repository_sha256": "a926afd6fa20d9b0961cec094efeb12a4d788b037c25d9cfce1bd85cd2f3f269",
+      "repository_sha256": "fa777523a8c93d6e7b1acea6fdc7e6dad728268eb4a9e14f017a71f79e9495c9",
       "publication_transformation": null
     },
     {
       "source_path": "app/src/main/assets/avatars/catalog/geralt/avatar.json",
       "repository_path": "app/src/main/assets/avatars/catalog/geralt/avatar.json",
       "source_bytes": 8102,
-      "source_sha256": "94757eabd2722ba90a31038d236b9f53e661466322d6998fc73a3af1217d5195",
+      "source_sha256": "793306a01bbb268f82658ad529dea7cece5af92e80709c3c1164c04025406316",
       "repository_bytes": 8102,
-      "repository_sha256": "94757eabd2722ba90a31038d236b9f53e661466322d6998fc73a3af1217d5195",
+      "repository_sha256": "793306a01bbb268f82658ad529dea7cece5af92e80709c3c1164c04025406316",
       "publication_transformation": null
     },
     {
       "source_path": "app/src/main/assets/avatars/catalog/geralt/character.glb",
       "repository_path": "app/src/main/assets/avatars/catalog/geralt/character.glb",
       "source_bytes": 29147900,
-      "source_sha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
+      "source_sha256": "34dabb326158005bacada6a92b0def48028cbfd895c61d8a1c79ccacd43d3f1e",
       "repository_bytes": 29147900,
-      "repository_sha256": "4cd6e1f087293cb6a05c2db8470c65ec8a67cfd5f26563545a2804619b5bd4d6",
+      "repository_sha256": "34dabb326158005bacada6a92b0def48028cbfd895c61d8a1c79ccacd43d3f1e",
       "publication_transformation": null
     },
     {
@@ -198,9 +198,9 @@
       "source_path": "app/src/main/assets/library/catalog.json",
       "repository_path": "app/src/main/assets/library/catalog.json",
       "source_bytes": 22823,
-      "source_sha256": "65a167022d09ed4fdc7cbf6dc3f597383a9d2467debe7530bc99e86080e21aad",
+      "source_sha256": "713a8a495e628c30431cf3ed770ff6f21364c9e7fa2b3da4aadf31c575d44549",
       "repository_bytes": 22823,
-      "repository_sha256": "65a167022d09ed4fdc7cbf6dc3f597383a9d2467debe7530bc99e86080e21aad",
+      "repository_sha256": "713a8a495e628c30431cf3ed770ff6f21364c9e7fa2b3da4aadf31c575d44549",
       "publication_transformation": null
     },
     {
@@ -2996,6 +2996,15 @@
       "source_sha256": "9e8a166e66ecd25b8739689722725a149196075f7acb3f8a7a0d23974f20a3c3",
       "repository_bytes": 8635,
       "repository_sha256": "9e8a166e66ecd25b8739689722725a149196075f7acb3f8a7a0d23974f20a3c3",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v57-20261008.md",
+      "repository_path": "docs/production-app-v57-20261008.md",
+      "source_bytes": 4579,
+      "source_sha256": "a2c9c708e5bec53c160dac233aa9c1930aa9949c227c2ed4dd25fa9bce671715",
+      "repository_bytes": 4579,
+      "repository_sha256": "a2c9c708e5bec53c160dac233aa9c1930aa9949c227c2ed4dd25fa9bce671715",
       "publication_transformation": null
     },
     {
@@ -7831,15 +7840,15 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "58a80e386617f4a2ed6787d3da302ee0d58f38ae",
-  "public_parent_commit": "f7fde67942facd5418f37882d7cc1b3d81927f64",
-  "versionCode": 56,
-  "versionName": "0.2.25",
-  "release_apk_sha256": "6643e2b7c6e15a741d5262447592833b827210df6f19da4676e0b0a504ffac56",
+  "previous_source_commit": "e77d5a5242b36e4393805f305fc8456ca3886030",
+  "public_parent_commit": "ff0b7903f24ceab269e061eb9fa39607c958cc1d",
+  "versionCode": 57,
+  "versionName": "0.2.26",
+  "release_apk_sha256": "006eef3933afc37729cda27f87eaaee36f3922b1643c19535dea1ad2f105e4a0",
   "last_iteration": {
-    "versionCode": 56,
-    "versionName": "0.2.25",
-    "approved_source_delta_files": 10,
+    "versionCode": 57,
+    "versionName": "0.2.26",
+    "approved_source_delta_files": 7,
     "ordinary_qa_passed": true,
     "all_historical_assets_preserved": true,
     "production_performance_improved": false,
