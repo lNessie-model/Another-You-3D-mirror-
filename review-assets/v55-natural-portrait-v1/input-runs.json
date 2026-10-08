@@ -1,0 +1,178 @@
+{
+  "schema": "v55-actual-model-portrait-review-inputs-v2",
+  "actualDeviceModelRenders": true,
+  "modelSha256": "9381f452c53098314f97e1a1799ec55d2be37878e66bf205c7a26958afcef531",
+  "beforeVersionCode": 54,
+  "beforeApkSha256": "f149feca0833f3bf852a63aa7af54d25ac400130d950e039b4790195491e4aef",
+  "afterVersionCode": 55,
+  "afterApkSha256": "8330e5c0349574b2982b27dfa2e1535f12cac242239b32d2b4a4b35b640469e1",
+  "afterShaderSourceSha256": "80f52d31ccd2b6fcf2ef9e0117eeafab16873ed5ff980f3d7b9c72c9298f4c46",
+  "sourceRunIds": [
+    "cd8da2cd-4e3a-445a-90cd-638f97f08b6a",
+    "0a8bcde9-37f0-4e19-a51a-1ee475098026"
+  ],
+  "cropResampleOnly": true,
+  "generativeImageEdit": false,
+  "colorAlteration": false,
+  "cameraCaptureEvidence": false,
+  "performanceEvidence": false,
+  "comparisonImageSha256": "ff7db9eceb2fb5715c191f4df2069b7f427ceab803ca43100908c1d1014ad1d7",
+  "originalVsRefinedV55DecodedRgbaEqual": true,
+  "v54VsV55DecodedRgbaEqualClaimed": false,
+  "completeActualPoseCapturesPerVersion": 10,
+  "contactImageSelectedPosesPerVersion": 4,
+  "inputs": [
+    {
+      "pose": "neutral",
+      "phase": "device-render-before-v54-v4",
+      "sha256": "836a594bf1113a35fc27333b7c4a9861a8dc117448568ea8e1f4449a147509f9",
+      "originalSize": [
+        480,
+        768
+      ],
+      "crop": [
+        155,
+        245,
+        325,
+        525
+      ],
+      "displaySize": [
+        204,
+        336
+      ]
+    },
+    {
+      "pose": "neutral",
+      "phase": "device-render-after-v55-v2",
+      "sha256": "6bb6ff99c4ff6c0a85b45d9ecded3db5f42207c1b37c02fd4a5dd4bb4c873f9f",
+      "originalSize": [
+        480,
+        768
+      ],
+      "crop": [
+        155,
+        245,
+        325,
+        525
+      ],
+      "displaySize": [
+        204,
+        336
+      ]
+    },
+    {
+      "pose": "smile",
+      "phase": "device-render-before-v54-v4",
+      "sha256": "475337e9ef5eb781213e4141a7a00642363cb2f10955cf872f19e88adcf9390b",
+      "originalSize": [
+        480,
+        768
+      ],
+      "crop": [
+        155,
+        245,
+        325,
+        525
+      ],
+      "displaySize": [
+        204,
+        336
+      ]
+    },
+    {
+      "pose": "smile",
+      "phase": "device-render-after-v55-v2",
+      "sha256": "6bb275da17645e5457d45065baa2a786c11e7ce47d07e00f4b1a4b7996b181ae",
+      "originalSize": [
+        480,
+        768
+      ],
+      "crop": [
+        155,
+        245,
+        325,
+        525
+      ],
+      "displaySize": [
+        204,
+        336
+      ]
+    },
+    {
+      "pose": "jaw-open",
+      "phase": "device-render-before-v54-v4",
+      "sha256": "6df5256fb3b021566b4dc54fa06c7523e40c31fcac6c4c75374f500c782ce3a1",
+      "originalSize": [
+        480,
+        768
+      ],
+      "crop": [
+        155,
+        245,
+        325,
+        525
+      ],
+      "displaySize": [
+        204,
+        336
+      ]
+    },
+    {
+      "pose": "jaw-open",
+      "phase": "device-render-after-v55-v2",
+      "sha256": "d845075991783546f552414659e3e293cba88170fd7394a1c645cc0a3c3cfae3",
+      "originalSize": [
+        480,
+        768
+      ],
+      "crop": [
+        155,
+        245,
+        325,
+        525
+      ],
+      "displaySize": [
+        204,
+        336
+      ]
+    },
+    {
+      "pose": "head-yaw",
+      "phase": "device-render-before-v54-v4",
+      "sha256": "412ffeca0fd4e3073811f4db8b922b5bba412e37a4e2af3096513efdd5eadb44",
+      "originalSize": [
+        480,
+        768
+      ],
+      "crop": [
+        155,
+        245,
+        325,
+        525
+      ],
+      "displaySize": [
+        204,
+        336
+      ]
+    },
+    {
+      "pose": "head-yaw",
+      "phase": "device-render-after-v55-v2",
+      "sha256": "1c9b4e79e8dbfdcdd26fe2bf7382c7cba542a485074a8001c3acff0bda4e5783",
+      "originalSize": [
+        480,
+        768
+      ],
+      "crop": [
+        155,
+        245,
+        325,
+        525
+      ],
+      "displaySize": [
+        204,
+        336
+      ]
+    }
+  ]
+}

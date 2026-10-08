@@ -1,8 +1,8 @@
 {
-  "source_commit": "ea4ac8375ea5a65bb350c18864d90f274a409fed",
+  "source_commit": "58a80e386617f4a2ed6787d3da302ee0d58f38ae",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 869,
+  "file_count": 870,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -35,19 +35,19 @@
     {
       "source_path": "README.md",
       "repository_path": "docs/device-lab-history.md",
-      "source_bytes": 54938,
-      "source_sha256": "1563891b79e946946c217b7af614b67310990cd69afcde9b7d8dd4deb1811e1f",
-      "repository_bytes": 54938,
-      "repository_sha256": "1563891b79e946946c217b7af614b67310990cd69afcde9b7d8dd4deb1811e1f",
+      "source_bytes": 55867,
+      "source_sha256": "04a4c72983bb1e84770569d36bd55a9a0cdaa01b6061d3d2826ac2efc0b78238",
+      "repository_bytes": 55867,
+      "repository_sha256": "04a4c72983bb1e84770569d36bd55a9a0cdaa01b6061d3d2826ac2efc0b78238",
       "publication_transformation": null
     },
     {
       "source_path": "app/build.gradle",
       "repository_path": "app/build.gradle",
-      "source_bytes": 886,
-      "source_sha256": "ed56fce2abedb610f42f3ba7e68dd5d448b8b8b79bab7e0de096a8b5ff6af250",
-      "repository_bytes": 886,
-      "repository_sha256": "ed56fce2abedb610f42f3ba7e68dd5d448b8b8b79bab7e0de096a8b5ff6af250",
+      "source_bytes": 911,
+      "source_sha256": "38cecd0a75c01f0aadbd03c6a02c7d8a498cc7136b40d8824223b236eac16b54",
+      "repository_bytes": 911,
+      "repository_sha256": "38cecd0a75c01f0aadbd03c6a02c7d8a498cc7136b40d8824223b236eac16b54",
       "publication_transformation": null
     },
     {
@@ -1032,10 +1032,10 @@
     {
       "source_path": "app/src/main/java/com/mirror/bench/AvatarGpuScene.java",
       "repository_path": "app/src/main/java/com/mirror/bench/AvatarGpuScene.java",
-      "source_bytes": 99219,
-      "source_sha256": "cd3efdf9385672bd348b921ffa88f3b5d4ac2063947f038f49c8aad26b3f2e63",
-      "repository_bytes": 99219,
-      "repository_sha256": "cd3efdf9385672bd348b921ffa88f3b5d4ac2063947f038f49c8aad26b3f2e63",
+      "source_bytes": 100035,
+      "source_sha256": "80f52d31ccd2b6fcf2ef9e0117eeafab16873ed5ff980f3d7b9c72c9298f4c46",
+      "repository_bytes": 100035,
+      "repository_sha256": "80f52d31ccd2b6fcf2ef9e0117eeafab16873ed5ff980f3d7b9c72c9298f4c46",
       "publication_transformation": null
     },
     {
@@ -2976,6 +2976,15 @@
       "source_sha256": "e2e43c6d12387e7dc7942590b2a637abbc11661c42f70c413b2731f04fd81a41",
       "repository_bytes": 6189,
       "repository_sha256": "e2e43c6d12387e7dc7942590b2a637abbc11661c42f70c413b2731f04fd81a41",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/production-app-v55-20261008.md",
+      "repository_path": "docs/production-app-v55-20261008.md",
+      "source_bytes": 8982,
+      "source_sha256": "5de401aefdc2ec379ef8001f9e41704510a5431e067462b6bcd724d7fcfee35e",
+      "repository_bytes": 8982,
+      "repository_sha256": "5de401aefdc2ec379ef8001f9e41704510a5431e067462b6bcd724d7fcfee35e",
       "publication_transformation": null
     },
     {
@@ -7802,17 +7811,16 @@
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "380388c16460491a1ca428fb3ffb97ca22fbbda3",
-  "public_parent_commit": "aa8a3ea7666738c96643837059d2344f00818932",
-  "versionCode": 54,
-  "versionName": "0.2.23",
-  "release_apk_sha256": "f149feca0833f3bf852a63aa7af54d25ac400130d950e039b4790195491e4aef",
+  "previous_source_commit": "ea4ac8375ea5a65bb350c18864d90f274a409fed",
+  "public_parent_commit": "ef4758f843a74a88f6786a00d8d9d7dc19eb4805",
+  "versionCode": 55,
+  "versionName": "0.2.24",
+  "release_apk_sha256": "8330e5c0349574b2982b27dfa2e1535f12cac242239b32d2b4a4b35b640469e1",
   "last_iteration": {
-    "versionCode": 54,
-    "versionName": "0.2.23",
-    "approved_source_delta_files": 8,
+    "versionCode": 55,
+    "versionName": "0.2.24",
+    "approved_source_delta_files": 4,
     "ordinary_qa_passed": true,
-    "qa_scope": "Static/archive library UI only; no runtime GL/camera/performance retest",
     "all_historical_assets_preserved": true,
     "production_performance_improved": false,
     "full_goal_complete": false
