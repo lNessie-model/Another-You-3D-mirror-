@@ -504,7 +504,7 @@ final class AvatarGpuScene {
         }
         AvatarBatchGpu currentBatch=batch;
         if(asset.albedoAtlas()!=null)value.put("albedo_atlas",new JSONObject().put("width",asset.albedoAtlas().width()).put("height",asset.albedoAtlas().height()).put("encoded_bytes",asset.albedoAtlas().encodedBytes()));
-        if(asset.normalMap()!=null)value.put("pbr_materials",new JSONObject().put("normal_width",asset.normalMap().width()).put("orm_width",asset.ormMap().width()).put("normal_scale",asset.materials().get(0).normalScale()).put("lighting","GGX key light, diffuse fill, hemisphere ambient; no image-based lighting or skin subsurface scattering").put("tangent_frame","fragment derivatives of current deformed geometry; not authored MikkTSpace tangents").put("sampling","GPU-generated mip chain, trilinear minification; original used level-zero channels retained").put("texture_gpu_bytes",mapGpuBytes(asset.albedoAtlas().width(),asset.albedoAtlas().height(),true)+mapGpuBytes(asset.normalMap().width(),asset.normalMap().height(),true)+AvatarOrmUploadPolicy.logicalBytes(asset.ormMap().width(),asset.ormMap().height(),ormRg8Uploaded?2:4,true)).put("texture_gpu_bytes_scope","logical sized-format mip texels; not measured GPU residency"));
+        if(asset.normalMap()!=null)value.put("pbr_materials",new JSONObject().put("normal_width",asset.normalMap().width()).put("orm_width",asset.ormMap().width()).put("normal_scale",asset.materials().get(0).normalScale()).put("lighting","portrait_neutral_key_v1: GGX key, restrained neutral fill/hemisphere, hue-preserving highlight shoulder; no image-based lighting or skin subsurface scattering").put("tangent_frame","fragment derivatives of current deformed geometry; not authored MikkTSpace tangents").put("sampling","GPU-generated mip chain, trilinear minification; original used level-zero channels retained").put("texture_gpu_bytes",mapGpuBytes(asset.albedoAtlas().width(),asset.albedoAtlas().height(),true)+mapGpuBytes(asset.normalMap().width(),asset.normalMap().height(),true)+AvatarOrmUploadPolicy.logicalBytes(asset.ormMap().width(),asset.ormMap().height(),ormRg8Uploaded?2:4,true)).put("texture_gpu_bytes_scope","logical sized-format mip texels; not measured GPU residency"));
         if(ormUploadPolicy!=null)value.put("orm_upload",ormUploadStatus());
         if(tangentRuntime!=null){
             value.put("triangle_tangent",tangentRuntime.status());
@@ -1120,7 +1120,9 @@ final class AvatarGpuScene {
             color=vec4(pow(clamp(mix(lit,base,uUnlit),0.0,1.0),vec3(1.0/2.2)),1.0);
         }
         """;
-    // Lightweight material path. Legacy assets retain their frozen v8 lighting above.
+    // Lightweight portrait material path. Legacy assets retain their frozen v8 lighting above.
+    // glTF linear/sRGB and roughness semantics: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#materials
+    // Display mapping is separate from the BRDF: https://google.github.io/filament/main/filament.html#imagingpipeline
     static final String PBR_FRAGMENT="""
         #version 300 es
         precision highp float;
@@ -1131,6 +1133,14 @@ final class AvatarGpuScene {
         uniform vec4 uPbrParams;
         out vec4 color;
         vec3 encodeSRGB(vec3 c){return mix(12.92*c,1.055*pow(max(c,vec3(0.0)),vec3(1.0/2.4))-0.055,step(vec3(0.0031308),c));}
+        // Artistic display shoulder, not SSS. RGB groups with peak <= knee remain unchanged.
+        vec3 portraitHighlightShoulder(vec3 c){
+            float peak=max(c.r,max(c.g,c.b));
+            if(peak<=0.68)return c;
+            // Original mapped peak = (peak - 0.4624)/(peak - 0.36).
+            // Fuse the ratio into one division; the positive denominator needs no clamp here.
+            return c*((peak-0.4624)/(peak*(peak-0.36)));
+        }
         vec3 detailNormal(vec3 n){
             vec3 dp1=dFdx(vPosition),dp2=dFdy(vPosition);vec2 du1=dFdx(vUV),du2=dFdy(vUV);
             float det=du1.x*du2.y-du1.y*du2.x;
@@ -1161,10 +1171,11 @@ final class AvatarGpuScene {
             float g=(nv/(nv*(1.0-k)+k))*(nl/(nl*(1.0-k)+k));
             vec3 spec=d*g*f/max(4.0*nv*nl,0.001);
             vec3 diffuse=(1.0-f)*(1.0-metallic)*base/3.14159265;
-            vec3 direct=(diffuse+spec)*nl*vec3(2.35,2.20,2.05);
+            vec3 direct=(diffuse+spec)*nl*vec3(2.15,2.10,2.00);
             float fill=max(dot(n,normalize(vec3(0.70,0.25,0.70))),0.0);
-            vec3 ambient=base*(1.0-metallic)*(vec3(0.19,0.21,0.24)+vec3(0.10,0.09,0.08)*max(n.y,0.0))*ao;
-            vec3 lit=direct+base*(1.0-metallic)*fill*vec3(0.10,0.13,0.18)+ambient;
+            vec3 ambient=base*(1.0-metallic)*(vec3(0.15,0.16,0.17)+vec3(0.07,0.07,0.06)*max(n.y,0.0))*ao;
+            vec3 lit=direct+base*(1.0-metallic)*fill*vec3(0.10,0.115,0.13)+ambient;
+            lit=portraitHighlightShoulder(lit);
             color=vec4(encodeSRGB(clamp(lit,0.0,1.0)),1.0);
         }
         """;
