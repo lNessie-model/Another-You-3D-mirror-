@@ -28,6 +28,7 @@ public final class MirrorHomeActivity extends Activity {
         MirrorTheme.addButton(body,MirrorTheme.button(this,"场景",false,()->openMirror("scene")));
         MirrorTheme.addButton(body,MirrorTheme.button(this,"设置",false,()->startActivity(new Intent(this,MirrorSettingsActivity.class))));
         TextView note=MirrorTheme.text(this,"离线魔镜 · 随时切换角色与场景\n更多角色正在逐项校正",12,false);note.setTextColor(MirrorTheme.MUTED);body.addView(note);
+        MirrorMotion.brandReveal(root,saved==null&&(getIntent().getFlags()&Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)==0);
         setContentView(root);
     }
     private void openMirror(String action){

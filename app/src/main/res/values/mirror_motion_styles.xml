@@ -1,0 +1,43 @@
+<resources>
+    <style name="MirrorAppTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@drawable/mirror_launch_background</item>
+        <item name="android:colorAccent">#D1BA91</item>
+        <item name="android:statusBarColor">#101216</item>
+        <item name="android:navigationBarColor">#101216</item>
+        <item name="android:windowAnimationStyle">@style/MirrorWindowMotion</item>
+        <item name="android:alertDialogTheme">@style/MirrorMotionDialog</item>
+    </style>
+    <style name="MirrorMotionDialog" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#D1BA91</item>
+        <item name="android:windowAnimationStyle">@style/MirrorDialogMotion</item>
+    </style>
+    <style name="MirrorWindowMotion" parent="@android:style/Animation">
+        <!-- Window transitions use alpha only, preserving calibrated interlaced pixel positions. -->
+        <item name="android:activityOpenEnterAnimation">@anim/mirror_open_enter</item>
+        <item name="android:activityOpenExitAnimation">@anim/mirror_open_exit</item>
+        <item name="android:activityCloseEnterAnimation">@anim/mirror_close_enter</item>
+        <item name="android:activityCloseExitAnimation">@anim/mirror_close_exit</item>
+        <item name="android:taskOpenEnterAnimation">@anim/mirror_open_enter</item>
+        <item name="android:taskOpenExitAnimation">@anim/mirror_open_exit</item>
+        <item name="android:taskCloseEnterAnimation">@anim/mirror_close_enter</item>
+        <item name="android:taskCloseExitAnimation">@anim/mirror_close_exit</item>
+        <item name="android:taskToFrontEnterAnimation">@anim/mirror_open_enter</item>
+        <item name="android:taskToFrontExitAnimation">@anim/mirror_open_exit</item>
+        <item name="android:taskToBackEnterAnimation">@anim/mirror_close_enter</item>
+        <item name="android:taskToBackExitAnimation">@anim/mirror_close_exit</item>
+        <item name="android:wallpaperOpenEnterAnimation">@anim/mirror_open_enter</item>
+        <item name="android:wallpaperOpenExitAnimation">@anim/mirror_open_exit</item>
+        <item name="android:wallpaperCloseEnterAnimation">@anim/mirror_close_enter</item>
+        <item name="android:wallpaperCloseExitAnimation">@anim/mirror_close_exit</item>
+        <item name="android:wallpaperIntraOpenEnterAnimation">@anim/mirror_open_enter</item>
+        <item name="android:wallpaperIntraOpenExitAnimation">@anim/mirror_open_exit</item>
+        <item name="android:wallpaperIntraCloseEnterAnimation">@anim/mirror_close_enter</item>
+        <item name="android:wallpaperIntraCloseExitAnimation">@anim/mirror_close_exit</item>
+        <item name="android:windowEnterAnimation">@anim/mirror_open_enter</item>
+        <item name="android:windowExitAnimation">@anim/mirror_close_exit</item>
+    </style>
+    <style name="MirrorDialogMotion" parent="@android:style/Animation.Dialog">
+        <item name="android:windowEnterAnimation">@anim/mirror_dialog_enter</item>
+        <item name="android:windowExitAnimation">@anim/mirror_dialog_exit</item>
+    </style>
+</resources>
