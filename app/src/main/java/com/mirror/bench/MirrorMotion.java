@@ -10,11 +10,13 @@ import android.provider.Settings;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
+import android.view.animation.PathInterpolator;
+import android.view.animation.Interpolator;
 import android.widget.FrameLayout;
 
 /** Finite UI-only motion. Navigation, saving and hardware never wait for an animation. */
 final class MirrorMotion {
+    private static final Interpolator SETTLE = new PathInterpolator(.22f, 1f, .36f, 1f);
     private MirrorMotion() {}
 
     static boolean enabled(Context context) {
@@ -28,10 +30,10 @@ final class MirrorMotion {
             int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_DOWN && target.isEnabled() && enabled(target.getContext())) {
                 target.animate().cancel();
-                target.animate().scaleX(.985f).scaleY(.985f).setDuration(80).start();
+                target.animate().scaleX(.982f).scaleY(.982f).setStartDelay(0).setDuration(110).setInterpolator(SETTLE).start();
             } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
                 target.animate().cancel();
-                if (enabled(target.getContext())) target.animate().scaleX(1f).scaleY(1f).setDuration(120).start();
+                if (enabled(target.getContext())) target.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(220).setInterpolator(SETTLE).start();
                 else reset(target);
             }
             return false; // Retain native click, scroll cancellation, focus and accessibility semantics.
@@ -41,14 +43,15 @@ final class MirrorMotion {
     static void previewReady(View image) {
         reset(image);
         if (!image.isAttachedToWindow() || !enabled(image.getContext())) return;
-        image.setAlpha(0f); image.setScaleX(.975f); image.setScaleY(.975f);
-        image.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(200)
-                .setInterpolator(new DecelerateInterpolator()).start();
+        image.setAlpha(0f); image.setScaleX(.982f); image.setScaleY(.982f);
+        image.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(420)
+                .setInterpolator(SETTLE).start();
     }
 
     static void reset(View view) {
         view.animate().setListener(null).cancel();
-        view.setAlpha(1f); view.setScaleX(1f); view.setScaleY(1f);
+        view.animate().setStartDelay(0);
+        view.setAlpha(1f); view.setScaleX(1f); view.setScaleY(1f); view.setTranslationY(0f);
     }
 
     static void brandReveal(FrameLayout page, boolean freshLaunch) {
@@ -60,18 +63,14 @@ final class MirrorMotion {
         private final Activity owner;
         private boolean registered, destroyed, paused, introduced, brandRequested;
         private MirrorBrandView brand;
+        private ViewGroup body;
         private final Runnable reveal = () -> {
             if (paused || destroyed || !isAttachedToWindow()) return;
-            if (enabled(getContext())) {
-                setAlpha(0f); setScaleX(.992f); setScaleY(.992f);
-                animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220)
-                        .setInterpolator(new DecelerateInterpolator()).start();
-            } else reset(this);
             if (brandRequested && enabled(getContext())) {
-                brand = new MirrorBrandView(getContext(), this::dismissBrand);
+                brand = new MirrorBrandView(getContext(), body, this::introduceBody, () -> dismissBrand(false));
                 addView(brand, new FrameLayout.LayoutParams(-1, -1));
                 brand.begin();
-            }
+            } else introduceBody();
         };
 
         Page(Activity activity) { super(activity); owner = activity; bind(); }
@@ -82,20 +81,37 @@ final class MirrorMotion {
             if (registered) { owner.getApplication().unregisterActivityLifecycleCallbacks(this); registered = false; }
         }
         void requestBrand() { brandRequested = true; }
+        void setBody(ViewGroup content) { body = content; }
+        private void introduceBody() {
+            if (paused || destroyed || body == null || !isAttachedToWindow() || !enabled(getContext())) return;
+            // Only visible direct rows participate; long offscreen settings lists stay idle.
+            int order = 0, viewport = ((View) body.getParent()).getHeight();
+            for (int i = 0; i < body.getChildCount(); i++) {
+                View row = body.getChildAt(i);
+                if (brandRequested && i < 3) { reset(row); continue; } // The aligned brand wordmark hands over to these rows.
+                if (row.getVisibility() != VISIBLE || row.getBottom() <= 0 || row.getTop() >= viewport) continue;
+                reset(row); row.setAlpha(0f); row.setTranslationY(MirrorTheme.dp(getContext(), 8));
+                row.animate().alpha(1f).translationY(0f).setDuration(460).setStartDelay(Math.min(175, order++ * 35))
+                        .setInterpolator(SETTLE).start();
+            }
+        }
         @Override protected void onAttachedToWindow() {
             super.onAttachedToWindow(); bind();
             if (!introduced) { introduced = true; post(reveal); }
         }
         @Override public boolean dispatchTouchEvent(MotionEvent event) {
             // Remove before hit-testing: the same down event can reach the real Home button.
-            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) dismissBrand();
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                dismissBrand(true); resetTree(this);
+            }
             return super.dispatchTouchEvent(event);
         }
-        private void dismissBrand() {
+        private void dismissBrand(boolean interrupted) {
             if (brand == null) return;
             MirrorBrandView old = brand; brand = null; old.stop(); removeView(old);
+            if (interrupted) resetTree(this);
         }
-        private void stop() { removeCallbacks(reveal); dismissBrand(); resetTree(this); }
+        private void stop() { removeCallbacks(reveal); dismissBrand(true); resetTree(this); }
         private static void resetTree(View view) {
             reset(view);
             if (view instanceof ViewGroup group) for (int i = 0; i < group.getChildCount(); i++) resetTree(group.getChildAt(i));

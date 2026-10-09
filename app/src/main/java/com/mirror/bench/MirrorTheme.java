@@ -8,6 +8,9 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RadialGradient;
+import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
@@ -129,7 +132,7 @@ final class MirrorTheme {
         ScrollView scroll=new ScrollView(activity);scroll.setFillViewport(true);scroll.setClipToPadding(true);
         LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);body.setGravity(Gravity.CENTER_VERTICAL);
         body.setPadding(dp(activity,14),dp(activity,12),dp(activity,14),dp(activity,12));scroll.addView(body);
-        placeSafe(root,scroll);return body;
+        placeSafe(root,scroll);if(root instanceof MirrorMotion.Page page)page.setBody(body);return body;
     }
     static void placeSafe(FrameLayout root,View content){
         root.addView(content,new FrameLayout.LayoutParams(1,1,Gravity.CENTER));
@@ -171,16 +174,27 @@ final class MirrorTheme {
     }
     private static final class Ornament extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path diamond=new Path();
+        private Shader halo;
         Ornament(Context context){super(context);setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);}
+        @Override protected void onSizeChanged(int w,int h,int ow,int oh){
+            halo=new RadialGradient(w/2f,h*.40f,h*.50f,new int[]{0xff201920,BACKGROUND},null,Shader.TileMode.CLAMP);
+        }
         @Override protected void onDraw(Canvas canvas){
             float w=getWidth(),h=getHeight(),cx=w/2,cy=h/2;
+            paint.setStyle(Paint.Style.FILL);paint.setShader(halo);paint.setAlpha(255);canvas.drawRect(0,0,w,h,paint);paint.setShader(null);
             paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dp(getContext(),1));paint.setColor(0x77928575);
             canvas.drawOval(w*.06f,h*.055f,w*.94f,h*.945f,paint);
             paint.setColor(0x447c3548);canvas.drawOval(w*.085f,h*.073f,w*.915f,h*.927f,paint);
             paint.setColor(GOLD);float y=h*.16f,unit=dp(getContext(),9);
             canvas.drawLine(cx-unit*4,y,cx-unit,y,paint);canvas.drawLine(cx+unit,y,cx+unit*4,y,paint);
             canvas.drawCircle(cx,y,unit*.72f,paint);canvas.drawCircle(cx,y,unit*.35f,paint);
+            diamond.reset();diamond.moveTo(cx,y-unit*1.6f);diamond.lineTo(cx+unit*1.05f,y);diamond.lineTo(cx,y+unit*1.6f);diamond.lineTo(cx-unit*1.05f,y);diamond.close();
+            paint.setColor(0x99d1ba91);canvas.drawPath(diamond,paint);
+            paint.setColor(0x77928575);canvas.drawLine(cx,h*.071f,cx,h*.095f,paint);canvas.drawLine(cx,h*.905f,cx,h*.929f,paint);
+            canvas.drawLine(w*.075f,cy,w*.102f,cy,paint);canvas.drawLine(w*.898f,cy,w*.925f,cy,paint);
             paint.setColor(0x55928575);canvas.drawLine(cx-w*.14f,cy+h*.335f,cx+w*.14f,cy+h*.335f,paint);
+            paint.setColor(0x99d1ba91);canvas.drawCircle(cx,cy+h*.335f,unit*.22f,paint);
         }
     }
 }
