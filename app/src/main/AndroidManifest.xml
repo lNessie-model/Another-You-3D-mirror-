@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
-    <application android:label="Another You / 另一个你" android:icon="@drawable/ic_another_you" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
+    <application android:label="Another You / 另一个你" android:icon="@drawable/ic_another_you" android:theme="@style/MirrorAppTheme" android:allowBackup="false">
         <activity android:name=".MirrorHomeActivity" android:label="Another You / 另一个你" android:exported="true" android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

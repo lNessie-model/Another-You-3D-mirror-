@@ -111,6 +111,7 @@ public final class AssetLibraryActivity extends Activity {
                 runOnUiThread(()->{
                     if(!current(token)){ready.recycle();return;}
                     shown=ready;image.setImageBitmap(ready);status.setText(hint(entry));use.setEnabled(entry.status.equals("runtime_ready"));
+                    MirrorMotion.previewReady(image);
                 });
             }catch(Exception failure){
                 if(bitmap!=null)bitmap.recycle();
@@ -156,7 +157,7 @@ public final class AssetLibraryActivity extends Activity {
     private boolean isActive(){return lifetime.active()&&!isFinishing()&&!isDestroyed();}
     private void cancelLoading(){if(loadingTask!=null){loadingTask.cancel(true);loadingTask=null;}}
     private boolean current(long token){return lifetime.current(token)&&!isFinishing()&&!isDestroyed();}
-    private void clearPreview(){image.setImageDrawable(null);if(shown!=null){shown.recycle();shown=null;}}
+    private void clearPreview(){MirrorMotion.reset(image);image.setImageDrawable(null);if(shown!=null){shown.recycle();shown=null;}}
     @Override protected void onSaveInstanceState(Bundle state){state.putString(SAVED_ID,restoreId);super.onSaveInstanceState(state);}
     private void returnToRoles(){
         lifetime.invalidate();cancelLoading();preparing=false;finish();

@@ -133,6 +133,7 @@ public final class MirrorRolesActivity extends Activity {
             runOnUiThread(()->{
                 if(token!=previewGeneration||isFinishing()||isDestroyed()){if(preview!=null)preview.recycle();return;}
                 bitmap=preview;image.setImageBitmap(preview);
+                if(preview!=null)MirrorMotion.previewReady(image);
                 placeholder.setText("预览暂时不可用");placeholder.setVisibility(preview==null?View.VISIBLE:View.GONE);
             });
         });
@@ -148,7 +149,7 @@ public final class MirrorRolesActivity extends Activity {
             Bitmap result=BitmapFactory.decodeStream(input,null,decode);if(result==null)throw new IOException("Cannot decode role preview");return result;
         }
     }
-    private void clearBitmap(){image.setImageDrawable(null);if(bitmap!=null){bitmap.recycle();bitmap=null;}}
+    private void clearBitmap(){MirrorMotion.reset(image);image.setImageDrawable(null);if(bitmap!=null){bitmap.recycle();bitmap=null;}}
     private void setControls(){
         boolean ready=!loading&&!saving&&!entries.isEmpty();
         previous.setEnabled(ready&&index>0);next.setEnabled(ready&&index+1<entries.size());

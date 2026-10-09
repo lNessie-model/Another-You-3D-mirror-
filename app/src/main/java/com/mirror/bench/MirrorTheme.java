@@ -30,13 +30,14 @@ import android.widget.SpinnerAdapter;
 import android.widget.ListAdapter;
 import android.widget.BaseAdapter;
 
-/** Small native design system: dark metal, wine red and aged gold; no animated GPU effects. */
+/** Small native design system: dark metal, wine red and aged gold, with finite UI motion. */
 final class MirrorTheme {
     static final int BACKGROUND=0xff101216,SURFACE=0xf51b1d22,INK=0xffeee7de,MUTED=0xffbdb6ae;
     static final int WINE=0xff6f293c,METAL=0xff928575,GOLD=0xffd1ba91;
     private MirrorTheme() {}
     static int dp(Context context,int value){return Math.round(value*context.getResources().getDisplayMetrics().density);}
     static void immersive(Activity activity){
+        activity.getWindow().setWindowAnimations(MirrorMotion.enabled(activity)?R.style.MirrorWindowMotion:0);
         activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 |View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
@@ -57,7 +58,7 @@ final class MirrorTheme {
         button.setTextColor(INK);button.setTextSize(16);button.setMinHeight(dp(context,52));button.setMinimumHeight(dp(context,52));
         button.setPadding(dp(context,12),dp(context,8),dp(context,12),dp(context,8));
         button.setBackground(new RippleDrawable(ColorStateList.valueOf(0x44d1ba91),surface(context,primary?WINE:SURFACE),null));
-        button.setOnClickListener(v->action.run());return button;
+        MirrorMotion.pressFeedback(button);button.setOnClickListener(v->action.run());return button;
     }
     static void addButton(LinearLayout parent,Button button){
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.topMargin=dp(parent.getContext(),8);parent.addView(button,p);
@@ -111,6 +112,7 @@ final class MirrorTheme {
             if(dialog.getListView()!=null&&getSelectedItemPosition()>=0)dialog.getListView().setSelection(getSelectedItemPosition());
             var metrics=getResources().getDisplayMetrics();
             if(dialog.getWindow()!=null){
+                dialog.getWindow().setWindowAnimations(MirrorMotion.enabled(owner)?R.style.MirrorDialogMotion:0);
                 dialog.getWindow().setGravity(Gravity.CENTER);
                 dialog.getWindow().setLayout((int)(metrics.widthPixels*.64),(int)(metrics.heightPixels*.66));
                 dialog.getWindow().setBackgroundDrawable(surface(getContext(),SURFACE));
@@ -120,7 +122,7 @@ final class MirrorTheme {
         @Override protected void onDetachedFromWindow(){if(selection!=null)selection.dismiss();super.onDetachedFromWindow();}
     }
     static FrameLayout page(Activity activity){
-        FrameLayout page=new FrameLayout(activity);page.setBackgroundColor(BACKGROUND);
+        FrameLayout page=new MirrorMotion.Page(activity);page.setBackgroundColor(BACKGROUND);
         page.addView(new Ornament(activity),new FrameLayout.LayoutParams(-1,-1));return page;
     }
     static LinearLayout safeScroll(Activity activity,FrameLayout root){
@@ -140,6 +142,7 @@ final class MirrorTheme {
     }
     static void safeDialog(Activity activity,Dialog dialog){
         if(dialog.getWindow()==null)return;
+        dialog.getWindow().setWindowAnimations(MirrorMotion.enabled(activity)?R.style.MirrorDialogMotion:0);
         var metrics=activity.getResources().getDisplayMetrics();int[] bounds=MirrorUiState.safeBounds(metrics.widthPixels,metrics.heightPixels);
         dialog.getWindow().setGravity(Gravity.CENTER);dialog.getWindow().setLayout(bounds[2],bounds[3]);
         dialog.getWindow().setBackgroundDrawable(surface(activity,SURFACE));

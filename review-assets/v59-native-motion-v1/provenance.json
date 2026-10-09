@@ -1,0 +1,106 @@
+{
+  "versionCode": 59,
+  "versionName": "0.2.28",
+  "apkSha256": "5dc024c9396c1d7cc5b198ec878d42ba1e98d19c05c60bf4438f5e22cf90247b",
+  "origin": "Real Android 11 device screenrecord and screencap; native UI only. No AI generated images, recoloring, frame interpolation, camera feed or synthetic runtime preview.",
+  "recording": {
+    "source": "ui-profile-v1/ui-motion-device.mp4",
+    "sha256": "defa5bac0c1ccfdda3f3acf39cce11845c196c13fd767ff6d98af56015ab65d8",
+    "encodedSize": [
+      600,
+      960
+    ],
+    "copiedByteExact": true,
+    "freshTaskFlags": "NEW_TASK | CLEAR_TASK; task stack only, no user data cleared",
+    "animatorDurationScaleEffective": 1,
+    "windowTransitionScale": 0.5
+  },
+  "gif": {
+    "conversionArgv": [
+      "C:/Program Files/FFmpeg/bin/ffmpeg.exe",
+      "-v",
+      "error",
+      "-i",
+      "E:\\tripo\\output\\mirror-program\\20261009\\v59-native-motion-v1\\review-final-v1\\ui-motion-device.mp4",
+      "-vf",
+      "fps=20,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=3",
+      "-loop",
+      "0",
+      "E:\\tripo\\output\\mirror-program\\20261009\\v59-native-motion-v1\\review-final-v1\\ui-motion-preview.gif"
+    ],
+    "samplingFps": 20,
+    "meaning": "Presentation sampling/held frames, not measured application or 3D rendering FPS.",
+    "width": 480,
+    "paletteColors": 128,
+    "frameInterpolation": false
+  },
+  "contactSheet": {
+    "sourceScreenshots": [
+      {
+        "file": "review-prep-v1/startup-real-1.20.png",
+        "sha256": "fb484c41f738d1b53e81dda3a6b483a976677add967b2837afc17094d4253cb1",
+        "caption": "启动揭幕（实际录屏原帧）"
+      },
+      {
+        "file": "device-ui-v4/home.png",
+        "sha256": "fbe7037a0539d495a76028f91cfe17648968ccc2a041d837e9b2bd8782a8ba5e",
+        "caption": "首页"
+      },
+      {
+        "file": "device-ui-v4/roles.png",
+        "sha256": "866e48531145d297bd968f6b94472f2c4519d9a273b681434ddd1e14aa1e0d47",
+        "caption": "角色浏览"
+      },
+      {
+        "file": "device-ui-v4/about.png",
+        "sha256": "164a16d7050ccc8ee6dc042938ac15b2b3b206dd54236bb96a2f7b041a71742a",
+        "caption": "关于弹窗"
+      }
+    ],
+    "startupTimeSeconds": 1.2,
+    "extractArgv": [
+      "C:/Program Files/FFmpeg/bin/ffmpeg.exe",
+      "-v",
+      "error",
+      "-ss",
+      "1.20",
+      "-i",
+      "E:\\tripo\\output\\mirror-program\\20261009\\v59-native-motion-v1\\review-final-v1\\ui-motion-device.mp4",
+      "-frames:v",
+      "1",
+      "E:\\tripo\\output\\mirror-program\\20261009\\v59-native-motion-v1\\review-prep-v1\\startup-real-1.20.png"
+    ],
+    "processing": "Proportional resize and labels only."
+  },
+  "functionalQaSha256": "954478bd59e25e596d33a63af3b347a8d6cbc31eeebeaba2a6c31543a8e4b14c",
+  "standaloneUiProfileSha256": "d0cfbc48a0c3f09bc169f4e9311f5bf59c788586a964d7423fbce74bcedc4fce",
+  "standaloneUiProfile": {
+    "normal": {
+      "totalFrames": 418,
+      "jankyFrames": 223,
+      "p50Ms": 18,
+      "p90Ms": 61
+    },
+    "reduced": {
+      "totalFrames": 142,
+      "jankyFrames": 68,
+      "p50Ms": 14,
+      "p90Ms": 93
+    },
+    "scope": "Two short UI navigation loops; no screenrecord during measurement, no camera/NPU/3D concurrency. Jank counts are device gfxinfo, not a 60fps guarantee."
+  },
+  "media": {
+    "ui-motion-device.mp4": {
+      "bytes": 1113260,
+      "sha256": "defa5bac0c1ccfdda3f3acf39cce11845c196c13fd767ff6d98af56015ab65d8"
+    },
+    "ui-motion-preview.gif": {
+      "bytes": 3081835,
+      "sha256": "42e1616e71b0c2b24e51b5f58a9f7896b3bdc789f4646253ea2dc5a9855136cd"
+    },
+    "ui-motion-contact-sheet.png": {
+      "bytes": 261066,
+      "sha256": "1bb94c4cad727c1999ab85c603783bb42a2a678ccc7018e235bac5a0913c0862"
+    }
+  }
+}

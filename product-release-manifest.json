@@ -170,33 +170,33 @@
     "default_role_restored": "geralt",
     "personal_face_art_accepted": false
   },
-  "versionCode": 58,
-  "versionName": "0.2.27",
-  "source_commit": "546479c11ba54ac4e1323de77ce90858438e3077",
-  "public_parent": "87b545efb44342fbda053e6c5852d1ab730a9127",
-  "created_at_utc": "2026-10-08T14:59:02.336588+00:00",
-  "local_apk_filename": "AvatarRuntime-v58-dentition-contact-v1.apk",
-  "apk_sha256": "9e138efc05adbc4870f25a43deefb6f6cb7af5800149d57cef199123863de74a",
-  "apk_bytes": 241481497,
+  "versionCode": 59,
+  "versionName": "0.2.28",
+  "source_commit": "4ce79636b0009cfb4613a6d3c87e59f76d4431c0",
+  "public_parent": "6604bbbd1e760dabbf635a23d6f816c127134ed7",
+  "created_at_utc": "2026-10-09T14:28:36.918998+00:00",
+  "local_apk_filename": "AvatarRuntime-v59-native-motion-v2.apk",
+  "apk_sha256": "5dc024c9396c1d7cc5b198ec878d42ba1e98d19c05c60bf4438f5e22cf90247b",
+  "apk_bytes": 242171475,
   "apk_in_repository": false,
   "qa_passed": true,
-  "qa_scope": "Geralt acceptedV4 local dental POSITION X/Z contact refinement; finite authored geometry/closure and scoped independent review, actual static Mali comparison/cross-path checks, same-signer install and18-slot restoration. One auxiliary2D concavity and finite projected residual gaps remain; no all-nine-pair collision/welding/full realism or FPS/camera acceptance.",
+  "qa_scope": "Native UI motion, navigation/lifecycle/reduced-motion checks, actual SDK editor callback regression. UI-only short frame profile; no 3D runtime FPS acceptance.",
   "live_face_qa_passed": false,
   "full_user_goal_complete": false,
   "camera_blocker": null,
   "camera_retested_this_release": false,
   "camera_capture_passed": false,
   "runtime_opened_this_release": false,
-  "gpu_retested_this_release": true,
-  "gpu_acceptance_scope_this_release": "Final V58 actual nine poses x16 view layers,317checks and ten fixture PNGs; serial/OVR RGBA exact zero and original individual/batch maxRGB1/RMSE.1/alpha0 limits. Static drawing-path consistency only, not optical interlacing/live camera/FPS.",
-  "gpu_pose_suite_rerun_this_release": true,
+  "gpu_retested_this_release": false,
+  "gpu_acceptance_scope_this_release": "Not rerun; V58 static geometry/GPU evidence remains historical.",
+  "gpu_pose_suite_rerun_this_release": false,
   "joint_performance_measured": false,
-  "joint_performance_input_scope": "No current replay/FPS measurement; earlier V56 smoke remains historical only.",
+  "joint_performance_input_scope": "No current replay/FPS measurement; earlier measurements remain historical only.",
   "joint_30fps_goal_met": false,
   "frame_rate_improvement_demonstrated": false,
   "private_fixtures_in_apk": false,
   "personal_video_in_apk": false,
-  "source_delta_file_count": 7,
+  "source_delta_file_count": 19,
   "frozen_delta_file_hashes_verified": true,
   "production_dependencies_match_v30": true,
   "native_dependencies_match_v35": true,
@@ -301,56 +301,55 @@
     "performance_measured": false,
     "rerun_this_release": false,
     "counts_toward_full_goal": false,
-    "scope": "No V58 replay/FPS or live camera measurement. V56 smoke and earlier costs are historical only."
+    "scope": "No V59 3D runtime, camera/NPU/interlace concurrency or FPS measurement; standalone UI frame observations are separate and do not qualify the30FPS goal."
   },
   "host_evidence": {
-    "authorFinalJavaGeometryPoses": 11,
-    "authorNew3DFlipsNormalCounterexamplesDegenerateNonfinite": 0,
-    "authorFiniteClosedToothProbes": 720,
-    "authorAbsoluteClosedToothLeaks": 0,
-    "independentV3Poses": 4,
-    "independentV4NeutralPose": 1,
-    "independentV4EightXChangeScope": true,
-    "authorClosureTestsIndependentlyRerun": false,
-    "newAuxiliary2DConcavityRetained": 1,
-    "finiteSamplingOnly": true,
-    "continuousCollisionProof": false,
-    "mappingTestsRerun": false
+    "actualSdkCompile": true,
+    "actualEditorCallbacksChecks": 76,
+    "actualExitCode": 0,
+    "scope": "Real Activity callbacks, editor navigation, UI boundary only; not a motion/fps test.",
+    "newRerunByPublisher": false,
+    "independentSourceReviewPassed": true,
+    "motionReviewedSourceResources": 17
   },
   "device_evidence": {
-    "apkSha256": "9e138efc05adbc4870f25a43deefb6f6cb7af5800149d57cef199123863de74a",
-    "runId": "347d2721-61a3-440c-8298-83277e705822",
-    "actualFullChecks": 317,
-    "fixturePoses": 9,
-    "viewLayersPerPose": 16,
-    "fixturePngs": 10,
-    "serialVsOvrRgbaZero": true,
-    "individualVsBatchLimits": {
-      "maxRgb": 1,
-      "rmse": 0.1,
-      "alpha": 0
-    },
-    "assetCount": 99,
-    "changedAssets": 4,
-    "unselectedAssetsByteExactV57": 95,
-    "nativeByteExactV57": 9,
-    "sameSigner": true,
+    "apkSha256": "5dc024c9396c1d7cc5b198ec878d42ba1e98d19c05c60bf4438f5e22cf90247b",
     "sameSignerInstallPassed": true,
-    "diagnosticSlotsRestored": 14,
-    "configsRestored": 4,
+    "assetCount": 99,
+    "assetsByteExactV58": 99,
+    "changedAssets": 0,
+    "nativeByteExactV58": 9,
+    "functionalUiChecks": {
+      "homeRolesSettingsLibraryAbout": true,
+      "rolePreviewNextPrevious": true,
+      "firstDrawImmediateNavigation": true,
+      "rapidNavigationThreeLoops": true,
+      "backgroundResume": true,
+      "systemReducedMotionNavigation": true,
+      "systemScalesRestored": true,
+      "allFourUserConfigsByteExact": true,
+      "noPackageFatalInCollectedLog": true,
+      "finalActivityHome": true
+    },
+    "systemSettingsValuesRestored": true,
+    "effectiveAnimatorDefaultRestoredAndObserved": true,
+    "allFourUserConfigsByteExact": true,
     "returnedHome": true,
-    "temporaryFilesRemaining": 0,
-    "allAdbChildrenTerminal": true,
-    "actualPublicReviewInputs": 2,
-    "actualPublicReviewPairs": 1,
+    "idleRenderedFrameCountStable": true,
+    "idleRenderedFrames": 258,
+    "approvedReviewFileCount": 5,
+    "actualUiRecordingByteExact": true,
+    "runtimeOpened": false,
     "cameraTested": false,
-    "performanceTested": false
+    "gpuPoseSuiteRetested": false,
+    "jointPerformanceTested": false,
+    "scope": "Native UI motion, navigation/lifecycle/reduced-motion checks, actual SDK editor callback regression. UI-only short frame profile; no 3D runtime FPS acceptance."
   },
   "unreviewed_model_pipeline_delta_included": false,
   "new_portal_source_included": false,
   "v1_experiment_source_included": false,
-  "release_document": "docs/production-app-v58-20261008.md",
-  "gpu_pose_suite_scope_this_release": "Final V58 actual nine poses x16 view layers,317checks and ten fixture PNGs; serial/OVR RGBA exact zero and original individual/batch maxRGB1/RMSE.1/alpha0 limits. Static drawing-path consistency only, not optical interlacing/live camera/FPS.",
+  "release_document": "docs/production-app-v59-20261009.md",
+  "gpu_pose_suite_scope_this_release": "Not rerun in V59 UI-motion release.",
   "earlier_ada_pose_suite_rerun": false,
   "native_dependencies_match_v36": true,
   "apk_assets_byte_exact_v36": 76,
@@ -3023,7 +3022,7 @@
     "rerun_this_release": false,
     "evidence_retained_from_prior_release": true
   },
-  "final_candidate_variant": "geralt-dentition-contact-v1",
+  "final_candidate_variant": "native-ui-motion-v1",
   "debug_lower_resolution_benefit_scope": "Historical V39 only, not measured in V43.",
   "native_dependencies_match_v39": true,
   "apk_assets_byte_exact_v39": 76,
@@ -6569,7 +6568,7 @@
     "prior_sync_evidence_preserved": true,
     "sephiroth_closure": "Private rejected trial; 3 new orientation/1 normal counterexample and up to13 leakage rays; no formal asset replaced"
   },
-  "review_scope": "Seven exact source paths and thirteen public paths; three real-device review files; preserve unrelated working files and history.",
+  "review_scope": "19 exact source paths and 27 public paths; five approved real-device UI review files; preserve unrelated working files and history.",
   "native_dependencies_match_v40": true,
   "apk_assets_byte_exact_v40": 76,
   "apk_native_byte_exact_v40": 9,
@@ -55943,7 +55942,7 @@
     "observed_rgb_mismatches": 0,
     "observed_alpha_mismatches": 0
   },
-  "frame_rate_improvement_scope": "No30FPS or production speedup acceptance; exact final evidence scope in release document.",
+  "frame_rate_improvement_scope": "UI motion acceptance only; no30FPS or production speedup acceptance.",
   "native_dependencies_match_v43": true,
   "apk_assets_byte_exact_v43": 76,
   "apk_native_byte_exact_v43": 9,
@@ -112026,15 +112025,15 @@
     "from_runtime_result_preserved": true,
     "configs_restored_exact": true,
     "ui_screenshots": [
-      "v54-roles.png"
+      "review-assets/v59-native-motion-v1/ui-motion-contact-sheet.png"
     ],
-    "rerun_this_release": false,
-    "evidence_retained_from_prior_release": true,
-    "evidence_versionCode": 54,
+    "rerun_this_release": true,
+    "evidence_retained_from_prior_release": false,
+    "evidence_versionCode": 59,
     "roles_count": 4,
     "selection_changed_this_release": false,
     "explicit_use_retested_this_release": false,
-    "scope_this_release": "Prior navigation evidence retained; no role-browser or live runtime activation retest in V58."
+    "scope_this_release": "Browse role cards forward/backward, open asset library and return only; did not press use or replace current role; no current selection-save, camera or GL activation acceptance."
   },
   "private_npu_deformation": {
     "host_only": true,
@@ -112054,9 +112053,9 @@
   "apk_assets_byte_exact_v44": 76,
   "apk_native_byte_exact_v44": 9,
   "previous_release_ref": {
-    "commit": "87b545efb44342fbda053e6c5852d1ab730a9127",
+    "commit": "6604bbbd1e760dabbf635a23d6f816c127134ed7",
     "path": "product-release-manifest.json",
-    "sha256": "414ce7b09d05f29ed77ab6a6cd249bd5a714d6fe46ae3713cee214a7a2f4528d"
+    "sha256": "74ac5591f5ab660eb69d44c98d2bbc719adf261d256dbbb2f9971bbead889c23"
   },
   "native_dependencies_match_v45": true,
   "apk_assets_byte_exact_v45": 76,
@@ -112093,7 +112092,7 @@
   "apk_assets_byte_exact_v48": 76,
   "apk_native_byte_exact_v48": 9,
   "native_dependencies_match_parent": true,
-  "apk_assets_byte_exact_parent": 95,
+  "apk_assets_byte_exact_parent": 99,
   "apk_native_byte_exact_parent": 9,
   "production_candidate_enabled": true,
   "gpu_triangle_tangent": {
@@ -112118,7 +112117,7 @@
   },
   "apk_asset_count": 99,
   "apk_added_asset_count": 0,
-  "apk_modified_asset_count": 4,
+  "apk_modified_asset_count": 0,
   "personal_brow_calibration": {
     "rest_brow_channels": 2,
     "explicit_capture_and_confirm": true,
@@ -113352,7 +113351,9 @@
     "nearRootProjectedResidualMm": 0.2074,
     "inherited7to8Yaw20MaxProjectedResidualMm": 0.9646,
     "runtimeCodeChanged": false,
-    "fullAnatomicalRealismAccepted": false
+    "fullAnatomicalRealismAccepted": false,
+    "evidence_retained_from_versionCode": 58,
+    "rerun_this_release": false
   },
   "dentition_contact_review_assets": {
     "file_count": 3,
@@ -113373,6 +113374,191 @@
         "sha256": "5e0b66b1bd859769341c3e7118fae49c97609d3e69d43370bd8195f78efdf1ed"
       }
     ],
+    "scope": "One crop/resize-only static device sheet with provenance; no personal camera images or performance qualification.",
+    "evidence_retained_from_versionCode": 58,
+    "rerun_this_release": false
+  },
+  "previous_v58_host_evidence": {
+    "authorFinalJavaGeometryPoses": 11,
+    "authorNew3DFlipsNormalCounterexamplesDegenerateNonfinite": 0,
+    "authorFiniteClosedToothProbes": 720,
+    "authorAbsoluteClosedToothLeaks": 0,
+    "independentV3Poses": 4,
+    "independentV4NeutralPose": 1,
+    "independentV4EightXChangeScope": true,
+    "authorClosureTestsIndependentlyRerun": false,
+    "newAuxiliary2DConcavityRetained": 1,
+    "finiteSamplingOnly": true,
+    "continuousCollisionProof": false,
+    "mappingTestsRerun": false
+  },
+  "previous_v58_device_evidence": {
+    "apkSha256": "9e138efc05adbc4870f25a43deefb6f6cb7af5800149d57cef199123863de74a",
+    "runId": "347d2721-61a3-440c-8298-83277e705822",
+    "actualFullChecks": 317,
+    "fixturePoses": 9,
+    "viewLayersPerPose": 16,
+    "fixturePngs": 10,
+    "serialVsOvrRgbaZero": true,
+    "individualVsBatchLimits": {
+      "maxRgb": 1,
+      "rmse": 0.1,
+      "alpha": 0
+    },
+    "assetCount": 99,
+    "changedAssets": 4,
+    "unselectedAssetsByteExactV57": 95,
+    "nativeByteExactV57": 9,
+    "sameSigner": true,
+    "sameSignerInstallPassed": true,
+    "diagnosticSlotsRestored": 14,
+    "configsRestored": 4,
+    "returnedHome": true,
+    "temporaryFilesRemaining": 0,
+    "allAdbChildrenTerminal": true,
+    "actualPublicReviewInputs": 2,
+    "actualPublicReviewPairs": 1,
+    "cameraTested": false,
+    "performanceTested": false
+  },
+  "previous_v58_recorded_face_performance": {
+    "performance_measured": false,
+    "rerun_this_release": false,
+    "counts_toward_full_goal": false,
+    "scope": "No V58 replay/FPS or live camera measurement. V56 smoke and earlier costs are historical only."
+  },
+  "previous_v58_new_head_sources": {
+    "new_sources_this_release": 0,
+    "tripo_billed_credits_this_release": 0
+  },
+  "previous_v58_role_browser": {
+    "browsing_read_only": true,
+    "explicit_use_persists": true,
+    "one_bounded_thumbnail": true,
+    "process_restart_selection_verified": false,
+    "from_runtime_result_preserved": true,
+    "configs_restored_exact": true,
+    "ui_screenshots": [
+      "v54-roles.png"
+    ],
+    "rerun_this_release": false,
+    "evidence_retained_from_prior_release": true,
+    "evidence_versionCode": 54,
+    "roles_count": 4,
+    "selection_changed_this_release": false,
+    "explicit_use_retested_this_release": false,
+    "scope_this_release": "Prior navigation evidence retained; no role-browser or live runtime activation retest in V58."
+  },
+  "previous_v58_dentition_contact": {
+    "roleId": "geralt",
+    "variant": "accepted-contact-v4",
+    "modelSha256": "42a5895c5ada4aae7ce59e1b66919f8b1cb5ecb97d23222af658ba8e37516fc4",
+    "manifestSha256": "9a3b6e1c26a2f1a7b890f0ef3c047974686afc8eecc0c0b91288a27a6dc491f0",
+    "modelBytes": 29147900,
+    "vertices": 19915,
+    "triangles": 19157,
+    "drawCalls": 7,
+    "decodedBytes": 73558574,
+    "editScope": "Own local crown POSITION X/Z; Y/root rings/end-cap centres/back contours/gum/topology/UV/colour/materials/nodes/expressions retained.",
+    "finalVsSafeV3": "Upper8 eight X components only, maxadditional.32015mm;24BINbytes differ; Y/Z and all other geometry unchanged.",
+    "warmWhiteMaterialUnchanged": true,
+    "roughness": 0.42,
+    "jawOpenBindingGain": 0.8,
+    "jawCloseProductGain": 0.8,
+    "jawAttachmentDegrees": 12,
+    "newAuxiliary2DConcaveTurns": 1,
+    "all80RingsStrictlyConvexAccepted": false,
+    "allNineCrownPairsPhysicallySeamlessAccepted": false,
+    "projected8to9MedianGapMm": {
+      "before": 0.1504,
+      "after": -0.1274
+    },
+    "projectedOverlapIs3DContactProof": false,
+    "nearRootProjectedResidualMm": 0.2074,
+    "inherited7to8Yaw20MaxProjectedResidualMm": 0.9646,
+    "runtimeCodeChanged": false,
+    "fullAnatomicalRealismAccepted": false
+  },
+  "previous_v58_dentition_contact_review_assets": {
+    "file_count": 3,
+    "files": [
+      {
+        "path": "review-assets/v58-dentition-contact-v1/device-teeth-before-after.png",
+        "bytes": 125614,
+        "sha256": "8f99e8f801ad12dcaf566578a077eee57bb14c5b4560dad1865f8256f85d2020"
+      },
+      {
+        "path": "review-assets/v58-dentition-contact-v1/input-runs.json",
+        "bytes": 2109,
+        "sha256": "0bb76fc8544efa29d8a2f2ff0400d2d6a470099770a0c554f6ab0dbf146a1345"
+      },
+      {
+        "path": "review-assets/v58-dentition-contact-v1/README.md",
+        "bytes": 392,
+        "sha256": "5e0b66b1bd859769341c3e7118fae49c97609d3e69d43370bd8195f78efdf1ed"
+      }
+    ],
     "scope": "One crop/resize-only static device sheet with provenance; no personal camera images or performance qualification."
+  },
+  "ui_motion": {
+    "nativeFiniteAnimations": true,
+    "startupRevealAuthoredMs": 620,
+    "actualStartupAndTransitionsVisuallyReviewed": true,
+    "pauseDetachDestroyCancellationReviewed": true,
+    "systemReducedMotionNavigationAccepted": true,
+    "actualUiShortProfile": {
+      "normal": {
+        "totalFrames": 418,
+        "jankyFrames": 223,
+        "p50Ms": 18,
+        "p90Ms": 61
+      },
+      "reduced": {
+        "totalFrames": 142,
+        "jankyFrames": 68,
+        "p50Ms": 14,
+        "p90Ms": 93
+      },
+      "scope": "Two short standalone UI navigation loops without recording; different frame counts/workloads, not a matched V58 baseline or sustained60FPS proof; no camera/NPU/3D concurrency."
+    },
+    "sustained60FpsAccepted": false,
+    "modelsMaterialsRigChanged": false,
+    "allUserConfigsExact": true,
+    "systemSettingValuesExact": true,
+    "effectiveAnimatorDefaultRestoredAndObserved": true,
+    "idleRenderedFrames": 258,
+    "idleRenderedFrameCountStable": true,
+    "uiOnlyAcceptance": true
+  },
+  "ui_motion_review_assets": {
+    "file_count": 5,
+    "files": [
+      {
+        "path": "review-assets/v59-native-motion-v1/README.md",
+        "bytes": 1469,
+        "sha256": "4ec7e38abd949f353d28c6fec216a27b2174dbe99d67e221a8a361c29c02ece2"
+      },
+      {
+        "path": "review-assets/v59-native-motion-v1/provenance.json",
+        "bytes": 3905,
+        "sha256": "ada118f10562dfc8b1537c6e0325c1c8321cca6009afdcbf01bfdc8284e51c4c"
+      },
+      {
+        "path": "review-assets/v59-native-motion-v1/ui-motion-contact-sheet.png",
+        "bytes": 261066,
+        "sha256": "1bb94c4cad727c1999ab85c603783bb42a2a678ccc7018e235bac5a0913c0862"
+      },
+      {
+        "path": "review-assets/v59-native-motion-v1/ui-motion-device.mp4",
+        "bytes": 1113260,
+        "sha256": "defa5bac0c1ccfdda3f3acf39cce11845c196c13fd767ff6d98af56015ab65d8"
+      },
+      {
+        "path": "review-assets/v59-native-motion-v1/ui-motion-preview.gif",
+        "bytes": 3081835,
+        "sha256": "42e1616e71b0c2b24e51b5f58a9f7896b3bdc789f4646253ea2dc5a9855136cd"
+      }
+    ],
+    "scope": "Approved device UI recording, GIF, contact sheet and provenance; no personal camera recording or runtime FPS qualification."
   }
 }
