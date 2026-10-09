@@ -1,0 +1,25 @@
+{
+  "actualDeviceRecording": true,
+  "source": "E:\\tripo\\output\\mirror-program\\20261010\\v60-crafted-motion-v1\\device-preview-v3\\ui-motion-device.mp4",
+  "sourceSha256": "5915161cf0122a83d486fb750a04b35c2158bb5db8901e02e4356340506d5ad6",
+  "copiedMp4Exact": true,
+  "gifTemporalSamplingFps": 20,
+  "gifSamplingNotApplicationFps": true,
+  "timeRemappingOrInterpolatedFrames": false,
+  "colorRetouchOrAiGeneratedFrames": false,
+  "contactSheet": "Proportional resize and timestamps only",
+  "files": {
+    "about.png": "884bdf54afa1ac9dfffc54919cccbf351d603fc3e2b87fc7777df94647d731db",
+    "frame-0.8.png": "1e32024cc7627db8c23da81c2803b37da14b7126551d6f7443135b8b0a446090",
+    "frame-1.2.png": "38971f3be16f8583c6d6133549e36dbf0674b3a4ba599a1b68cadd9e32f93a86",
+    "frame-1.7.png": "ccf51490eb5a6e037aa064c16dda2d7370802c130ad2c1587f1f3a31a9e51310",
+    "frame-2.2.png": "d0f479a19defd8df810fd3a549349aa29f19d7dd9d6fe1574d23229d77a9589d",
+    "frame-2.7.png": "76ab7001c3b6aea57e10b21ac1b3596f2318c1a85090ce326803b345a995fd25",
+    "frame-3.2.png": "81ec8081908f4fa6bb55d283a89ae13261d63e25e4b3932ebcb7c6b9373b3ba1",
+    "home.png": "9403f126146036b97c7361bfa09dc66262354b48df8abfe50522217060af3f51",
+    "roles.png": "e027fe7651a828df4b81fd7626337fe9c8ad5881f5dfcd196e6b627d9403ddda",
+    "startup-contact-sheet.png": "2d35269f0093122399b7e2461d81fd665d393bf700dd82fbfd54013674f8d9e9",
+    "ui-motion-device.mp4": "5915161cf0122a83d486fb750a04b35c2158bb5db8901e02e4356340506d5ad6",
+    "ui-motion-preview.gif": "25621530a70c50305728b237b2deb522f377aa2e6b9aa7d1dc5289decd12935b"
+  }
+}
