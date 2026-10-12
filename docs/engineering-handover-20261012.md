@@ -86,7 +86,7 @@ Java、Android SDK、Gradle、NDK、Blender等大型开发工具需要接手电�
 | app/src/main/assets/avatars | 四个运行角色及其GLB、avatar.json和缩略图 |
 | app/src/main/assets/library | 36项素材源件、真实预览及就绪状态目录 |
 | app/src/main/assets/library/image-* | 背景源图与椭圆版，运行引用以源码和目录为准 |
-| app/src/main/jniLibs/arm64-v8a | 九个固定原生库；不要随意替换 |
+| app/src/main/jniLibs/arm64-v8a | 八个固定原生库；第九个MediaPipe库来自本地AAR，合并进APK |
 | native | RGA/RKNN/多视图JNI源代码与原SDK声明 |
 | launcher | 独立轻量桌面com.mirror.launcher |
 | scripts | 构建、运行、采集与资产检查脚本 |
@@ -343,7 +343,7 @@ V60安装与操作检查后四份原字节保持。不要用清数据、卸载�
 | Android SDK | platform35、build-tools35.0.1 |
 | App配置 | compileSdk35、minSdk24、targetSdk30、arm64-v8a |
 | MediaPipe | tasks-vision1.0.0 / tasks-core1.0.0，本地Maven |
-| 原生重建 | NDK r25c；应用使用既有九库可直接打APK |
+| 原生重建 | NDK r25c；固定库与本地AAR合并为APK中的九库 |
 | 模型作者环境 | Blender4.5.12 LTS，Python常用NumPy/Pillow |
 
 原Gradle位置为C:/Users/lNessie/.gradle/wrapper/dists/gradle-8.5-bin/5t9huq95ubn472n8rpzujfbqh/gradle-8.5/bin/gradle.bat。该本机路径不作为其它电脑的安装位置。
@@ -382,6 +382,8 @@ Set-Content -LiteralPath './local.properties' `
 ### 10.4 原生与RKNN重建
 
 普通接手先保留app/src/main/jniLibs中的匹配库，不必重建。确需改JNI时，在独立工作分支使用scripts/build_native.ps1，显式指定NdkRoot与RgaLibrary；该脚本只写应用输出目录，不替换设备vendor库。核对native/DEPENDENCIES.md、RGA哈希、libc++与librknnrt，完整回归后再安装。
+
+APK的九个原生库中，八个直接位于jniLibs，第九个libmediapipe_tasks_jni.so由tasks-core-1.0.0.aar提供。表情专用库的作者入口另见scripts/build_rknn_expression.ps1；build_native.ps1不是覆盖全部九库的单一重建脚本。
 
 RKNN转换依赖旧Toolkit2 1.3.0及Python3.8环境，原机隔离环境保存在native-tools。新生成模型先单独检查算子、输入布局、输出数值、ROI和runtime兼容，再接入；不能把同名不同版本的RKNN文件替换固定生产模型。
 
