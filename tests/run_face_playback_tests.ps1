@@ -8,7 +8,11 @@ $taskPlayback=Join-Path $taskRoot 'app\src\main\java\com\mirror\bench\FacePlayba
 if(Test-Path -LiteralPath $taskPlayback){$taskSources+=$taskPlayback}
 & (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -d $taskClasses @taskSources (Join-Path $PSScriptRoot 'FacePlaybackTest.java') (Join-Path $PSScriptRoot 'FaceExpressionResponseTest.java')
 if($LASTEXITCODE){throw 'Face playback tests compilation failed'}
+& (Join-Path $JavaHome 'bin\javac.exe') --release 17 -encoding UTF-8 -d $taskClasses @taskSources (Join-Path $PSScriptRoot 'FacePlaybackCandidateTest.java')
+if($LASTEXITCODE){throw 'Face playback candidate test compilation failed'}
 & (Join-Path $JavaHome 'bin\java.exe') -cp $taskClasses com.mirror.bench.FacePlaybackTest
 if($LASTEXITCODE){throw 'Face playback requirements failed'}
 & (Join-Path $JavaHome 'bin\java.exe') -cp $taskClasses com.mirror.bench.FaceExpressionResponseTest
 if($LASTEXITCODE){throw 'User expression response requirements failed'}
+& (Join-Path $JavaHome 'bin\java.exe') -cp $taskClasses com.mirror.bench.FacePlaybackCandidateTest
+if($LASTEXITCODE){throw 'Eye-wide candidate requirements failed'}
