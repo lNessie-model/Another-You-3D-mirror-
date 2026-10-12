@@ -29,8 +29,8 @@ final class FacePlaybackCandidate {
             this.browBaselineRight=requireUnit(browBaselineRight,"brow baseline right");
             this.browSpan=requirePositiveSpan(browSpan,"brow span");
             this.browGamma=requireGamma(browGamma,"brow gamma");
-            this.smileBaselineLeft=requireUnit(smileBaselineLeft,"smile baseline left");
-            this.smileBaselineRight=requireUnit(smileBaselineRight,"smile baseline right");
+            this.smileBaselineLeft=requireSubBaseline(smileBaselineLeft,"smile baseline left");
+            this.smileBaselineRight=requireSubBaseline(smileBaselineRight,"smile baseline right");
             this.smileGamma=requireGamma(smileGamma,"smile gamma");
             this.mouthPressGamma=requireGamma(mouthPressGamma,"mouth press gamma");
             this.mouthPressSmileSuppression=requireUnit(mouthPressSmileSuppression,"mouth press smile suppression");
@@ -67,6 +67,7 @@ final class FacePlaybackCandidate {
                     enabled,horizontalGazeThreshold,horizontalGazeBlinkFactor);
         }
         private static float requireUnit(float v,String n){if(!Float.isFinite(v)||v<0||v>1)throw new IllegalArgumentException("Invalid "+n);return v;}
+        private static float requireSubBaseline(float v,String n){if(!Float.isFinite(v)||v<0||v>=1)throw new IllegalArgumentException("Invalid "+n);return v;}
         private static float requirePositiveSpan(float v,String n){if(!Float.isFinite(v)||v<=0||v>2)throw new IllegalArgumentException("Invalid "+n);return v;}
         private static float requireGamma(float v,String n){if(!Float.isFinite(v)||v<1||v>8)throw new IllegalArgumentException("Invalid "+n);return v;}
     }
