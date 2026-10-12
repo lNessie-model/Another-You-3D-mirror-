@@ -49,10 +49,14 @@ final class FacePlaybackCandidate {
             this.horizontalGazeBlinkFactor=requireUnit(horizontalGazeBlinkFactor,"horizontal gaze blink factor");
         }
 
-        /** Conservative values from the offline audit; baselines remain zero until a live neutral session supplies them. */
+        /**
+         * Conservative replay values from the offline audit. The mid-range brow/squint estimates
+         * prevent an uncalibrated replay from turning an ordinary neutral score into a saturated
+         * frown or squint; a live neutral session can still replace them through withPersonalBaselines.
+         */
         static Config auditDefaults(){
-            return new Config(0,0,.40f,1.15f,0,0,3.20f,1.15f,.65f,
-                    0,.40f,1f,.82f,0,0,.45f,1f,.80f,3.50f,false,.30f,.65f);
+            return new Config(.45f,.45f,.40f,1.15f,0,0,3.20f,1.15f,.65f,
+                    .05f,.40f,1f,.82f,.45f,.45f,.45f,1f,.80f,3.50f,false,.30f,.65f);
         }
         /** Baselines are in incoming MediaPipe left/right coordinates, before optional mirror permutation. */
         Config withPersonalBaselines(float browLeft,float browRight,float jaw,float squintLeft,float squintRight){

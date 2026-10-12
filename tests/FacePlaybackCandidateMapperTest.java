@@ -8,6 +8,14 @@ public final class FacePlaybackCandidateMapperTest {
 
     public static void main(String[] args){
         float[] source=new float[52],pose={2,-5,3},current=new float[52],candidate=new float[52],angles=new float[3];
+        // The replay candidate must start from a conservative neutral estimate. A zero baseline
+        // turns an ordinary mid-range brow score into a saturated frown before live calibration.
+        source[1]=.45f;source[2]=.45f;source[19]=.45f;source[20]=.45f;source[25]=.05f;
+        FacePlaybackCandidate.apply(source,pose,false,2.5f,FacePlaybackCandidate.Config.auditDefaults(),candidate,angles);
+        check(candidate[1]<.25f&&candidate[2]<.25f,"audit neutral brow does not saturate");
+        near(candidate[25],0,1e-6f,"audit neutral jaw is closed");
+        check(candidate[19]<.25f&&candidate[20]<.25f,"audit neutral squint does not saturate");
+
         FacePlaybackCandidate.Config base=FacePlaybackCandidate.Config.auditDefaults()
                 .withPersonalBaselines(.50f,.55f,.05f,.50f,.45f);
         source[1]=.50f;source[2]=.55f;source[25]=.05f;source[19]=.50f;source[20]=.45f;
