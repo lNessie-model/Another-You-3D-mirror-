@@ -76,7 +76,7 @@ final class FacePlaybackCandidate {
         private static float requireUnit(float v,String n){if(!Float.isFinite(v)||v<0||v>1)throw new IllegalArgumentException("Invalid "+n);return v;}
         private static float requireSubBaseline(float v,String n){if(!Float.isFinite(v)||v<0||v>=1)throw new IllegalArgumentException("Invalid "+n);return v;}
         private static float requirePositiveSpan(float v,String n){if(!Float.isFinite(v)||v<=0||v>2)throw new IllegalArgumentException("Invalid "+n);return v;}
-        private static float requireGamma(float v,String n){if(!Float.isFinite(v)||v<1||v>8)throw new IllegalArgumentException("Invalid "+n);return v;}
+        private static float requireGamma(float v,String n){if(!Float.isFinite(v)||v<1||v>4)throw new IllegalArgumentException("Invalid "+n);return v;}
     }
 
     private static final int[] REFLECT=FaceControlMapper.mirrorPermutation();
