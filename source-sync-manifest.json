@@ -1,8 +1,8 @@
 {
-  "source_commit": "651c2e61d76e1470fc735a65a365647f0a2255dd",
+  "source_commit": "0fe315b76175aaef7f4f8b9cfb034b968772e91d",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
-  "file_count": 886,
+  "file_count": 890,
   "private_fixture_paths_excluded": [
     "app/src/main/assets/expression-validation/normalized-inputs.f32",
     "app/src/main/assets/expression-validation/original-tflite52.f32",
@@ -7957,14 +7957,64 @@
       "repository_bytes": 3316,
       "repository_sha256": "fe4808470fc41dbebcbb7d4d9ff7a63f6490d552ace6308d1f82e7941747570b",
       "publication_transformation": null
+    },
+    {
+      "source_path": "docs/engineering-handover-20261012.md",
+      "repository_path": "docs/engineering-handover-20261012.md",
+      "source_bytes": 42651,
+      "source_sha256": "e9158a1cbeaabcdcf54b501a25d38f38885a85a7e7084478659fabf29d0c32fa",
+      "repository_bytes": 42651,
+      "repository_sha256": "e9158a1cbeaabcdcf54b501a25d38f38885a85a7e7084478659fabf29d0c32fa",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/engineering-handover-20261012.pdf",
+      "repository_path": "docs/engineering-handover-20261012.pdf",
+      "source_bytes": 598417,
+      "source_sha256": "7d68c0826259301332cdded5db3b7c014dc7ed2e4652e29159388e270df57a0a",
+      "repository_bytes": 598417,
+      "repository_sha256": "7d68c0826259301332cdded5db3b7c014dc7ed2e4652e29159388e270df57a0a",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/工程资产清单.csv",
+      "repository_path": "docs/工程资产清单.csv",
+      "source_bytes": 10224,
+      "source_sha256": "63f0bd3fd5feb5a590dd0b19ba19e0dc9ccbf8813c8c7e4af680e195622f1c02",
+      "repository_bytes": 10224,
+      "repository_sha256": "63f0bd3fd5feb5a590dd0b19ba19e0dc9ccbf8813c8c7e4af680e195622f1c02",
+      "publication_transformation": null
+    },
+    {
+      "source_path": "docs/工程组件索引.json",
+      "repository_path": "docs/工程组件索引.json",
+      "source_bytes": 12048,
+      "source_sha256": "148033ae9b7f6ffef18425272f834ca448b6534115e2f29625fcb294e445a1c2",
+      "repository_bytes": 12048,
+      "repository_sha256": "148033ae9b7f6ffef18425272f834ca448b6534115e2f29625fcb294e445a1c2",
+      "publication_transformation": null
     }
   ],
-  "previous_source_commit": "4ce79636b0009cfb4613a6d3c87e59f76d4431c0",
-  "public_parent_commit": "fa7f9c968936f2ef8fc36c755f472be37a6e5ac7",
+  "previous_source_commit": "651c2e61d76e1470fc735a65a365647f0a2255dd",
+  "public_parent_commit": "80c52d57b8258758dce2531bc6c63d04f0346337",
   "versionCode": 60,
   "versionName": "0.2.29",
   "release_apk_sha256": "1c06a4aea581489f0ee2711616af5ef8a535e0cbeb8b246d74a53a6f87a617a6",
   "last_iteration": {
+    "kind": "engineering-handover-documentation",
+    "versionCode": 60,
+    "versionName": "0.2.29",
+    "appCodeAndAssetsUnchanged": true,
+    "approved_source_delta_files": 4,
+    "documentPages": 19,
+    "assetCatalogVerified": 36,
+    "productionDependenciesVerified": 15,
+    "hardwareTestPerformed": false,
+    "full_goal_complete": false
+  },
+  "source_sha_scope": "Frozen publication working bytes. Reviewed mappings from earlier iterations are retained; current unfrozen model-authoring worktree edits are excluded.",
+  "source_git_text_normalization": "Source Git may normalize CRLF text to LF. Public copies preserve root-approved frozen working bytes via * -text; per-version index receipts record exact differences.",
+  "previous_release_iteration": {
     "versionCode": 60,
     "versionName": "0.2.29",
     "approved_source_delta_files": 12,
@@ -7972,7 +8022,5 @@
     "all_historical_assets_preserved": true,
     "production_performance_improved": false,
     "full_goal_complete": false
-  },
-  "source_sha_scope": "Frozen publication working bytes. Reviewed mappings from earlier iterations are retained; current unfrozen model-authoring worktree edits are excluded.",
-  "source_git_text_normalization": "Source Git may normalize CRLF text to LF. Public copies preserve root-approved frozen working bytes via * -text; per-version index receipts record exact differences."
+  }
 }
