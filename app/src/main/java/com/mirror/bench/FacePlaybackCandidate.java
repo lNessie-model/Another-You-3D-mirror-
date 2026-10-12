@@ -79,7 +79,6 @@ final class FacePlaybackCandidate {
         private static float requireGamma(float v,String n){if(!Float.isFinite(v)||v<1||v>4)throw new IllegalArgumentException("Invalid "+n);return v;}
     }
 
-    private static final int[] REFLECT=FaceControlMapper.mirrorPermutation();
     private FacePlaybackCandidate(){}
 
     /**
