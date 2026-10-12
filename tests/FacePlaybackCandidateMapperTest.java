@@ -19,6 +19,16 @@ public final class FacePlaybackCandidateMapperTest {
         near(candidate[20],0,1e-6f,"eye squint right baseline is zero");
         for(int i=0;i<3;i++)near(angles[i],pose[i],1e-6f,"candidate preserves head angle "+i);
 
+        // Baselines are sampled in incoming anatomical coordinates, then mirror is applied.
+        FacePlaybackCandidate.Config asymmetric=FacePlaybackCandidate.Config.auditDefaults()
+                .withPersonalBaselines(.50f,.20f,.05f,.50f,.20f);
+        source=new float[52];source[1]=.50f;source[2]=.20f;source[19]=.50f;source[20]=.20f;source[25]=.05f;
+        FacePlaybackCandidate.apply(source,pose,true,2.5f,asymmetric,candidate,new float[3]);
+        near(candidate[1],0,1e-6f,"mirrored right brow uses right input baseline");
+        near(candidate[2],0,1e-6f,"mirrored left brow uses left input baseline");
+        near(candidate[19],0,1e-6f,"mirrored right squint uses right input baseline");
+        near(candidate[20],0,1e-6f,"mirrored left squint uses left input baseline");
+
         // Smile gets its own response while press is suppressed by the smile amount.
         source=new float[52];source[44]=.20f;source[45]=.10f;source[36]=.60f;source[37]=.40f;
         FacePlayback.apply(source,pose,false,2.5f,current,new float[3]);
