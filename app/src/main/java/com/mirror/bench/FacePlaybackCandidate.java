@@ -61,6 +61,12 @@ final class FacePlaybackCandidate {
                     squintLeft,squintRight,eyeSquintSpan,eyeSquintGamma,eyeSquintCap,eyeWideGamma,
                     horizontalGazeBlinkGate,horizontalGazeThreshold,horizontalGazeBlinkFactor);
         }
+        Config withEyeWideGamma(float gamma){
+            return new Config(browBaselineLeft,browBaselineRight,browSpan,browGamma,smileBaselineLeft,smileBaselineRight,smileGamma,
+                    mouthPressGamma,mouthPressSmileSuppression,jawBaseline,jawSpan,jawGamma,jawCap,
+                    eyeSquintBaselineLeft,eyeSquintBaselineRight,eyeSquintSpan,eyeSquintGamma,eyeSquintCap,gamma,
+                    horizontalGazeBlinkGate,horizontalGazeThreshold,horizontalGazeBlinkFactor);
+        }
         Config withHorizontalGazeBlinkGate(boolean enabled){
             return new Config(browBaselineLeft,browBaselineRight,browSpan,browGamma,smileBaselineLeft,smileBaselineRight,smileGamma,
                     mouthPressGamma,mouthPressSmileSuppression,jawBaseline,jawSpan,jawGamma,jawCap,

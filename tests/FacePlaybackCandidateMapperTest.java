@@ -45,6 +45,13 @@ public final class FacePlaybackCandidateMapperTest {
         source[25]=.25f;FacePlaybackCandidate.apply(source,pose,false,2.5f,base,candidate,new float[3]);
         check(candidate[25]>.35f&&candidate[25]<.5f,"partial jaw remains natural and monotone");
 
+        // The eye-wide exponent is configurable only in the candidate API.
+        source=new float[52];source[21]=.04f;source[22]=.02f;
+        FacePlaybackCandidate.apply(source,pose,false,2.5f,base,candidate,new float[3]);
+        float wide35=candidate[21];
+        FacePlaybackCandidate.apply(source,pose,false,2.5f,base.withEyeWideGamma(1.65f),candidate,new float[3]);
+        check(wide35>candidate[21],"candidate eye-wide gamma is parameterized");
+
         // Squint is independently calibrated and capped, unlike a global expression gain.
         source=new float[52];source[19]=1;source[20]=1;
         FacePlaybackCandidate.apply(source,pose,false,2.5f,base,candidate,new float[3]);
