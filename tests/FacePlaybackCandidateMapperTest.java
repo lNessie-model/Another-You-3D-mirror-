@@ -58,6 +58,14 @@ public final class FacePlaybackCandidateMapperTest {
         FacePlaybackCandidate.apply(reflected,pose,false,2.5f,FacePlaybackCandidate.Config.auditDefaults(),equivalent,new float[3]);
         for(int i:new int[]{1,2,44,45,25})near(mirrored[i],equivalent[i],1e-6f,"candidate reflection channel "+i);
 
+        // Candidate evaluation cannot mutate or alter the production response policy.
+        source=new float[52];for(int i=0;i<52;i++)source[i]=(i%11)/10f;
+        float[] productionBefore=new float[52],productionAfter=new float[52];
+        FacePlayback.apply(source,pose,true,2.5f,productionBefore,new float[3]);
+        FacePlaybackCandidate.apply(source,pose,true,2.5f,base,candidate,new float[3]);
+        FacePlayback.apply(source,pose,true,2.5f,productionAfter,new float[3]);
+        for(int i=0;i<52;i++)near(productionAfter[i],productionBefore[i],1e-6f,"candidate leaves production policy unchanged "+i);
+
         // Config validation keeps malformed candidate experiments from reaching a live call.
         boolean rejected=false;try{new FacePlaybackCandidate.Config(0,0,0,1,0,0,1,1,0,0,.4f,1,.8f,0,0,.45f,1,.8f,3.5f,false,.3f,.65f);}catch(IllegalArgumentException expected){rejected=true;}
         check(rejected,"invalid candidate span rejected");
