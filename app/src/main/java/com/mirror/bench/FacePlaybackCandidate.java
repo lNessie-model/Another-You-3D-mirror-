@@ -54,6 +54,7 @@ final class FacePlaybackCandidate {
             return new Config(0,0,.40f,1.15f,0,0,3.20f,1.15f,.65f,
                     0,.40f,1f,.82f,0,0,.45f,1f,.80f,3.50f,false,.30f,.65f);
         }
+        /** Baselines are in incoming MediaPipe left/right coordinates, before optional mirror permutation. */
         Config withPersonalBaselines(float browLeft,float browRight,float jaw,float squintLeft,float squintRight){
             return new Config(browLeft,browRight,browSpan,browGamma,smileBaselineLeft,smileBaselineRight,smileGamma,
                     mouthPressGamma,mouthPressSmileSuppression,jaw,jawSpan,jawGamma,jawCap,
@@ -83,18 +84,29 @@ final class FacePlaybackCandidate {
         if(config==null)throw new IllegalArgumentException("Candidate config is required");
         FacePlayback.applyEyeWideCandidate(source,pose,mirror,gain,weights,angles);
         float[] raw=source.clone();
-        if(mirror){float[] reflected=new float[52];for(int i=0;i<52;i++)reflected[i]=raw[REFLECT[i]];raw=reflected;}
-        weights[1]=calibrated(raw[1],config.browBaselineLeft,config.browSpan,config.browGamma);
-        weights[2]=calibrated(raw[2],config.browBaselineRight,config.browSpan,config.browGamma);
+        float browLeft=calibrated(raw[1],config.browBaselineLeft,config.browSpan,config.browGamma);
+        float browRight=calibrated(raw[2],config.browBaselineRight,config.browSpan,config.browGamma);
         float smileLeft=calibrated(raw[44],config.smileBaselineLeft,1-config.smileBaselineLeft,config.smileGamma);
         float smileRight=calibrated(raw[45],config.smileBaselineRight,1-config.smileBaselineRight,config.smileGamma);
-        weights[44]=smileLeft;weights[45]=smileRight;
+        float pressLeft=boundedResponse(raw[36],config.mouthPressGamma);
+        float pressRight=boundedResponse(raw[37],config.mouthPressGamma);
+        float jaw= config.jawCap*calibrated(raw[25],config.jawBaseline,config.jawSpan,config.jawGamma);
+        float squintLeft=config.eyeSquintCap*calibrated(raw[19],config.eyeSquintBaselineLeft,config.eyeSquintSpan,config.eyeSquintGamma);
+        float squintRight=config.eyeSquintCap*calibrated(raw[20],config.eyeSquintBaselineRight,config.eyeSquintSpan,config.eyeSquintGamma);
         float smile=(smileLeft+smileRight)*.5f;
-        weights[36]=boundedResponse(raw[36],config.mouthPressGamma)*(1-config.mouthPressSmileSuppression*smile);
-        weights[37]=boundedResponse(raw[37],config.mouthPressGamma)*(1-config.mouthPressSmileSuppression*smile);
-        weights[25]=config.jawCap*calibrated(raw[25],config.jawBaseline,config.jawSpan,config.jawGamma);
-        weights[19]=config.eyeSquintCap*calibrated(raw[19],config.eyeSquintBaselineLeft,config.eyeSquintSpan,config.eyeSquintGamma);
-        weights[20]=config.eyeSquintCap*calibrated(raw[20],config.eyeSquintBaselineRight,config.eyeSquintSpan,config.eyeSquintGamma);
+        float pressScale=1-config.mouthPressSmileSuppression*smile;
+        if(mirror){
+            weights[1]=browRight;weights[2]=browLeft;
+            weights[44]=smileRight;weights[45]=smileLeft;
+            weights[36]=pressRight*pressScale;weights[37]=pressLeft*pressScale;
+            weights[19]=squintRight;weights[20]=squintLeft;
+        }else{
+            weights[1]=browLeft;weights[2]=browRight;
+            weights[44]=smileLeft;weights[45]=smileRight;
+            weights[36]=pressLeft*pressScale;weights[37]=pressRight*pressScale;
+            weights[19]=squintLeft;weights[20]=squintRight;
+        }
+        weights[25]=jaw;
         if(config.horizontalGazeBlinkGate){
             float horizontal=(raw[13]+raw[14]+raw[15]+raw[16])*.25f;
             if(horizontal>config.horizontalGazeThreshold){
