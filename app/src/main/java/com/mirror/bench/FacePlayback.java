@@ -25,7 +25,11 @@ final class FacePlayback {
      * production path above: callers must opt in and compare the resulting preview before adopting it.
      */
     static void applyEyeWideCandidate(float[] source,float[] pose,boolean mirror,float gain,float[] weights,float[] angles){
-        applyInternal(source,pose,mirror,gain,EYE_WIDE_GAMMA_CANDIDATE,weights,angles);
+        applyEyeWideGamma(source,pose,mirror,gain,EYE_WIDE_GAMMA_CANDIDATE,weights,angles);
+    }
+    /** Opt-in candidate hook; production apply() still uses EYE_WIDE_GAMMA_CURRENT. */
+    static void applyEyeWideGamma(float[] source,float[] pose,boolean mirror,float gain,float eyeWideGamma,float[] weights,float[] angles){
+        applyInternal(source,pose,mirror,gain,eyeWideGamma,weights,angles);
     }
     private static void applyInternal(float[] source,float[] pose,boolean mirror,float gain,float eyeWideGamma,float[] weights,float[] angles){
         if(source==null||source.length!=52||pose==null||pose.length!=3||weights==null||weights.length!=52||angles==null||angles.length!=3

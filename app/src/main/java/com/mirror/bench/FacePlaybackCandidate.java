@@ -82,7 +82,7 @@ final class FacePlaybackCandidate {
      */
     static void apply(float[] source,float[] pose,boolean mirror,float gain,Config config,float[] weights,float[] angles){
         if(config==null)throw new IllegalArgumentException("Candidate config is required");
-        FacePlayback.applyEyeWideCandidate(source,pose,mirror,gain,weights,angles);
+        FacePlayback.applyEyeWideGamma(source,pose,mirror,gain,config.eyeWideGamma,weights,angles);
         float[] raw=source.clone();
         float browLeft=calibrated(raw[1],config.browBaselineLeft,config.browSpan,config.browGamma);
         float browRight=calibrated(raw[2],config.browBaselineRight,config.browSpan,config.browGamma);
