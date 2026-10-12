@@ -55,6 +55,10 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     private final float[] runtimeBlendshapes=new float[52];
     private final float[] playbackBlendshapes=new float[52],playbackAngles=new float[3];
     private volatile JSONObject facePlaybackStatus=new JSONObject();
+    // Candidate expression mapping is deliberately opt-in and configured before GL init.
+    // Ordinary product/camera runs continue to use FacePlayback.apply unchanged.
+    private boolean calibratedExpressionCandidate;
+    private FacePlaybackCandidate.Config calibratedExpressionConfig=FacePlaybackCandidate.Config.auditDefaults();
     private volatile InteractiveFace interactiveFace=InteractiveFace.NEUTRAL;
     private final float[] runtimeWeights=new float[4],runtimeAngles=new float[3];
     private long runtimePoseTime,runtimeFrames,runtimeWindowStart;
@@ -245,6 +249,12 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
     void setInteractiveFace(float[] fourWeights,float[] columnMajorPose,boolean active) {
         interactiveFace=active?new InteractiveFace(fourWeights,columnMajorPose,SystemClock.elapsedRealtimeNanos())
                 :InteractiveFace.NEUTRAL;
+    }
+    synchronized void setCalibratedExpressionCandidate(boolean enabled,FacePlaybackCandidate.Config config) {
+        if(surfaceInitialized)throw new IllegalStateException("Expression candidate must be configured before GL initialization");
+        if(enabled&&config==null)throw new IllegalArgumentException("Expression candidate config is required");
+        calibratedExpressionCandidate=enabled;
+        calibratedExpressionConfig=config==null?FacePlaybackCandidate.Config.auditDefaults():config;
     }
     void setProfileStages(boolean enabled) { profileStages=enabled; }
     synchronized void setTargetFps(int value) {
@@ -728,6 +738,7 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
                 .put("scene_view_requested",new JSONObject(sceneView.toMap()))
                 .put("face_playback",facePlaybackStatus)
                 .put("background_rendering","screen-plane composition in existing interlace pass; no extra geometry")
+                 .put("calibrated_expression_candidate",calibratedExpressionCandidate)
                 .put("background_image_rgba_bytes",screenBackground==null?0:screenBackground.bytes())
                 .put("background_image_uploads",screenBackground==null?0:screenBackground.uploads())
                 .put("avatar_load_warning",avatarLoadWarning).put("avatar_batched_requested",avatarBatched)
@@ -1147,11 +1158,15 @@ final class InterlaceRenderer implements GLSurfaceView.Renderer {
             avatarScene.resumeCpuPose();consumedAvatarResumeGeneration=generation;
         }
         if(runtimeMode)runtimePrepareStart=SystemClock.elapsedRealtimeNanos();
-        FacePlayback.apply(runtimeBlendshapes,runtimeAngles,frameSceneView.mirrorMotion,frameSceneView.expressionGain,playbackBlendshapes,playbackAngles);
+        if(calibratedExpressionCandidate) FacePlaybackCandidate.apply(runtimeBlendshapes,runtimeAngles,frameSceneView.mirrorMotion,
+                frameSceneView.expressionGain,calibratedExpressionConfig,playbackBlendshapes,playbackAngles);
+        else FacePlayback.apply(runtimeBlendshapes,runtimeAngles,frameSceneView.mirrorMotion,frameSceneView.expressionGain,playbackBlendshapes,playbackAngles);
         // Publish a completed small snapshot; status readers never observe partially mapped arrays.
         try {
             facePlaybackStatus=new JSONObject().put("mirror_motion",frameSceneView.mirrorMotion).put("expression_gain",frameSceneView.expressionGain)
-                    .put("response_policy","artist_response_v3: opposed brows suppressed; blink .04-.72; wide exponent 1.65; gaze/squint/mouthClose unchanged; live calibration pending")
+                    .put("response_policy",calibratedExpressionCandidate
+                            ? "debug_candidate: calibrated brow/smile-press/jaw/squint + eye-wide gamma; audit defaults; replay-only"
+                            : "artist_response_v3: opposed brows suppressed; blink .04-.72; wide exponent 1.65; gaze/squint/mouthClose unchanged; live calibration pending")
                     .put("raw_jaw_open",runtimeBlendshapes[25]).put("mapped_jaw_open",playbackBlendshapes[25])
                     .put("raw_blink_left",runtimeBlendshapes[9]).put("raw_blink_right",runtimeBlendshapes[10])
                     .put("mapped_blink_left",playbackBlendshapes[9]).put("mapped_blink_right",playbackBlendshapes[10])
