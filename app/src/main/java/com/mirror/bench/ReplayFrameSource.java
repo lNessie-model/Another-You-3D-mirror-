@@ -51,7 +51,8 @@ final class ReplayFrameSource implements FrameInput {
             }
             lastOrdinal=ordinal; consumed++;
             mapped.position((int)(ordinal%frameCount)*frameBytes); mapped.get(pixels);
-            long timestamp=startNs+(long)(((consumed-1)*1e9)/fps);
+            long timestamp=fixedFrameIndex>=0?SystemClock.elapsedRealtimeNanos()
+                    :startNs+(long)(((consumed-1)*1e9)/fps);
             return new Frame(pixels,timestamp);
         }
         throw new IllegalStateException("Replay closed");
