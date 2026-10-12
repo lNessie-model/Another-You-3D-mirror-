@@ -1,5 +1,5 @@
 {
-  "source_commit": "0fe315b76175aaef7f4f8b9cfb034b968772e91d",
+  "source_commit": "a34b0c424089f97c9f206fc10c154ef349f32cdd",
   "first_source_freeze": "367a3c312f9542d36f368cdf0099037ed5eca18c",
   "source_history_imported": false,
   "file_count": 890,
@@ -7961,19 +7961,19 @@
     {
       "source_path": "docs/engineering-handover-20261012.md",
       "repository_path": "docs/engineering-handover-20261012.md",
-      "source_bytes": 42651,
-      "source_sha256": "e9158a1cbeaabcdcf54b501a25d38f38885a85a7e7084478659fabf29d0c32fa",
-      "repository_bytes": 42651,
-      "repository_sha256": "e9158a1cbeaabcdcf54b501a25d38f38885a85a7e7084478659fabf29d0c32fa",
+      "source_bytes": 42951,
+      "source_sha256": "98b5e574fc663cbcbb6de02b93a9524f8ea9a841419595a217bb8f8b6428f7d1",
+      "repository_bytes": 42951,
+      "repository_sha256": "98b5e574fc663cbcbb6de02b93a9524f8ea9a841419595a217bb8f8b6428f7d1",
       "publication_transformation": null
     },
     {
       "source_path": "docs/engineering-handover-20261012.pdf",
       "repository_path": "docs/engineering-handover-20261012.pdf",
-      "source_bytes": 598417,
-      "source_sha256": "7d68c0826259301332cdded5db3b7c014dc7ed2e4652e29159388e270df57a0a",
-      "repository_bytes": 598417,
-      "repository_sha256": "7d68c0826259301332cdded5db3b7c014dc7ed2e4652e29159388e270df57a0a",
+      "source_bytes": 598828,
+      "source_sha256": "f8921c93906d7f7206074ebc935bec9ba63a70ef8a12ea85414ca97da58a5972",
+      "repository_bytes": 598828,
+      "repository_sha256": "f8921c93906d7f7206074ebc935bec9ba63a70ef8a12ea85414ca97da58a5972",
       "publication_transformation": null
     },
     {
@@ -7988,15 +7988,15 @@
     {
       "source_path": "docs/工程组件索引.json",
       "repository_path": "docs/工程组件索引.json",
-      "source_bytes": 12048,
-      "source_sha256": "148033ae9b7f6ffef18425272f834ca448b6534115e2f29625fcb294e445a1c2",
-      "repository_bytes": 12048,
-      "repository_sha256": "148033ae9b7f6ffef18425272f834ca448b6534115e2f29625fcb294e445a1c2",
+      "source_bytes": 12388,
+      "source_sha256": "dff15cbcec431fc3645417e1c25116e02ef12831a7975cbac29e9cc399e12d61",
+      "repository_bytes": 12388,
+      "repository_sha256": "dff15cbcec431fc3645417e1c25116e02ef12831a7975cbac29e9cc399e12d61",
       "publication_transformation": null
     }
   ],
-  "previous_source_commit": "651c2e61d76e1470fc735a65a365647f0a2255dd",
-  "public_parent_commit": "80c52d57b8258758dce2531bc6c63d04f0346337",
+  "previous_source_commit": "0fe315b76175aaef7f4f8b9cfb034b968772e91d",
+  "public_parent_commit": "3a07cd61b500028d3371f5f04fd8476c0ddf4d56",
   "versionCode": 60,
   "versionName": "0.2.29",
   "release_apk_sha256": "1c06a4aea581489f0ee2711616af5ef8a535e0cbeb8b246d74a53a6f87a617a6",
@@ -8005,12 +8005,13 @@
     "versionCode": 60,
     "versionName": "0.2.29",
     "appCodeAndAssetsUnchanged": true,
-    "approved_source_delta_files": 4,
+    "approved_source_delta_files": 3,
     "documentPages": 19,
     "assetCatalogVerified": 36,
     "productionDependenciesVerified": 15,
     "hardwareTestPerformed": false,
-    "full_goal_complete": false
+    "full_goal_complete": false,
+    "nativeLibraryOriginClarified": true
   },
   "source_sha_scope": "Frozen publication working bytes. Reviewed mappings from earlier iterations are retained; current unfrozen model-authoring worktree edits are excluded.",
   "source_git_text_normalization": "Source Git may normalize CRLF text to LF. Public copies preserve root-approved frozen working bytes via * -text; per-version index receipts record exact differences.",

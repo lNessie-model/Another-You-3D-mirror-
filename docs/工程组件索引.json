@@ -254,5 +254,12 @@
       "sha256": "2b77c791757e10e85d96bbd1a6868575329f6c8e905730c9fdb44d2d7559e991"
     }
   ],
-  "scope": "V60 current code and documents. Hardware is intentionally not connected during this handover. No live FPS or model regeneration acceptance."
+  "scope": "V60 current code and documents. Hardware is intentionally not connected during this handover. No live FPS or model regeneration acceptance.",
+  "nativeLibraries": {
+    "directJniFiles": 8,
+    "apkLibraryCount": 9,
+    "mediapipeAarPath": "maven/com/google/mediapipe/tasks-core/1.0.0/tasks-core-1.0.0.aar",
+    "mediapipeEntry": "jni/arm64-v8a/libmediapipe_tasks_jni.so",
+    "mediapipeLibrarySha256": "59708f0daa04d24d42e48de7a3c2b73fff12e460004266b026787274effe700a"
+  }
 }
