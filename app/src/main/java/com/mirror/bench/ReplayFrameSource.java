@@ -16,13 +16,17 @@ final class ReplayFrameSource implements FrameInput {
     private final int frameCount,frameBytes;
     private final double fps;
     private final String name;
+    private final int fixedFrameIndex;
     private long startNs,lastOrdinal=-1,consumed,skipped;
     private boolean closed;
     ReplayFrameSource(Context context,int width,int height,String name,double fps,boolean preload) throws Exception {
+        this(context,width,height,name,fps,preload,-1);
+    }
+    ReplayFrameSource(Context context,int width,int height,String name,double fps,boolean preload,int fixedFrameIndex) throws Exception {
         if(name==null||!name.matches("[a-zA-Z0-9_-]+")||!Double.isFinite(fps)||fps<=0||fps>60||
-                width<=0||height<=0||(width%2)!=0||(height%2)!=0||(long)width*height*3/2>512L*1024*1024)
+                width<=0||height<=0||(width%2)!=0||(height%2)!=0||(long)width*height*3/2>512L*1024*1024||fixedFrameIndex<-1)
             throw new IllegalArgumentException("Invalid replay clip or rate");
-        this.name=name; this.fps=fps; frameBytes=width*height*3/2;
+        this.name=name; this.fps=fps; this.fixedFrameIndex=fixedFrameIndex; frameBytes=width*height*3/2;
         File path=new File(new File(context.getFilesDir(),"recordings"),name+".nv21");
         long size=path.length();
         if(size<frameBytes||size%frameBytes!=0||size>512L*1024*1024)
@@ -31,18 +35,24 @@ final class ReplayFrameSource implements FrameInput {
         mapped=file.getChannel().map(FileChannel.MapMode.READ_ONLY,0,size);
         if(preload) mapped.load();
         frameCount=(int)(size/frameBytes); pixels=new byte[frameBytes];
+        if(fixedFrameIndex>=frameCount)throw new IllegalArgumentException("Fixed replay frame is outside the clip");
         beginMeasurement();
     }
     @Override public Frame take() throws Exception {
         while(!closed) {
-            long ordinal=(long)((SystemClock.elapsedRealtimeNanos()-startNs)*fps/1e9);
-            if(ordinal>lastOrdinal) {
-                if(lastOrdinal>=0) skipped+=ordinal-lastOrdinal-1;
-                lastOrdinal=ordinal; consumed++;
-                mapped.position((int)(ordinal%frameCount)*frameBytes); mapped.get(pixels);
-                return new Frame(pixels,startNs+(long)(ordinal*1e9/fps));
+            long ordinal;
+            if(fixedFrameIndex>=0) {
+                if(lastOrdinal>=0)SystemClock.sleep(Math.max(1,(long)(1000.0/fps)));
+                ordinal=fixedFrameIndex;
+            } else {
+                ordinal=(long)((SystemClock.elapsedRealtimeNanos()-startNs)*fps/1e9);
+                if(ordinal<=lastOrdinal){SystemClock.sleep(1);continue;}
+                if(lastOrdinal>=0)skipped+=ordinal-lastOrdinal-1;
             }
-            SystemClock.sleep(1);
+            lastOrdinal=ordinal; consumed++;
+            mapped.position((int)(ordinal%frameCount)*frameBytes); mapped.get(pixels);
+            long timestamp=startNs+(long)(((consumed-1)*1e9)/fps);
+            return new Frame(pixels,timestamp);
         }
         throw new IllegalStateException("Replay closed");
     }
@@ -52,6 +62,7 @@ final class ReplayFrameSource implements FrameInput {
     @Override public JSONObject summary(double seconds) throws Exception {
         return new JSONObject().put("source","memory-mapped NV21 recording; no USB capture or video decoder")
                 .put("record_id",name).put("clip_frames",frameCount).put("nominal_fps",fps)
+                .put("fixed_frame_index",fixedFrameIndex)
                 .put("consumed_frames",consumed).put("skipped_frames",skipped)
                 .put("mapped_mib",mapped.capacity()/1048576.0).put("error","");
     }

@@ -888,7 +888,7 @@ public final class MirrorActivity extends Activity {
             watchdog.progress(stage, SystemClock.elapsedRealtimeNanos());
         }
         private ReplayFrameSource replay() throws Exception {
-            return new ReplayFrameSource(MirrorActivity.this, WIDTH, HEIGHT, options.recordId, options.replayFps, false);
+            return new ReplayFrameSource(MirrorActivity.this, WIDTH, HEIGHT, options.recordId, options.replayFps, false, options.replayFrame);
         }
     }
 
@@ -1123,14 +1123,15 @@ public final class MirrorActivity extends Activity {
     private static final class InputOptions {
         final String input, recordId;
         final double replayFps;
+        final int replayFrame;
         final long blackoutAfterNs, blackoutDurationNs;
         final boolean synchronousAvatar,batchedAvatar,persistentFbos,cachedCameraVp,releaseGlOnPause,npuBlendshapes,privateHead,staticBackgroundCache,gpuProfile,ormRg8,pbrFastMath,emptyInterlace,specializedBatch,constantWhitePrimary,reuseGroupUniforms,srgbViews,triangleTangent,gpuTriangleTangent,primaryUnlitAblation,calibratedExpressionCandidate;
         final FacePlaybackCandidate.Config calibratedExpressionConfig;
         final String viewPreset;
         final int activeTargetFps,viewCount;
-        private InputOptions(String input, String recordId, double replayFps, int after, int duration,
+        private InputOptions(String input, String recordId, double replayFps, int replayFrame, int after, int duration,
                              boolean synchronousAvatar,boolean batchedAvatar,String viewPreset,int activeTargetFps,boolean persistentFbos,boolean cachedCameraVp,int viewCount,boolean releaseGlOnPause,boolean npuBlendshapes,boolean privateHead,boolean staticBackgroundCache,boolean gpuProfile,boolean ormRg8,boolean pbrFastMath,boolean emptyInterlace,boolean specializedBatch,boolean constantWhitePrimary,boolean reuseGroupUniforms,boolean srgbViews,boolean triangleTangent,boolean gpuTriangleTangent,boolean primaryUnlitAblation,boolean calibratedExpressionCandidate,FacePlaybackCandidate.Config calibratedExpressionConfig) {
-            this.input = input; this.recordId = recordId; this.replayFps = replayFps;
+            this.input = input; this.recordId = recordId; this.replayFps = replayFps; this.replayFrame = replayFrame;
             blackoutAfterNs = after * 1_000_000_000L; blackoutDurationNs = duration * 1_000_000_000L;
             this.synchronousAvatar=synchronousAvatar;
             this.batchedAvatar=batchedAvatar;this.viewPreset=viewPreset;
@@ -1149,7 +1150,7 @@ public final class MirrorActivity extends Activity {
             this.calibratedExpressionConfig=calibratedExpressionConfig==null?FacePlaybackCandidate.Config.auditDefaults():calibratedExpressionConfig;
         }
         static InputOptions defaults() { return defaults(20); }
-        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, 0, 0, false,false,null,31,true,false,RuntimeViewCount.read(null,false,savedViews),false,true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,FacePlaybackCandidate.Config.auditDefaults()); }
+        static InputOptions defaults(int savedViews) { return new InputOptions("camera", "face-reference-stable-20261001-01", 24.369907, -1, 0, 0, false,false,null,31,true,false,RuntimeViewCount.read(null,false,savedViews),false,true,false,false,false,false,false,false,false,false,false,false,false,false,false,false,FacePlaybackCandidate.Config.auditDefaults()); }
         static InputOptions read(Bundle extras, boolean debug) { return read(extras,debug,20); }
         static InputOptions read(Bundle extras, boolean debug,int savedViews) {
             if (extras == null) return defaults(savedViews);
@@ -1158,7 +1159,7 @@ public final class MirrorActivity extends Activity {
             for(String key:new String[]{"test_avatar_synchronous","test_avatar_batched","test_persistent_fbos",
                     "test_cached_camera_vp","test_static_background_cache","test_gpu_profile","test_orm_rg8","test_pbr_fast_math","test_empty_interlace","test_specialized_batch","test_constant_white_primary","test_reuse_group_uniforms","test_srgb_views","test_triangle_tangent","test_gpu_triangle_tangent","test_primary_unlit_ablation","test_release_gl_on_pause","test_npu_blendshapes","test_private_head","test_view_preset",
                     "test_view_count","test_active_target_fps","test_blackout_after_s","test_blackout_duration_s",
-                    "test_calibrated_expression","test_expression_eye_wide_gamma"})
+                    "test_calibrated_expression","test_expression_eye_wide_gamma","test_replay_frame"})
                 if(extras.containsKey(key)&&(!debug||value(extras,key)==null))
                     throw new IllegalArgumentException("Explicit test option requires a non-null debug value: "+key);
             String input = text(extras, "runtime_input", "camera");
@@ -1179,6 +1180,11 @@ public final class MirrorActivity extends Activity {
             if (!record.matches("[a-zA-Z0-9_-]{1,120}")) throw new IllegalArgumentException("Invalid record_id");
             double fps = number(extras, "replay_fps", 24.369907);
             if (!Double.isFinite(fps) || fps < 1 || fps > 60) throw new IllegalArgumentException("Invalid replay_fps");
+            Object replayFrameValue=value(extras,"test_replay_frame");
+            if(replayFrameValue!=null&&(!debug||input.equals("camera")||!(replayFrameValue instanceof Integer)
+                    ||((Integer)replayFrameValue)<0||((Integer)replayFrameValue)>1000000))
+                throw new IllegalArgumentException("Fixed replay frame requires a non-negative debug replay Integer");
+            int replayFrame=integer(extras,"test_replay_frame",-1);
             int after = integer(extras, "test_blackout_after_s", 0), duration = integer(extras, "test_blackout_duration_s", 0);
             if (after < 0 || after > 3600 || duration < 0 || duration > 60)
                 throw new IllegalArgumentException("Invalid blackout interval");
@@ -1247,7 +1253,7 @@ public final class MirrorActivity extends Activity {
                     Boolean.TRUE.equals(batched),Boolean.TRUE.equals(srgbViews),Boolean.TRUE.equals(ormRg8),Boolean.TRUE.equals(pbrFastMath),
                     Boolean.TRUE.equals(emptyInterlace),Boolean.TRUE.equals(specialized),Boolean.TRUE.equals(constantWhite),Boolean.TRUE.equals(reuseGroup),Boolean.TRUE.equals(background),privateHead,Boolean.TRUE.equals(cachedVp),Boolean.TRUE.equals(gpuProfile),
                     Boolean.TRUE.equals(triangleTangent),Boolean.TRUE.equals(gpuTriangleTangent)&&Boolean.TRUE.equals(primaryUnlit));
-            return new InputOptions(input, record, fps, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,
+            return new InputOptions(input, record, fps, replayFrame, after, duration, Boolean.TRUE.equals(synchronous),Boolean.TRUE.equals(batched),preset,target,
                     persistent==null||Boolean.TRUE.equals(persistent),Boolean.TRUE.equals(cachedVp),views,RuntimeGlLifecycle.readReleaseOnPause(extras,debug),
                     !extras.containsKey("test_npu_blendshapes")||RuntimeExpressionBackend.read(extras,debug),privateHead,Boolean.TRUE.equals(background),Boolean.TRUE.equals(gpuProfile),Boolean.TRUE.equals(ormRg8),Boolean.TRUE.equals(pbrFastMath),Boolean.TRUE.equals(emptyInterlace),Boolean.TRUE.equals(specialized),Boolean.TRUE.equals(constantWhite),Boolean.TRUE.equals(reuseGroup),Boolean.TRUE.equals(srgbViews),Boolean.TRUE.equals(triangleTangent),Boolean.TRUE.equals(gpuTriangleTangent),Boolean.TRUE.equals(primaryUnlit),calibratedExpression,calibratedConfig);
         }

@@ -22,7 +22,9 @@ public final class CalibratedExpressionConfigTest {
         Method read=type.getDeclaredMethod("read",Bundle.class,boolean.class);read.setAccessible(true);
         Field enabled=type.getDeclaredField("calibratedExpressionCandidate");enabled.setAccessible(true);
         Field config=type.getDeclaredField("calibratedExpressionConfig");config.setAccessible(true);
+        Field replayFrame=type.getDeclaredField("replayFrame");replayFrame.setAccessible(true);
         check(!enabled.getBoolean(invokeRead(read,null,true)),"ordinary defaults keep candidate disabled");
+        check(replayFrame.getInt(invokeRead(read,null,true))==-1,"ordinary defaults do not freeze replay");
 
         Bundle replay=new Bundle(); replay.putString("runtime_input","replay"); replay.putBoolean("test_calibrated_expression",true);
         Object options=invokeRead(read,replay,true); check(enabled.getBoolean(options),"debug replay enables candidate");
@@ -30,10 +32,16 @@ public final class CalibratedExpressionConfigTest {
         Field gamma=candidateConfig.getClass().getDeclaredField("eyeWideGamma");gamma.setAccessible(true);
         check(Math.abs(gamma.getFloat(candidateConfig)-3.5f)<1e-6f,"audit eye-wide gamma is 3.5");
 
+        Bundle frozen=new Bundle(); frozen.putString("runtime_input","replay"); frozen.putInt("test_replay_frame",41);
+        Object frozenOptions=invokeRead(read,frozen,true);
+        check(replayFrame.getInt(frozenOptions)==41,"debug replay accepts a fixed source frame");
+
         Bundle camera=new Bundle(); camera.putBoolean("test_calibrated_expression",true);
         rejects(read,camera,true,"live camera candidate rejected");
         Bundle release=new Bundle(); release.putString("runtime_input","replay"); release.putBoolean("test_calibrated_expression",true);
         rejects(read,release,false,"release candidate rejected");
+        Bundle frozenCamera=new Bundle(); frozenCamera.putString("runtime_input","camera"); frozenCamera.putInt("test_replay_frame",41);
+        rejects(read,frozenCamera,true,"fixed replay frame rejected for camera input");
         Bundle cameraReplay=new Bundle();cameraReplay.putString("runtime_input","camera_replay");cameraReplay.putBoolean("test_calibrated_expression",true);
         check(enabled.getBoolean(invokeRead(read,cameraReplay,true)),"camera replay enables candidate");
 
