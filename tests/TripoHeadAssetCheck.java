@@ -13,7 +13,8 @@ public final class TripoHeadAssetCheck {
                 .put("triangles",asset.triangleCount()).put("decodedBytes",asset.decodedBytes())
                 .put("facialRigChecked",false).put("artistAcceptance",false);
         if(args.length>1) {
-            AvatarRig rig=new AvatarRig(asset,Files.readString(Path.of(args[1])));
+            JSONObject manifest=new JSONObject(Files.readString(Path.of(args[1])));
+            AvatarRig rig=new AvatarRig(asset,manifest.toString());
             AvatarDeformer deformer=new AvatarDeformer(asset,AvatarDeformer.NormalPolicy.fromManifest(rig.normalPolicy()));
             long[] staticRevisions=new long[asset.meshes().size()];int staticMeshes=0;
             for(int m=0;m<staticRevisions.length;m++)if(asset.meshes().get(m).targetCount()==0) {
@@ -33,6 +34,20 @@ public final class TripoHeadAssetCheck {
                     .put("staticMeshesUnchangedAcrossInputs",staticMeshes)
                     .put("sourceCoverageComplete",rig.completeSourceCoverage())
                     .put("limitation","Successful named input updates are not 51 artist-approved expressions or collision proof");
+            if(manifest.has("headPoseCorrections")) {
+                org.json.JSONArray corrections=manifest.getJSONArray("headPoseCorrections"); int checked=0;
+                for(int i=0;i<corrections.length();i++) {
+                    org.json.JSONObject row=corrections.getJSONObject(i); String axis=row.getString("axis");
+                    int axisIndex=axis.equals("pitch")?0:axis.equals("yaw")?1:2;
+                    float[] poseAngles=new float[3]; double signed=row.getInt("sign")*row.getDouble("maxDegrees"); poseAngles[axisIndex]=(float)Math.max(-90,Math.min(90,signed));
+                    rig.update(new float[52],poseAngles); int mesh=-1; for(int m=0;m<asset.meshes().size();m++) if(asset.meshes().get(m).name().equals(row.getString("mesh"))) {mesh=m;break;}
+                    if(mesh<0) throw new AssertionError("head pose mesh not found");
+                    float[] actual=new float[asset.meshes().get(mesh).targetCount()]; rig.copyMeshWeights(mesh,actual);
+                    int target=asset.meshes().get(mesh).targetIndex(row.getString("target")); if(target<0||Math.abs(actual[target]-1)>1e-5f) throw new AssertionError("head pose correction did not reach 1");
+                    checked++;
+                }
+                report.put("headPoseCorrectionsChecked",checked);
+            }
         }
         System.out.println(report.toString(2));
     }

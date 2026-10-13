@@ -21,12 +21,12 @@ $sources=@(
  'app\src\main\java\com\mirror\bench\FaceControlCalibration.java',
  'app\src\main\java\com\mirror\bench\FaceControlMapper.java',
  'app\src\main\java\com\mirror\bench\FaceFrame.java',
- 'tests\AvatarRigTest.java', 'tests\AvatarRigReviewTest.java', 'tests\AvatarRigV2Test.java',
+ 'tests\AvatarRigTest.java', 'tests\AvatarRigReviewTest.java', 'tests\AvatarRigV2Test.java', 'tests\AvatarHeadPoseCorrectionTest.java',
  'tests\BlendshapeSchemaTest.java', 'tests\InteractionControllerTest.java'
 ) | ForEach-Object {Join-Path $projectRoot $_}
 & $javac '-J-Duser.language=en' --release 17 -encoding UTF-8 -cp $JsonJar -d $classes @sources
 if ($LASTEXITCODE -ne 0) {throw 'Avatar rig review compilation failed.'}
-foreach ($test in @('AvatarRigTest','AvatarRigReviewTest','BlendshapeSchemaTest','InteractionControllerTest')) {
+foreach ($test in @('AvatarRigTest','AvatarRigReviewTest','AvatarHeadPoseCorrectionTest','BlendshapeSchemaTest','InteractionControllerTest')) {
  & $java -cp "$classes;$JsonJar" "com.mirror.bench.$test"
  if ($LASTEXITCODE -ne 0) {throw "$test failed."}
 }

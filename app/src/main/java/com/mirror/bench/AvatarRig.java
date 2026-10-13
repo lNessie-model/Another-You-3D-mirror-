@@ -28,6 +28,7 @@ public final class AvatarRig {
     private final String id, displayName, normalPolicy;
     private final List<String> missing;
     private final boolean jointGaze;
+    private final HeadPoseCorrection[] headPoseCorrections;
 
     public AvatarRig(AvatarAsset asset, String manifest) throws JSONException {
         if (asset == null || manifest == null || manifest.length() > 262_144) throw invalid("Missing/oversized avatar manifest");
@@ -174,6 +175,29 @@ public final class AvatarRig {
                 compiledProducts.add(new ProductBinding(sources,mesh,target,optional(row,"gain",1,0,1)));
             }
         }
+        ArrayList<HeadPoseCorrection> poseCorrections=new ArrayList<>();
+        JSONArray poseList=json.optJSONArray("headPoseCorrections");
+        if(poseList!=null) {
+            if(poseList.length()>18) throw invalid("Too many head pose corrections");
+            for(int i=0;i<poseList.length();i++) {
+                JSONObject row=poseList.getJSONObject(i);
+                keys(row,Set.of("axis","sign","mesh","meshIndex","target","targetIndex","maxDegrees"),"head pose correction");
+                String axis=string(row,"axis");
+                int axisIndex=switch(axis){case "pitch"->0;case "yaw"->1;case "roll"->2;default->-1;};
+                if(axisIndex<0) throw invalid("Unsupported head pose axis: "+axis);
+                int sign=integerSign(row,"sign");
+                if(row.has("mesh")==row.has("meshIndex")) throw invalid("Specify exactly one head pose mesh");
+                int mesh=row.has("mesh")?meshIndex(string(row,"mesh")):integer(row,"meshIndex",defaults.length);
+                if(!instanceSeen[mesh]) throw invalid("Head pose mesh is outside selected scene");
+                if(row.has("target")==row.has("targetIndex")) throw invalid("Specify exactly one head pose target");
+                int target=row.has("target")?asset.meshes().get(mesh).targetIndex(string(row,"target"))
+                        :integer(row,"targetIndex",defaults[mesh].length);
+                if(target<0) throw invalid("Unknown head pose target");
+                if(!destinations.add(mesh+":"+target)) throw invalid("Head pose target already has a binding");
+                poseCorrections.add(new HeadPoseCorrection(axisIndex,sign,mesh,target,number(row,"maxDegrees",1,90)));
+            }
+        }
+        headPoseCorrections=poseCorrections.toArray(new HeadPoseCorrection[0]);
         if(jointGaze) for(int i=11;i<=18;i++) covered[i]=true;
         if(!covered[9]||!covered[10]||!covered[25]) throw invalid("Independent left/right blink and jawOpen are required");
         if(!jointGaze) for(int i=11;i<=18;i++) if(!covered[i]) throw invalid("Morph gaze requires all eight eye channels");
@@ -231,6 +255,10 @@ public final class AvatarRig {
         for(int m=0;m<defaults.length;m++) System.arraycopy(defaults[m],0,stagingWeights[m],0,defaults[m].length);
         for(Binding binding:bindings) stagingWeights[binding.mesh][binding.target]=binding.map(inputs[binding.source]);
         for(ProductBinding product:products)stagingWeights[product.mesh][product.target]=product.map(inputs);
+        for(HeadPoseCorrection correction:headPoseCorrections) {
+            float signed=headAngles[correction.axis]*correction.sign;
+            stagingWeights[correction.mesh][correction.target]=Math.max(0,Math.min(1,signed/correction.maxDegrees));
+        }
         for(int node:order) {
             if(node<0) break;
             System.arraycopy(baseLocal,node*16,local,0,16);
@@ -272,6 +300,10 @@ public final class AvatarRig {
         ProductBinding(int[] sources,int mesh,int target,float gain){this.sources=sources;this.mesh=mesh;this.target=target;this.gain=gain;}
         float map(float[] inputs){float value=1;for(int source:sources)value*=inputs[source];return value*gain;}
     }
+    private static final class HeadPoseCorrection {
+        final int axis,sign,mesh,target; final float maxDegrees;
+        HeadPoseCorrection(int axis,int sign,int mesh,int target,float maxDegrees){this.axis=axis;this.sign=sign;this.mesh=mesh;this.target=target;this.maxDegrees=maxDegrees;}
+    }
     private static String string(JSONObject json,String key)throws JSONException {Object value=json.get(key);if(!(value instanceof String)||((String)value).isEmpty()||((String)value).length()>256)throw invalid("Expected string: "+key);return (String)value;}
     private static JSONArray array(JSONObject json,String key){Object value=json.opt(key);if(!(value instanceof JSONArray))throw invalid("Expected array: "+key);return (JSONArray)value;}
     private static float number(JSONObject json,String key,float min,float max)throws JSONException {Object value=json.get(key);if(!(value instanceof Number))throw invalid("Expected number: "+key);double n=((Number)value).doubleValue();if(!Double.isFinite(n)||n<min||n>max)throw invalid("Number out of range: "+key);return (float)n;}
@@ -280,6 +312,12 @@ public final class AvatarRig {
         Object raw=json.get(key);if(!(raw instanceof Number))throw invalid("Expected integer: "+key);
         double value=((Number)raw).doubleValue();
         if(!Double.isFinite(value)||value<0||value>=size||value!=Math.rint(value))throw invalid("Integer out of range: "+key);
+        return (int)value;
+    }
+    private static int integerSign(JSONObject json,String key)throws JSONException {
+        Object raw=json.get(key);if(!(raw instanceof Number))throw invalid("Expected integer: "+key);
+        double value=((Number)raw).doubleValue();
+        if(!Double.isFinite(value)||(value!=1&&value!=-1)||value!=Math.rint(value))throw invalid("Sign must be +1 or -1: "+key);
         return (int)value;
     }
     private static void keys(JSONObject json,Set<String> allowed,String kind) {
